@@ -38,7 +38,7 @@ export default function HomeRoute() {
   return (
     <Screen>
       <View style={styles.header}>
-        <ThemedText type="subtitle">Round robin</ThemedText>
+        <ThemedText type="subtitle">Language Gym</ThemedText>
         <ThemedText themeColor="textSecondary">
           Talk with a new partner every round, with a question to get you started.
         </ThemedText>
