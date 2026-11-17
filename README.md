@@ -1,7 +1,8 @@
-# Round robin
+# Language Gym
 
-A conversation-practice app for language classes. Students are paired up, given
-a question to discuss, and rotated to a new partner each round on a timer.
+A conversation-practice app for language classes. Its first activity is a round
+robin: students are paired up, given a question to discuss, and rotated to a new
+partner each round on a timer.
 
 Built with Expo (React Native + TypeScript). It runs as a web app now and can
 be built for Android and iOS later.

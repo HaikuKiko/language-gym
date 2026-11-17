@@ -8,7 +8,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <QuestionsProvider>
-        <Stack screenOptions={{ headerShown: false, title: 'Round robin' }} />
+        <Stack screenOptions={{ headerShown: false, title: 'Language Gym' }} />
       </QuestionsProvider>
     </ThemeProvider>
   );

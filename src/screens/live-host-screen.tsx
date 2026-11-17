@@ -117,7 +117,7 @@ export function LiveHostScreen({
     <View style={styles.topBar}>
       <View style={styles.brand}>
         <View style={[styles.brandMark, { backgroundColor: theme.accent }]} />
-        <ThemedText type="smallBold">Round robin</ThemedText>
+        <ThemedText type="smallBold">Language Gym</ThemedText>
       </View>
       <Pill label={status} tone="accent" />
     </View>

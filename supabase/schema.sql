@@ -1,4 +1,4 @@
--- Round robin: database setup for Supabase.
+-- Language Gym: database setup for Supabase.
 --
 -- Run this once in the Supabase dashboard: SQL Editor -> New query -> paste
 -- this whole file -> Run. It is safe to run again.
