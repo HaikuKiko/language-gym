@@ -32,8 +32,9 @@ to `main`. The settings are in `wrangler.jsonc`.
 One-time setup in the Cloudflare dashboard:
 
 1. **Workers & Pages → Create → Import a repository**, and pick this repository.
-2. Build command: `npx expo export --platform web`. Deploy command:
-   `npx wrangler deploy`.
+2. Deploy command: `npx wrangler deploy` (the default). It builds the site
+   first, using the `build` setting in `wrangler.jsonc`, so the separate build
+   command can stay empty.
 3. Under **Build variables**, add `EXPO_PUBLIC_SUPABASE_URL` and
    `EXPO_PUBLIC_SUPABASE_KEY` (they are needed while building, not at runtime).
 

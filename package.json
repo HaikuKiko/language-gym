@@ -44,7 +44,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "build:web": "expo export --platform web",
-    "deploy": "npm run build:web && wrangler deploy"
+    "deploy": "wrangler deploy"
   },
   "private": true,
   "packageManager": "npm@10.9.9"

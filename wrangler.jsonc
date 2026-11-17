@@ -1,10 +1,15 @@
 // Cloudflare Workers: publishes the web version of the app.
-// Cloudflare builds it with `npx expo export --platform web`, which writes the
-// site to ./dist, and `npx wrangler deploy` uploads that folder.
+// `npx wrangler deploy` builds the site into ./dist (see "build" below) and
+// uploads that folder.
 {
 	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "language-gym",
 	"compatibility_date": "2026-11-17",
+	// Build the site as part of `wrangler deploy`, so publishing works even
+	// when no separate build command is set in the Cloudflare dashboard.
+	"build": {
+		"command": "npx expo export --platform web"
+	},
 	"assets": {
 		"directory": "./dist",
 		// The app is a single page: any address (such as /session/123456)
