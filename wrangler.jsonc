@@ -1,0 +1,14 @@
+// Cloudflare Workers: publishes the web version of the app.
+// Cloudflare builds it with `npx expo export --platform web`, which writes the
+// site to ./dist, and `npx wrangler deploy` uploads that folder.
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "language-gym",
+	"compatibility_date": "2026-11-17",
+	"assets": {
+		"directory": "./dist",
+		// The app is a single page: any address (such as /session/123456)
+		// serves index.html, and the app works out which screen to show.
+		"not_found_handling": "single-page-application"
+	}
+}

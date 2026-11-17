@@ -24,6 +24,21 @@ npx expo start
 
 Press `w` for the web version, or scan the QR code with Expo Go.
 
+## Publishing the web version (Cloudflare)
+
+The site is published on Cloudflare Workers, which rebuilds it on every push
+to `main`. The settings are in `wrangler.jsonc`.
+
+One-time setup in the Cloudflare dashboard:
+
+1. **Workers & Pages → Create → Import a repository**, and pick this repository.
+2. Build command: `npx expo export --platform web`. Deploy command:
+   `npx wrangler deploy`.
+3. Under **Build variables**, add `EXPO_PUBLIC_SUPABASE_URL` and
+   `EXPO_PUBLIC_SUPABASE_KEY` (they are needed while building, not at runtime).
+
+To publish from your own computer instead: `npm run deploy`.
+
 ## Setting up phone sessions (one time)
 
 Phone sessions need a free [Supabase](https://supabase.com) project so the
