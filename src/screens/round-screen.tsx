@@ -5,7 +5,10 @@ import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { GrammarCard } from '@/components/grammar-card';
 import { WeekFocus } from '@/components/week-focus';
+import { findWeek } from '@/data/weeks';
+import { useWeeks } from '@/hooks/use-questions';
 import { Spacing } from '@/constants/theme';
 import type { Question } from '@/data/questions';
 import { formatClock, useCountdown } from '@/hooks/use-countdown';
@@ -35,6 +38,7 @@ export function RoundScreen({
     auto ? 'changeover' : 'discussion',
   );
   const groups = groupsForRound(session.participants, round);
+  const plan = findWeek(useWeeks(), session.level, session.week);
   const lastRound = round + 1 >= session.roundCount;
 
   return (
@@ -60,6 +64,8 @@ export function RoundScreen({
           />
         )}
       </ThemedView>
+
+      {plan && <GrammarCard week={plan} />}
 
       {stage === 'changeover' ? (
         <TimerPanel

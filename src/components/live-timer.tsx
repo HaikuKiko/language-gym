@@ -7,7 +7,16 @@ import { formatClock } from '@/hooks/use-countdown';
 import { remainingMs, stageDurationMs, type LiveSession } from '@/lib/live-session';
 
 /** The shared countdown for a phone session, as seen by host and students. */
-export function LiveTimer({ session, now }: { session: LiveSession; now: number }) {
+export function LiveTimer({
+  session,
+  now,
+  compact = false,
+}: {
+  session: LiveSession;
+  now: number;
+  /** A smaller clock, for screens with more to show. */
+  compact?: boolean;
+}) {
   const remaining = remainingMs(session, now);
   const finished = remaining <= 0;
   const running = session.ends_at !== null && !finished;
@@ -32,7 +41,7 @@ export function LiveTimer({ session, now }: { session: LiveSession; now: number 
       <ThemedText
         accessibilityRole="timer"
         themeColor={finished ? 'warning' : 'text'}
-        style={styles.clock}>
+        style={[styles.clock, compact && styles.compactClock]}>
         {finished ? "Time's up" : formatClock(Math.ceil(remaining / 1000))}
       </ThemedText>
       <ProgressBar fraction={remaining / stageDurationMs(session)} />
@@ -49,6 +58,10 @@ const styles = StyleSheet.create({
   label: {
     textTransform: 'uppercase',
     letterSpacing: 1,
+  },
+  compactClock: {
+    fontSize: 56,
+    lineHeight: 64,
   },
   clock: {
     fontSize: 72,

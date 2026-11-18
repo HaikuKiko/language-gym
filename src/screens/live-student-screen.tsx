@@ -2,16 +2,15 @@ import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
+import { GrammarCard } from '@/components/grammar-card';
 import { LiveTimer } from '@/components/live-timer';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WeekFocus } from '@/components/week-focus';
 import { Spacing } from '@/constants/theme';
-import { LEVELS } from '@/data/questions';
+import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
-import { useQuestions } from '@/hooks/use-questions';
+import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import {
   questionForGroup,
   removeParticipant,
@@ -31,6 +30,7 @@ type LiveStudentScreenProps = {
 export function LiveStudentScreen({ session, participants, me }: LiveStudentScreenProps) {
   const now = useNow();
   const questions = useQuestions();
+  const weeks = useWeeks();
   // The teacher sets one level for everyone.
   const level = session.level;
 
@@ -86,44 +86,37 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
   const question = questionForGroup(session, questions, level, groupIndex, groups.length);
+  const plan = findWeek(weeks, level, session.week);
 
   return (
     <Screen>
       <View style={styles.header}>
         <ThemedText type="small" themeColor="textSecondary">
-          {roundTitle}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {partners.length === 1 ? 'Your partner' : 'Your partners'}
+          {roundTitle} · {partners.length === 1 ? 'Your partner' : 'Your partners'}
         </ThemedText>
         <ThemedText type="subtitle">
           {partners.length > 0 ? partners.map((p) => p.name).join(' & ') : 'No partner this round'}
         </ThemedText>
       </View>
 
-      <LiveTimer session={session} now={now} />
+      <LiveTimer session={session} now={now} compact />
 
       <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Discuss
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
+          DISCUSS
         </ThemedText>
         <ThemedText style={styles.question}>
           {question ? question.text : 'There are no questions at this level yet.'}
         </ThemedText>
-        <WeekFocus level={session.level} week={session.week} />
       </ThemedView>
 
-      <View style={styles.section}>
-        <ThemedText type="smallBold">Level</ThemedText>
-        <View style={styles.chips}>
-          {LEVELS.map((l) => (
-            <Chip key={l} label={l} selected={l === level} />
-          ))}
-        </View>
-        <ThemedText type="small" themeColor="textSecondary">
-          Your teacher sets the level for this session.
-        </ThemedText>
-      </View>
+      {plan && <GrammarCard week={plan} />}
+
+      <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
+        {level}
+        {session.week != null ? ` · Week ${session.week}` : ''}
+        {plan ? `: ${plan.topic}` : ''}
+      </ThemedText>
     </Screen>
   );
 }
@@ -136,22 +129,20 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.five,
   },
-  section: {
-    gap: Spacing.two,
-  },
   card: {
     padding: Spacing.four,
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
-  question: {
-    fontSize: 26,
-    lineHeight: 34,
-    fontWeight: 600,
+  label: {
+    letterSpacing: 1,
   },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
+  footer: {
+    textAlign: 'center',
+  },
+  question: {
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: 600,
   },
 });

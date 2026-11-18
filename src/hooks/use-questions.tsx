@@ -59,21 +59,48 @@ async function loadQuestions(): Promise<Question[] | null> {
 async function loadWeeks(): Promise<Week[] | null> {
   if (!supabase) return null;
 
-  const { data, error } = await supabase.from('weeks').select('level, week, topic, grammar');
+  const read = (columns: string) => supabase!.from('weeks').select(columns);
+  let { data, error } = await read(
+    'level, week, topic, grammar, also, use, pattern, examples, starter',
+  );
+  // A database set up before grammar help was added has no help columns: use
+  // the built-in help for the same level and week instead.
+  const hasHelpColumns = !error;
+  if (error) ({ data, error } = await read('level, week, topic, grammar'));
   if (error || !data) return null;
 
-  const weeks = data.flatMap((row): Week[] =>
-    isLevel(row.level) && typeof row.week === 'number' && typeof row.topic === 'string'
-      ? [
-          {
-            level: row.level,
-            week: row.week,
-            topic: row.topic,
-            grammar: typeof row.grammar === 'string' ? row.grammar : '',
-          },
-        ]
-      : [],
-  );
+  const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+  const rows = data as unknown as Record<string, unknown>[];
+  const weeks = rows.flatMap((row): Week[] => {
+    if (!isLevel(row.level) || typeof row.week !== 'number' || typeof row.topic !== 'string') {
+      return [];
+    }
+    const help = hasHelpColumns
+      ? {
+          use: text(row.use),
+          pattern: text(row.pattern),
+          examples: text(row.examples)
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean),
+          starter: text(row.starter),
+        }
+      : (BUILT_IN_WEEKS.find((w) => w.level === row.level && w.week === row.week)?.help ?? null);
+    const empty =
+      !help || (!help.use && !help.pattern && help.examples.length === 0 && !help.starter);
+    return [
+      {
+        level: row.level,
+        week: row.week,
+        topic: row.topic,
+        grammar: text(row.grammar),
+        also: hasHelpColumns
+          ? text(row.also)
+          : (BUILT_IN_WEEKS.find((w) => w.level === row.level && w.week === row.week)?.also ?? ''),
+        help: empty ? null : help,
+      },
+    ];
+  });
   return weeks.length > 0 ? weeks : null;
 }
 
