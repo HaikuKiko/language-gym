@@ -10,10 +10,17 @@
  * readings a day (default 5 of each). Only word counts, levels and token
  * usage are stored, never the writing or the photo.
  *
- * Feedback:  POST { text, level, task?, week? }
+ * Feedback:  POST { text, level, task?, week? }            (General English)
  *            -> 200 { feedback, remaining_today }
+ * IELTS:     POST { track: "ielts", prompt_id, text }      (Writing Task 2)
+ *            -> 200 { feedback, remaining_today }           (feedback.track is "ielts")
  * Photo:     POST { mode: "transcribe", image, media_type }   (image is base64)
  *            -> 200 { transcript, legibility, contains_writing, note, remaining_today }
+ *
+ * "track" defaults to "general", so the app's existing requests work as
+ * before. Other tracks need an active row in the tracks table and an
+ * enrolment for the student (added by the teacher in the dashboard).
+ * Feedback checks on every track share the same daily limit.
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -31,6 +38,10 @@ import {
   type StudentLevel,
   transcribeImage,
 } from "./assess.ts";
+import { assessIeltsTask2, ESSAY_TYPES, type EssayType, parseTargetBand } from "./ielts.ts";
+
+/** IELTS essays can be longer than General English writing. */
+const IELTS_MAX_WORDS = 700;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -161,7 +172,36 @@ Deno.serve(async (request) => {
     });
   }
 
-  // ---- Feedback on writing ------------------------------------------------
+  // ---- Which course (track) --------------------------------------------------
+  const track = body.track === undefined || body.track === null ? "general" : body.track;
+  if (typeof track !== "string") return fail(400, "bad_request", "Unknown course.");
+
+  if (track !== "general") {
+    const { data: trackRow, error: trackError } = await admin
+      .from("tracks")
+      .select("id, active")
+      .eq("id", track)
+      .maybeSingle();
+    if (trackError) return fail(500, "server_error", "Something went wrong. Please try again.");
+    if (!trackRow || !trackRow.active || track !== "ielts") {
+      return fail(400, "unknown_track", "Feedback for this course is not available yet.");
+    }
+
+    const { data: enrolment, error: enrolmentError } = await admin
+      .from("enrolments")
+      .select("target")
+      .eq("user_id", userId)
+      .eq("track_id", track)
+      .maybeSingle();
+    if (enrolmentError) return fail(500, "server_error", "Something went wrong. Please try again.");
+    if (!enrolment) {
+      return fail(403, "not_enrolled", "You are not enrolled on this course yet. Please ask your teacher.");
+    }
+
+    return await ieltsFeedback(anthropic, admin, userId, body, parseTargetBand(enrolment.target));
+  }
+
+  // ---- Feedback on writing (General English) ------------------------------
   const text = typeof body.text === "string" ? body.text : "";
   const level = STUDENT_LEVELS.includes(body.level as StudentLevel)
     ? (body.level as StudentLevel)
@@ -239,3 +279,97 @@ Deno.serve(async (request) => {
     remaining_today: Math.max(0, dailyLimit - used - 1),
   });
 });
+
+// ---- IELTS Writing Task 2 --------------------------------------------------
+
+async function ieltsFeedback(
+  anthropic: Anthropic,
+  admin: SupabaseClient,
+  userId: string,
+  body: Record<string, unknown>,
+  targetBand: number | null,
+): Promise<Response> {
+  const text = typeof body.text === "string" ? body.text : "";
+  const promptId =
+    typeof body.prompt_id === "number" && Number.isInteger(body.prompt_id) && body.prompt_id > 0
+      ? body.prompt_id
+      : null;
+  if (!promptId) return fail(400, "bad_request", "Choose a question to answer.");
+
+  const { data: prompt, error: promptError } = await admin
+    .from("writing_prompts")
+    .select("id, task_type, essay_type, prompt, min_words")
+    .eq("id", promptId)
+    .eq("track_id", "ielts")
+    .eq("active", true)
+    .maybeSingle();
+  if (promptError) return fail(500, "server_error", "Something went wrong. Please try again.");
+  if (!prompt) return fail(400, "bad_request", "That question is not available.");
+  if (prompt.task_type !== "task2") {
+    return fail(400, "bad_request", "Feedback is only available for Task 2 questions so far.");
+  }
+
+  const words = countWords(text);
+  if (words < MIN_WORDS) return fail(400, "too_short", `Please write at least ${MIN_WORDS} words.`);
+  if (words > IELTS_MAX_WORDS) {
+    return fail(400, "too_long", `Please write ${IELTS_MAX_WORDS} words or fewer.`);
+  }
+
+  const used = await usedToday(admin, userId, "feedback");
+  if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
+  if (used >= dailyLimit) {
+    return fail(
+      429,
+      "daily_limit",
+      `You have used all ${dailyLimit} feedback checks for today. Try again tomorrow.`,
+    );
+  }
+
+  const essayType = ESSAY_TYPES.includes(prompt.essay_type as EssayType)
+    ? (prompt.essay_type as EssayType)
+    : null;
+
+  let result;
+  try {
+    result = await assessIeltsTask2(anthropic, {
+      text,
+      prompt: prompt.prompt,
+      essayType,
+      minWords: prompt.min_words,
+      targetBand,
+    });
+  } catch (error) {
+    return claudeError(error);
+  }
+
+  if (!result.ok) {
+    console.error("IELTS assessment failed", result.reason, result.detail ?? "");
+    return fail(
+      422,
+      "no_feedback",
+      result.reason === "refused"
+        ? "We couldn't give feedback on this essay. Please try a different text."
+        : "We couldn't finish the feedback this time. Please try again.",
+    );
+  }
+
+  const { error: insertError } = await admin.from("writing_submissions").insert({
+    user_id: userId,
+    kind: "feedback",
+    track_id: "ielts",
+    task_type: "task2",
+    prompt_id: prompt.id,
+    level: "-",
+    word_count: words,
+    band: result.feedback.overall_band,
+    model: MODEL,
+    input_tokens: result.usage.input_tokens,
+    output_tokens: result.usage.output_tokens,
+  });
+  if (insertError) console.error("Could not record IELTS submission", insertError.message);
+
+  return reply(200, {
+    feedback: result.feedback,
+    remaining_today: Math.max(0, dailyLimit - used - 1),
+  });
+}

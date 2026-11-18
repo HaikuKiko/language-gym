@@ -18,6 +18,20 @@ export const MAX_WORDS = 600;
 
 const Level = z.enum(CEFR_LEVELS);
 
+/** One mistake, underlined in the student's own text by the app. Shared with the IELTS feedback. */
+export const CorrectionSchema = z.object({
+  original: z.string(),
+  corrected: z.string(),
+  explanation: z.string(),
+  type: z.enum(["grammar", "vocabulary", "spelling", "punctuation", "word order", "style"]),
+});
+
+/** Where new paragraphs should start. Shared with the IELTS feedback. */
+export const ParagraphingSchema = z.object({
+  comment: z.string(),
+  new_paragraph_before: z.array(z.string()),
+});
+
 /** What Claude must return. The app shows these fields as they are. */
 export const FeedbackSchema = z.object({
   cefr_level: Level,
@@ -32,14 +46,7 @@ export const FeedbackSchema = z.object({
       comment: z.string(),
     }),
   ),
-  corrections: z.array(
-    z.object({
-      original: z.string(),
-      corrected: z.string(),
-      explanation: z.string(),
-      type: z.enum(["grammar", "vocabulary", "spelling", "punctuation", "word order", "style"]),
-    }),
-  ),
+  corrections: z.array(CorrectionSchema),
   focus_grammar: z
     .object({
       used_well: z.array(z.string()),
@@ -47,10 +54,7 @@ export const FeedbackSchema = z.object({
       comment: z.string(),
     })
     .nullable(),
-  paragraphing: z.object({
-    comment: z.string(),
-    new_paragraph_before: z.array(z.string()),
-  }),
+  paragraphing: ParagraphingSchema,
   next_steps: z.array(z.string()),
 });
 
