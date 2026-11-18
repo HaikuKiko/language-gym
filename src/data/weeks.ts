@@ -5,6 +5,7 @@
  * this file is a draft, used when the database is not set up or cannot be
  * reached.
  */
+import { DRAFT_GRAMMAR_HELP, type GrammarHelp } from '@/data/grammar-help';
 import { LEVELS, type Level } from '@/data/questions';
 
 export const WEEKS_PER_LEVEL = 16;
@@ -15,6 +16,8 @@ export type Week = {
   week: number;
   topic: string;
   grammar: string;
+  /** Examples and a pattern for the grammar point; null when there are none. */
+  help: GrammarHelp | null;
 };
 
 const DRAFT_SYLLABUS: Record<Level, [topic: string, grammar: string][]> = {
@@ -134,6 +137,7 @@ export const BUILT_IN_WEEKS: Week[] = LEVELS.flatMap((level) =>
     week: index + 1,
     topic,
     grammar,
+    help: DRAFT_GRAMMAR_HELP[level][index] ?? null,
   })),
 );
 
