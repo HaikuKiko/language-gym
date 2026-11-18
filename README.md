@@ -35,8 +35,8 @@ One-time setup in the Cloudflare dashboard:
 2. Deploy command: `npx wrangler deploy` (the default). It builds the site
    first, using the `build` setting in `wrangler.jsonc`, so the separate build
    command can stay empty.
-3. Under **Build variables**, add `EXPO_PUBLIC_SUPABASE_URL` and
-   `EXPO_PUBLIC_SUPABASE_KEY` (they are needed while building, not at runtime).
+3. Nothing else: the Supabase URL and publishable key for the published site
+   are in `.env.production` (both are public by design).
 
 To publish from your own computer instead: `npm run deploy`.
 
