@@ -27,18 +27,18 @@ function output(tr: number, cc: number, lr: number, gra: number): IeltsClaudeOut
   };
 }
 
-Deno.test("overall band rounds down to the nearest half band", () => {
+Deno.test("overall band rounds up to the next half band", () => {
   assertEquals(roundOverall(6), 6);
-  assertEquals(roundOverall(6.25), 6);
+  assertEquals(roundOverall(6.25), 6.5);
   assertEquals(roundOverall(6.5), 6.5);
-  assertEquals(roundOverall(6.75), 6.5);
+  assertEquals(roundOverall(6.75), 7);
 });
 
 Deno.test("scores the four criteria and the overall band", () => {
   const s = scoreEssay(output(7, 6, 6, 6), 280, 250)!;
   assertEquals(s.criteria.map((c) => c.code), ["tr", "cc", "lr", "gra"]);
   assertEquals(s.criteria.map((c) => c.band), [7, 6, 6, 6]);
-  assertEquals(s.overall_band, 6); // 6.25 rounds down
+  assertEquals(s.overall_band, 6.5); // 6.25 rounds up
   assertEquals(s.length_penalty_applied, false);
 });
 
@@ -46,7 +46,7 @@ Deno.test("under the word limit lowers Task Response only", () => {
   const s = scoreEssay(output(7, 7, 6, 6), 230, 250)!;
   assertEquals(s.criteria.map((c) => c.band), [6, 7, 6, 6]);
   assertEquals(s.criteria[0].band_before_length, 7);
-  assertEquals(s.overall_band, 6); // 6.25
+  assertEquals(s.overall_band, 6.5); // 6.25 rounds up
   assertEquals(s.length_penalty_applied, true);
 });
 

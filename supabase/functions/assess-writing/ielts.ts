@@ -27,15 +27,14 @@ export const TASK2_MIN_WORDS = 250;
 export const UNDER_LENGTH_PENALTY = 1;
 
 /**
- * Turns the average of the four criteria into the overall band: rounded DOWN
- * to the nearest half band (6.25 -> 6.0, 6.75 -> 6.5).
- *
- * Note: for the whole test, IELTS rounds to the nearest half band, with .25
- * and .75 going up. Rounding down here is deliberately a little strict. To
- * switch, replace the body with: Math.round(average * 2) / 2.
+ * Turns the average of the four criteria into the overall band: rounded UP
+ * to the next half band (6.25 -> 6.5, 6.75 -> 7.0). With four whole bands
+ * this gives the same result as the official IELTS rounding. AI marking tends
+ * to be a little strict, so rounding up is the teacher's choice.
+ * To round down instead: Math.floor(average * 2) / 2.
  */
 export function roundOverall(average: number): number {
-  return Math.floor(average * 2) / 2;
+  return Math.ceil(average * 2) / 2;
 }
 
 /** How hard Claude thinks before scoring. "medium" keeps cost and wait down. */
