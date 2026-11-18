@@ -27,7 +27,7 @@ export const FeedbackSchema = z.object({
   strengths: z.array(z.string()),
   criteria: z.array(
     z.object({
-      criterion: z.enum(["Task and content", "Organisation", "Grammar", "Vocabulary"]),
+      criterion: z.enum(["Content", "Communicative achievement", "Organisation", "Language"]),
       level: Level,
       comment: z.string(),
     }),
@@ -91,8 +91,17 @@ Short texts give limited evidence. When the text is short or narrow in range, gi
 - level_explanation: one or two sentences giving the evidence for the level.
 - summary: two or three encouraging sentences on the writing overall.
 - strengths: two or three specific things the student did well, quoting short phrases from their text where possible.
-- criteria: exactly four entries, one each for Task and content, Organisation, Grammar and Vocabulary, each with the level that criterion shows and a one- or two-sentence comment. If no task was given, judge Task and content on whether the text is clear and complete.
-- corrections: up to six of the most useful corrections, most important first. Prefer errors that repeat or that block meaning over small slips. "original" must be copied exactly from the student's text and kept short (a phrase or one sentence); "corrected" is the same span corrected; "explanation" is one short sentence saying why. Do not rewrite the whole text, and do not correct things that are already acceptable.
+- criteria: exactly four entries, in this order, each with the CEFR level that criterion shows on its own and a one- or two-sentence comment:
+  - Content: whether the student did the task and included relevant, complete information. If no task was given, judge whether the text is clear and complete for its purpose.
+  - Communicative achievement: whether the style and tone suit the type of text and the reader, and whether the ideas come across clearly and hold the reader's attention.
+  - Organisation: how the text is ordered and linked: sentences and paragraphs, linking words, and a logical flow.
+  - Language: the range and accuracy of grammar and vocabulary.
+- corrections: up to six of the most useful corrections. Prefer errors that repeat or that block meaning over small slips. The app underlines each "original" in the student's own text, so:
+  - "original" is the shortest span that contains the mistake, usually one to four words, copied character for character from the student's text (same spelling, capitals and punctuation). Do not include words that are already correct unless they are needed to show the mistake.
+  - "corrected" is the same span as it should be, and nothing more.
+  - Before you write a correction, read the whole sentence and the text around it and make sure the correction fits its tense and meaning. For example, in a story about the past, "and he see the world" becomes "and he saw the world", not "he sees".
+  - "explanation" is one short sentence saying why, in simple English.
+  - Do not rewrite the whole text, and do not correct things that are already acceptable.
 - focus_grammar: when a focus grammar point is given, say where the student used it well (quote it), where they could have used it or used it wrongly, and add a short comment. If they did not use it at all, say so kindly and suggest one sentence from their text where it would fit. When no focus grammar point is given, return null.
 - next_steps: two or three concrete things to practise next, suited to their level.
 

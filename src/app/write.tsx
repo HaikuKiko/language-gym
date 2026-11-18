@@ -20,6 +20,7 @@ import {
   MIN_WORDS,
   UNREADABLE_MARK,
   countWords,
+  markCorrections,
   readPhoto,
   requestFeedback,
   type PhotoReading,
@@ -89,6 +90,7 @@ export default function WriteRoute() {
     return (
       <FeedbackView
         response={result}
+        text={text}
         onAgain={() => {
           setResult(null);
           setText('');
@@ -233,15 +235,19 @@ export default function WriteRoute() {
 
 function FeedbackView({
   response,
+  text,
   onAgain,
   onEdit,
 }: {
   response: WritingResponse;
+  /** The writing the feedback is about, shown exactly as the student wrote it. */
+  text: string;
   onAgain: () => void;
   onEdit: () => void;
 }) {
   const theme = useTheme();
   const f = response.feedback;
+  const marked = markCorrections(text, f.corrections);
 
   return (
     <Screen>
@@ -262,6 +268,26 @@ function FeedbackView({
         </ThemedText>
       </View>
 
+      {f.criteria.length > 0 && (
+        <Section title="Your level in each area">
+          <View style={styles.criteriaGrid}>
+            {f.criteria.map((c, i) => (
+              <ThemedView key={i} type="backgroundElement" style={styles.criterionTile}>
+                <View style={styles.criterionHeader}>
+                  <ThemedText type="smallBold" style={styles.criterionName}>
+                    {c.criterion}
+                  </ThemedText>
+                  <Pill label={c.level} tone="accent" />
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {c.comment}
+                </ThemedText>
+              </ThemedView>
+            ))}
+          </View>
+        </Section>
+      )}
+
       <ThemedText style={styles.summary}>{f.summary}</ThemedText>
 
       {f.strengths.length > 0 && (
@@ -272,15 +298,60 @@ function FeedbackView({
         </Section>
       )}
 
-      {f.corrections.length > 0 && (
-        <Section title="Corrections">
-          {f.corrections.map((c, i) => (
-            <ThemedView key={i} type="backgroundElement" style={styles.correction}>
-              <ThemedText style={[styles.original, { color: theme.markA }]}>{c.original}</ThemedText>
-              <ThemedText style={[styles.corrected, { color: theme.markB }]}>→ {c.corrected}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {c.explanation}
-              </ThemedText>
+      <Section title="Your writing">
+        <ThemedView type="backgroundElement" style={styles.studentText}>
+          <ThemedText style={styles.studentTextBody}>
+            {marked.segments.map((segment, i) =>
+              segment.number === null ? (
+                segment.text
+              ) : (
+                <ThemedText key={i}>
+                  <ThemedText
+                    style={[
+                      styles.markedWords,
+                      { textDecorationColor: theme.markA },
+                    ]}>
+                    {segment.text}
+                  </ThemedText>
+                  <ThemedText style={[styles.markNumber, { color: theme.markA }]}>
+                    {` ${segment.number}`}
+                  </ThemedText>
+                </ThemedText>
+              ),
+            )}
+          </ThemedText>
+        </ThemedView>
+        {marked.notes.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Your words stay as you wrote them. The numbers show what to look at.
+          </ThemedText>
+        )}
+      </Section>
+
+      {marked.notes.length > 0 && (
+        <Section title="What to look at">
+          {marked.notes.map(({ number, correction }) => (
+            <ThemedView key={number} type="backgroundElement" style={styles.note}>
+              <View style={[styles.noteNumber, { backgroundColor: theme.markA }]}>
+                <ThemedText type="smallBold" style={styles.noteNumberText}>
+                  {number}
+                </ThemedText>
+              </View>
+              <View style={styles.noteBody}>
+                <ThemedText>
+                  <ThemedText themeColor="textSecondary">You wrote </ThemedText>
+                  <ThemedText style={[styles.noteWords, { color: theme.markA }]}>
+                    {correction.original}
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary"> → try </ThemedText>
+                  <ThemedText style={[styles.noteWords, { color: theme.markB }]}>
+                    {correction.corrected}
+                  </ThemedText>
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {correction.explanation}
+                </ThemedText>
+              </View>
             </ThemedView>
           ))}
         </Section>
@@ -301,22 +372,6 @@ function FeedbackView({
         </View>
       )}
 
-      {f.criteria.length > 0 && (
-        <Section title="In detail">
-          {f.criteria.map((c, i) => (
-            <View key={i} style={styles.criterion}>
-              <View style={styles.row}>
-                <ThemedText type="smallBold">{c.criterion}</ThemedText>
-                <Pill label={c.level} tone="accent" />
-              </View>
-              <ThemedText type="small" themeColor="textSecondary">
-                {c.comment}
-              </ThemedText>
-            </View>
-          ))}
-        </Section>
-      )}
-
       {f.next_steps.length > 0 && (
         <Section title="What to practise next">
           {f.next_steps.map((s, i) => (
@@ -326,8 +381,8 @@ function FeedbackView({
       )}
 
       <View style={styles.section}>
-        <Button label="Write something new" onPress={onAgain} />
-        <Button label="Edit this writing" variant="secondary" onPress={onEdit} />
+        <Button label="Try again: fix it yourself" onPress={onEdit} />
+        <Button label="Write something new" variant="secondary" onPress={onAgain} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           {response.remainingToday === 1
             ? '1 feedback check left today.'
@@ -424,15 +479,44 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
   },
-  correction: {
+  studentText: {
     padding: Spacing.three,
     borderRadius: Spacing.three,
-    gap: Spacing.one,
   },
-  original: {
-    textDecorationLine: 'line-through',
+  studentTextBody: {
+    fontSize: 17,
+    lineHeight: 30,
   },
-  corrected: {
+  markedWords: {
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'wavy',
+  },
+  markNumber: {
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  note: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  noteNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noteNumberText: {
+    color: '#ffffff',
+    lineHeight: 18,
+  },
+  noteBody: {
+    flexShrink: 1,
+    gap: Spacing.half,
+  },
+  noteWords: {
     fontWeight: 700,
   },
   focus: {
@@ -440,8 +524,28 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four - 4,
     gap: Spacing.two,
   },
-  criterion: {
+  criteriaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  criterionTile: {
+    flexGrow: 1,
+    flexBasis: 160,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
     gap: Spacing.one,
+  },
+  criterionHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.one,
+  },
+  criterionName: {
+    flexShrink: 1,
+    minWidth: 0,
   },
   bullet: {
     flexDirection: 'row',
