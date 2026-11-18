@@ -151,3 +151,75 @@ export async function assessWriting(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Reading handwriting from a photo
+// ---------------------------------------------------------------------------
+
+export const IMAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export type ImageMediaType = (typeof IMAGE_MEDIA_TYPES)[number];
+
+/** The API accepts images up to 5 MB; base64 is a third larger than that. */
+export const MAX_IMAGE_BASE64_LENGTH = Math.floor((5 * 1024 * 1024 * 4) / 3);
+
+export const TranscriptSchema = z.object({
+  transcript: z.string(),
+  legibility: z.enum(["good", "partial", "poor"]),
+  contains_writing: z.boolean(),
+  note: z.string(),
+});
+
+export type Transcript = z.infer<typeof TranscriptSchema>;
+
+export const TRANSCRIBE_PROMPT = `You turn a photo of a language learner's English writing (usually handwriting) into typed text, so that their teacher's feedback tool can assess it.
+
+Copy exactly what the student wrote. This is essential: keep every spelling, grammar and punctuation mistake as written, and never correct, improve or complete anything, even obvious slips.
+
+- Keep the student's paragraph breaks; join lines that are only wrapped because the page ran out of space.
+- Leave out words that are crossed out.
+- Write [?] for any word you cannot read. Do not guess.
+- Copy only the student's writing, not printed instructions, page numbers or headings that are part of the worksheet.
+- legibility: "good" if you could read everything, "partial" if some words were unclear, "poor" if much of it was unreadable.
+- contains_writing: false if the photo has no student writing in it; then leave transcript empty.
+- note: one short sentence for the student, for example "Two words were hard to read: please check the [?] marks." or "All clear." Use simple English.`;
+
+export async function transcribeImage(
+  client: Anthropic,
+  image: { data: string; mediaType: ImageMediaType },
+): Promise<
+  | { ok: true; transcript: Transcript; usage: { input_tokens: number; output_tokens: number } }
+  | { ok: false; reason: "refused" | "too_long" | "unreadable"; detail?: string }
+> {
+  const response = await client.messages.parse({
+    model: MODEL,
+    max_tokens: 6000,
+    system: TRANSCRIBE_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+          { type: "text", text: "Transcribe the student's writing in this photo." },
+        ],
+      },
+    ],
+    output_config: {
+      effort: "low",
+      format: zodOutputFormat(TranscriptSchema),
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return { ok: false, reason: "refused", detail: response.stop_details?.category ?? undefined };
+  }
+  if (response.stop_reason === "max_tokens") return { ok: false, reason: "too_long" };
+  if (!response.parsed_output) return { ok: false, reason: "unreadable" };
+  return {
+    ok: true,
+    transcript: response.parsed_output,
+    usage: {
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+    },
+  };
+}

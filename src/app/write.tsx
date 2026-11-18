@@ -13,12 +13,16 @@ import { LEVELS, type Level } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
+import { pickPhoto } from '@/lib/photo';
 import { errorMessage, supabase } from '@/lib/supabase';
 import {
   MAX_WORDS,
   MIN_WORDS,
+  UNREADABLE_MARK,
   countWords,
+  readPhoto,
   requestFeedback,
+  type PhotoReading,
   type WritingResponse,
 } from '@/lib/writing';
 
@@ -33,14 +37,19 @@ export default function WriteRoute() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<WritingResponse | null>(null);
+  const [reading, setReading] = useState(false);
+  const [photo, setPhoto] = useState<PhotoReading | null>(null);
 
   const words = countWords(text);
   const plan = findWeek(weeks, level, week);
   const inputStyle = { color: theme.text, backgroundColor: theme.backgroundElement };
+  const unreadable = text.split(UNREADABLE_MARK).length - 1;
   const problem =
     supabase === null
       ? 'Writing feedback is not set up yet.'
-      : words < MIN_WORDS
+      : unreadable > 0
+        ? `Replace the ${unreadable === 1 ? '[?] mark' : `${unreadable} [?] marks`} with the words you wrote.`
+        : words < MIN_WORDS
         ? `Write at least ${MIN_WORDS} words (${words} so far).`
         : words > MAX_WORDS
           ? `Please shorten it to ${MAX_WORDS} words or fewer (${words} now).`
@@ -57,6 +66,25 @@ export default function WriteRoute() {
     setBusy(false);
   }
 
+  async function scan(source: 'camera' | 'library') {
+    setError(null);
+    try {
+      const image = await pickPhoto(source);
+      if (!image) return;
+      setReading(true);
+      const reading = await readPhoto(image);
+      if (!reading.containsWriting || !reading.transcript.trim()) {
+        setError('We could not find any writing in that photo. Please try another one.');
+      } else {
+        setText(reading.transcript);
+        setPhoto(reading);
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+    setReading(false);
+  }
+
   if (result) {
     return (
       <FeedbackView
@@ -64,6 +92,7 @@ export default function WriteRoute() {
         onAgain={() => {
           setResult(null);
           setText('');
+          setPhoto(null);
         }}
         onEdit={() => setResult(null)}
       />
@@ -130,10 +159,44 @@ export default function WriteRoute() {
             {words} / {MAX_WORDS} words
           </ThemedText>
         </View>
+        <View style={styles.photoButtons}>
+          <Button
+            label={reading ? 'Reading your photo…' : 'Take a photo'}
+            variant="secondary"
+            disabled={reading || busy || supabase === null}
+            onPress={() => scan('camera')}
+            style={styles.photoButton}
+          />
+          <Button
+            label="Choose a photo"
+            variant="secondary"
+            disabled={reading || busy || supabase === null}
+            onPress={() => scan('library')}
+            style={styles.photoButton}
+          />
+        </View>
+        {photo && (
+          <View
+            style={[
+              styles.photoNote,
+              { backgroundColor: photo.legibility === 'good' ? theme.accentSoft : theme.markABg },
+            ]}>
+            <ThemedText type="smallBold">Check the text before you get feedback</ThemedText>
+            <ThemedText type="small">
+              This is what we read in your photo. Fix anything that is different from what you
+              wrote, but don&apos;t correct your own mistakes: the feedback is about them.
+            </ThemedText>
+            {photo.note ? (
+              <ThemedText type="small" themeColor="textSecondary">
+                {photo.note}
+              </ThemedText>
+            ) : null}
+          </View>
+        )}
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Start writing here…"
+          placeholder="Start writing here, or take a photo of your writing…"
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Your writing"
           multiline
@@ -159,8 +222,8 @@ export default function WriteRoute() {
           </ThemedText>
         )}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-          Your writing is checked by an AI (Claude) and is not saved. The feedback may contain
-          mistakes; ask your teacher if something is unclear.
+          Your writing and photos are checked by an AI (Claude) and are not saved. The feedback
+          may contain mistakes; ask your teacher if something is unclear.
         </ThemedText>
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
@@ -317,6 +380,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.three,
     fontSize: 16,
+  },
+  photoButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  photoButton: {
+    flexGrow: 1,
+    flexBasis: 140,
+  },
+  photoNote: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.one,
   },
   textArea: {
     minHeight: 220,
