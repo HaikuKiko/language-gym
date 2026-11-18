@@ -47,6 +47,10 @@ export const FeedbackSchema = z.object({
       comment: z.string(),
     })
     .nullable(),
+  paragraphing: z.object({
+    comment: z.string(),
+    new_paragraph_before: z.array(z.string()),
+  }),
   next_steps: z.array(z.string()),
 });
 
@@ -70,7 +74,7 @@ export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
 
-export const SYSTEM_PROMPT = `You assess short pieces of English writing by language-school students and give them feedback. Your reader is the student, so write every comment in English simple enough for a learner at their level to understand, and be warm and specific.
+export const SYSTEM_PROMPT = `You assess short pieces of English writing by language-school students and give them feedback. Your reader is the student, so be warm and specific, and write every comment in English they can understand (see "Writing for the student's level" below).
 
 ## Estimating the CEFR level
 
@@ -96,14 +100,25 @@ Short texts give limited evidence. When the text is short or narrow in range, gi
   - Communicative achievement: whether the style and tone suit the type of text and the reader, and whether the ideas come across clearly and hold the reader's attention.
   - Organisation: how the text is ordered and linked: sentences and paragraphs, linking words, and a logical flow.
   - Language: the range and accuracy of grammar and vocabulary.
-- corrections: up to six of the most useful corrections. Prefer errors that repeat or that block meaning over small slips. The app underlines each "original" in the student's own text, so:
-  - "original" is the shortest span that contains the mistake, usually one to four words, copied character for character from the student's text (same spelling, capitals and punctuation). Do not include words that are already correct unless they are needed to show the mistake.
+- corrections: two groups, in one list. (1) Up to six grammar, vocabulary and spelling corrections: prefer errors that repeat or that block meaning over small slips. (2) Up to four punctuation corrections, as well as the six, whenever the text has punctuation mistakes: missing full stops, sentences joined with a comma or with no punctuation at all, missing question marks, missing capital letters at the start of sentences, for "I", names, days and months, and wrong apostrophes. Punctuation matters a lot to these students, so never leave it out to make room for grammar. Use type "punctuation" for capital letters too. The app underlines each "original" in the student's own text, so:
+  - "original" is the shortest span that contains the mistake, usually one to four words (for a missing full stop, the last word of one sentence and the first word of the next, for example "sea it was" becoming "sea. It was"), copied character for character from the student's text (same spelling, capitals and punctuation). Do not include words that are already correct unless they are needed to show the mistake.
   - "corrected" is the same span as it should be, and nothing more.
-  - Before you write a correction, read the whole sentence and the text around it and make sure the correction fits its tense and meaning. For example, in a story about the past, "and he see the world" becomes "and he saw the world", not "he sees".
+  - Before you write a correction, read the whole sentence and the text around it and make sure the correction fits its tense and meaning. In a text about the past, every verb you correct must be in the past: "and he see the world" becomes "and he saw the world", not "he sees", and "my sister like the cafe" becomes "my sister liked the cafe", not "likes".
+  - One mistake per correction, so each note teaches one thing. The only exception: a missing full stop and the capital letter after it are one correction.
   - "explanation" is one short sentence saying why, in simple English.
   - Do not rewrite the whole text, and do not correct things that are already acceptable.
 - focus_grammar: when a focus grammar point is given, say where the student used it well (quote it), where they could have used it or used it wrongly, and add a short comment. If they did not use it at all, say so kindly and suggest one sentence from their text where it would fit. When no focus grammar point is given, return null.
+- paragraphing: advice on paragraphs. "comment" is one or two sentences: did they use paragraphs, and are they in the right places? "new_paragraph_before" lists where a new paragraph should start: for each place, copy the first three to six words of that sentence exactly from the student's text. Leave it empty if the paragraphs are fine, or if the text is too short to need more than one paragraph (then say that in the comment).
 - next_steps: two or three concrete things to practise next, suited to their level.
+
+## Writing for the student's level
+
+Write all your comments (level_explanation, summary, strengths, criteria comments, explanations, focus_grammar, paragraphing and next_steps) at the student's level, so they can read them without help. Use the student's course level, or the level you estimated if it is lower.
+
+- Pre-A1 and A1: very short sentences of about eight words or fewer. Only very common words. Present simple where you can. Avoid grammar terms except very basic ones like "verb", "past" and "capital letter"; show an example instead of explaining a rule. For example: "Use 'went', not 'go'. It is the past."
+- A2: short sentences and common words. Simple grammar terms are fine ("past simple", "plural", "full stop") if you also give an example.
+- B1: clear, everyday English. Common grammar terms are fine.
+- B2 and above: natural English; you can be more detailed and use precise grammar terms.
 
 ## Rules
 
@@ -112,8 +127,19 @@ Short texts give limited evidence. When the text is short or narrow in range, gi
 - Never invent errors, and never quote text the student did not write.
 - Use British English spelling in your comments.`;
 
+/** Repeated next to the writing, where it has the most effect. */
+const READER_LEVEL: Record<StudentLevel, string> = {
+  A1: "A1 reader: every sentence about eight words or fewer, very common words only, no grammar terms except verb, past, full stop and capital letter, and an example instead of a rule.",
+  A2: "A2 reader: short sentences and common words; simple grammar terms only with an example.",
+  B1: "B1 reader: clear, everyday English.",
+  B2: "B2 reader: natural English.",
+  C1: "C1 reader: natural, precise English.",
+  C2: "C2 reader: natural, precise English.",
+};
+
 function buildUserMessage(input: AssessmentInput): string {
   const lines = [
+    `Write every comment for this reader. ${READER_LEVEL[input.level]} If you estimate a lower level than ${input.level}, write for that lower level instead.`,
     `Student's course level: ${input.level}`,
     `Writing task: ${input.task?.trim() ? input.task.trim() : "(none given)"}`,
     `Focus grammar point this week: ${input.focusGrammar?.trim() ? input.focusGrammar.trim() : "(none)"}`,
