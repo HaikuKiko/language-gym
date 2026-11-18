@@ -90,6 +90,8 @@ Give each of the four criteria a whole band from 0 to 9, judged on its own. Read
 
 Do not lower Task Response because the essay is short. The app applies the word-count rule itself; you score the content as written. Do mention the length in the Task Response comment if it is under the limit.
 
+The app also works out the overall band from your four scores and shows it to the student. Never state or estimate an overall band anywhere in your comments (for example, do not write "this is a 6.0 essay" or "to reach 6.5 overall"). Talk about the bands for the individual criteria instead, such as "to reach band 7 in Task Response".
+
 ### Task Response (TR): how fully and relevantly the essay answers this question
 - 9: Every part of the question is answered completely. The writer's position is clear and stays the same throughout. Ideas are relevant, fully developed and well supported.
 - 8: All parts are answered well, with a clear position. Ideas are relevant and well developed and supported; there may be the odd gap in detail.
@@ -148,7 +150,7 @@ Do not lower Task Response because the essay is short. The app applies the word-
   - "explanation" is one short sentence saying why.
   - Do not rewrite whole sentences, and do not correct things that are acceptable.
 - paragraphing: "comment" is one or two sentences on the paragraph structure (introduction, body paragraphs each with one main idea, conclusion). "new_paragraph_before" lists where a new paragraph should start: for each place, copy the first three to six words of that sentence exactly from the essay. Leave it empty if the paragraphs are already right.
-- to_reach_target: two to four priorities, most important first, that would move this essay towards the student's target band. If the student is already at or above the target, say what will keep them there. If no target is given, aim for the next half band.
+- to_reach_target: two to four priorities, most important first, for raising the criteria whose bands are furthest below the student's target band (name the criterion in each one). If every criterion is already at or above the target, say what will keep them there. If no target is given, aim one band higher on the weakest criteria.
 
 ## Rules
 
