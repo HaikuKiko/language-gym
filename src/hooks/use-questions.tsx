@@ -1,6 +1,7 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
 import { BUILT_IN_QUESTIONS, LEVELS, type Level, type Question } from '@/data/questions';
+import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
 import { supabase } from '@/lib/supabase';
 
@@ -12,7 +13,9 @@ type Content = {
   weeks: readonly Week[];
 };
 
-const BUILT_IN: Content = { questions: BUILT_IN_QUESTIONS, weeks: BUILT_IN_WEEKS };
+const ALL_BUILT_IN_QUESTIONS: readonly Question[] = [...BUILT_IN_QUESTIONS, ...WEEK_QUESTIONS];
+
+const BUILT_IN: Content = { questions: ALL_BUILT_IN_QUESTIONS, weeks: BUILT_IN_WEEKS };
 
 const ContentContext = createContext<Content>(BUILT_IN);
 
@@ -109,7 +112,7 @@ async function loadContent(): Promise<Content> {
     loadQuestions().catch(() => null),
     loadWeeks().catch(() => null),
   ]);
-  return { questions: questions ?? BUILT_IN_QUESTIONS, weeks: weeks ?? BUILT_IN_WEEKS };
+  return { questions: questions ?? ALL_BUILT_IN_QUESTIONS, weeks: weeks ?? BUILT_IN_WEEKS };
 }
 
 /**
