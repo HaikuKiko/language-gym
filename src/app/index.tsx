@@ -79,6 +79,16 @@ export default function HomeRoute() {
       </ThemedView>
 
       <View style={styles.section}>
+        <ThemedText type="smallBold">Practise on your own</ThemedText>
+        <Button
+          label="Writing practice"
+          variant="secondary"
+          disabled={!configured}
+          onPress={() => router.push('/write')}
+        />
+      </View>
+
+      <View style={styles.section}>
         <ThemedText type="smallBold">Teachers</ThemedText>
         <Button
           label="Host a session"
