@@ -27,6 +27,14 @@ import {
   type WritingResponse,
 } from '@/lib/writing';
 
+/** A plain-English line under each area's name, for lower levels. */
+const CRITERION_HINTS: Record<string, string> = {
+  Content: 'Did you answer the task?',
+  'Communicative achievement': 'Is it right for the reader?',
+  Organisation: 'Order, paragraphs and linking words',
+  Language: 'Grammar and words',
+};
+
 /** Students write something and get a level estimate and feedback. */
 export default function WriteRoute() {
   const theme = useTheme();
@@ -247,7 +255,7 @@ function FeedbackView({
 }) {
   const theme = useTheme();
   const f = response.feedback;
-  const marked = markCorrections(text, f.corrections);
+  const marked = markCorrections(text, f.corrections, f.paragraphing?.new_paragraph_before);
 
   return (
     <Screen>
@@ -279,6 +287,11 @@ function FeedbackView({
                   </ThemedText>
                   <Pill label={c.level} tone="accent" />
                 </View>
+                {CRITERION_HINTS[c.criterion] ? (
+                  <ThemedText type="small" style={{ color: theme.grammarLabel }}>
+                    {CRITERION_HINTS[c.criterion]}
+                  </ThemedText>
+                ) : null}
                 <ThemedText type="small" themeColor="textSecondary">
                   {c.comment}
                 </ThemedText>
@@ -302,7 +315,14 @@ function FeedbackView({
         <ThemedView type="backgroundElement" style={styles.studentText}>
           <ThemedText style={styles.studentTextBody}>
             {marked.segments.map((segment, i) =>
-              segment.number === null ? (
+              segment.paragraphMark ? (
+                <ThemedText
+                  key={i}
+                  accessibilityLabel="New paragraph here"
+                  style={[styles.paragraphMark, { color: theme.markA }]}>
+                  {'¶ '}
+                </ThemedText>
+              ) : segment.number === null ? (
                 segment.text
               ) : (
                 <ThemedText key={i}>
@@ -321,9 +341,11 @@ function FeedbackView({
             )}
           </ThemedText>
         </ThemedView>
-        {marked.notes.length > 0 && (
+        {(marked.notes.length > 0 || marked.paragraphMarks > 0) && (
           <ThemedText type="small" themeColor="textSecondary">
-            Your words stay as you wrote them. The numbers show what to look at.
+            Your words stay as you wrote them.
+            {marked.notes.length > 0 ? ' The numbers show what to look at.' : ''}
+            {marked.paragraphMarks > 0 ? ' ¶ shows where a new paragraph can start.' : ''}
           </ThemedText>
         )}
       </Section>
@@ -356,6 +378,19 @@ function FeedbackView({
           ))}
         </Section>
       )}
+
+      {f.paragraphing?.comment ? (
+        <Section title="Paragraphs">
+          <ThemedView type="backgroundElement" style={styles.note}>
+            <View style={[styles.noteNumber, { backgroundColor: theme.markA }]}>
+              <ThemedText type="smallBold" style={styles.noteNumberText}>
+                ¶
+              </ThemedText>
+            </View>
+            <ThemedText style={styles.noteBody}>{f.paragraphing.comment}</ThemedText>
+          </ThemedView>
+        </Section>
+      ) : null}
 
       {f.focus_grammar && (
         <View style={[styles.focus, { backgroundColor: theme.accentSoft }]}>
@@ -490,6 +525,10 @@ const styles = StyleSheet.create({
   markedWords: {
     textDecorationLine: 'underline',
     textDecorationStyle: 'wavy',
+  },
+  paragraphMark: {
+    fontSize: 17,
+    fontWeight: 800,
   },
   markNumber: {
     fontSize: 12,
