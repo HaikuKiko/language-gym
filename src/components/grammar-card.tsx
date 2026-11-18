@@ -125,6 +125,13 @@ export function GrammarCard({ week }: { week: Week }) {
           />
         </View>
       ) : null}
+
+      {week.also ? (
+        <Text style={[styles.also, { color: theme.grammarMuted }]}>
+          <Text style={styles.alsoLabel}>Also this week: </Text>
+          {week.also}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -194,6 +201,13 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     paddingTop: 12,
     borderTopWidth: 1,
+  },
+  also: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  alsoLabel: {
+    fontWeight: 700,
   },
   starterText: {
     fontSize: 20,

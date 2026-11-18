@@ -60,7 +60,9 @@ async function loadWeeks(): Promise<Week[] | null> {
   if (!supabase) return null;
 
   const read = (columns: string) => supabase!.from('weeks').select(columns);
-  let { data, error } = await read('level, week, topic, grammar, use, pattern, examples, starter');
+  let { data, error } = await read(
+    'level, week, topic, grammar, also, use, pattern, examples, starter',
+  );
   // A database set up before grammar help was added has no help columns: use
   // the built-in help for the same level and week instead.
   const hasHelpColumns = !error;
@@ -92,6 +94,9 @@ async function loadWeeks(): Promise<Week[] | null> {
         week: row.week,
         topic: row.topic,
         grammar: text(row.grammar),
+        also: hasHelpColumns
+          ? text(row.also)
+          : (BUILT_IN_WEEKS.find((w) => w.level === row.level && w.week === row.week)?.also ?? ''),
         help: empty ? null : help,
       },
     ];
