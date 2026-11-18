@@ -1183,3 +1183,12 @@ create policy "Users can read their own submissions"
   using (user_id = auth.uid());
 
 grant select on public.writing_submissions to authenticated;
+
+-- Photo readings (handwriting turned into text) are recorded too, with their
+-- own daily limit; they have no level estimate.
+alter table public.writing_submissions add column if not exists kind text not null default 'feedback'
+  check (kind in ('feedback', 'transcribe'));
+alter table public.writing_submissions alter column cefr_level drop not null;
+drop index if exists writing_submissions_user_day_idx;
+create index if not exists writing_submissions_user_kind_day_idx
+  on public.writing_submissions (user_id, kind, created_at);

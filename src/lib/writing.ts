@@ -63,3 +63,43 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
 
   return { feedback: data.feedback as WritingFeedback, remainingToday: data.remaining_today };
 }
+
+// ---------------------------------------------------------------------------
+// Reading a photo of handwriting
+// ---------------------------------------------------------------------------
+
+export type PhotoReading = {
+  transcript: string;
+  legibility: 'good' | 'partial' | 'poor';
+  containsWriting: boolean;
+  note: string;
+  remainingToday: number;
+};
+
+/** Marks Claude leaves where it could not read a word. */
+export const UNREADABLE_MARK = '[?]';
+
+export async function readPhoto(image: { base64: string; mediaType: string }): Promise<PhotoReading> {
+  const client = requireSupabase();
+  await ensureSignedIn();
+
+  const { data, error } = await client.functions.invoke('assess-writing', {
+    body: { mode: 'transcribe', image: image.base64, media_type: image.mediaType },
+  });
+
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const details = await (error.context as Response).json().catch(() => null);
+      if (details && typeof details.message === 'string') throw new Error(details.message);
+    }
+    throw new Error('We could not read the photo right now. Please try again later.');
+  }
+
+  return {
+    transcript: data.transcript,
+    legibility: data.legibility,
+    containsWriting: data.contains_writing,
+    note: data.note,
+    remainingToday: data.remaining_today,
+  };
+}
