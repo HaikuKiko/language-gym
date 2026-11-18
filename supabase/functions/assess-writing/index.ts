@@ -49,7 +49,11 @@ function fail(status: number, error: string, message: string): Response {
   return reply(status, { error, message });
 }
 
-const dailyLimit = Number(Deno.env.get("DAILY_LIMIT") ?? "5");
+const dailyLimitSetting = Deno.env.get("DAILY_LIMIT");
+const parsedLimit = Number.parseInt((dailyLimitSetting ?? "5").trim(), 10);
+const dailyLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
+// Shows in the function logs, to check the setting Supabase passes in.
+console.log(`Daily limit: ${dailyLimit} (DAILY_LIMIT setting: ${JSON.stringify(dailyLimitSetting ?? null)})`);
 
 type Kind = "feedback" | "transcribe";
 
