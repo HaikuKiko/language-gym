@@ -119,7 +119,7 @@ export type MarkedText = {
    */
   segments: { text: string; number: number | null; paragraphMark?: boolean }[];
   /** One note per correction, numbered in reading order. */
-  notes: { number: number; correction: Correction; found: boolean }[];
+  notes: { number: number; correction: Correction; found: boolean; start?: number }[];
   /** How many of the suggested paragraph starts were found and marked. */
   paragraphMarks: number;
 };
@@ -175,7 +175,12 @@ export function markCorrections(
   const missing = located.filter((item) => item.range === null);
 
   const notes: MarkedText['notes'] = [
-    ...found.map((item, i) => ({ number: i + 1, correction: item.correction, found: true })),
+    ...found.map((item, i) => ({
+      number: i + 1,
+      correction: item.correction,
+      found: true,
+      start: item.range!.start,
+    })),
     ...missing.map((item, i) => ({
       number: found.length + i + 1,
       correction: item.correction,
@@ -214,4 +219,60 @@ export function markCorrections(
   if (cursor < text.length) segments.push({ text: text.slice(cursor), number: null });
 
   return { segments, notes, paragraphMarks: marks.size };
+}
+
+// ---------------------------------------------------------------------------
+// Underlining old mistakes while the student edits
+// ---------------------------------------------------------------------------
+
+/** A mistake from the last feedback and where it was in that text. */
+export type MistakeAnchor = { original: string; start: number };
+
+export function anchorsFrom(marked: MarkedText): MistakeAnchor[] {
+  return marked.notes
+    .filter((note) => note.found && note.start !== undefined)
+    .map((note) => ({ original: note.correction.original, start: note.start! }));
+}
+
+/**
+ * Splits the text being edited into plain and underlined parts. A mistake is
+ * underlined only while its exact words are still near where they were, so
+ * the line goes away when the student changes them.
+ */
+export function underlineMistakes(
+  text: string,
+  anchors: MistakeAnchor[],
+  originalLength: number,
+): { text: string; marked: boolean }[] {
+  const searchable = normalise(text);
+  const drift = Math.abs(text.length - originalLength) + 12;
+  const ranges: { start: number; end: number }[] = [];
+
+  for (const anchor of anchors) {
+    const target = normalise(anchor.original);
+    if (!target) continue;
+    let best: number | null = null;
+    let from = 0;
+    for (;;) {
+      const at = searchable.indexOf(target, from);
+      if (at === -1) break;
+      const clash = ranges.some((r) => at < r.end && at + target.length > r.start);
+      if (!clash && Math.abs(at - anchor.start) <= drift) {
+        if (best === null || Math.abs(at - anchor.start) < Math.abs(best - anchor.start)) best = at;
+      }
+      from = at + 1;
+    }
+    if (best !== null) ranges.push({ start: best, end: best + target.length });
+  }
+
+  ranges.sort((a, b) => a.start - b.start);
+  const parts: { text: string; marked: boolean }[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) parts.push({ text: text.slice(cursor, range.start), marked: false });
+    parts.push({ text: text.slice(range.start, range.end), marked: true });
+    cursor = range.end;
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), marked: false });
+  return parts;
 }

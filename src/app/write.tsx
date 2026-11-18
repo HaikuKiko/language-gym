@@ -4,6 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { MarkedTextInput } from '@/components/marked-text-input';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -19,10 +20,12 @@ import {
   MAX_WORDS,
   MIN_WORDS,
   UNREADABLE_MARK,
+  anchorsFrom,
   countWords,
   markCorrections,
   readPhoto,
   requestFeedback,
+  type MistakeAnchor,
   type PhotoReading,
   type WritingResponse,
 } from '@/lib/writing';
@@ -48,6 +51,8 @@ export default function WriteRoute() {
   const [result, setResult] = useState<WritingResponse | null>(null);
   const [reading, setReading] = useState(false);
   const [photo, setPhoto] = useState<PhotoReading | null>(null);
+  // Mistakes from the last feedback, underlined while the student edits.
+  const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
 
   const words = countWords(text);
   const plan = findWeek(weeks, level, week);
@@ -68,7 +73,12 @@ export default function WriteRoute() {
     setBusy(true);
     setError(null);
     try {
-      setResult(await requestFeedback({ text, level, task, week }));
+      const response = await requestFeedback({ text, level, task, week });
+      setResult(response);
+      setMarks({
+        anchors: anchorsFrom(markCorrections(text, response.feedback.corrections)),
+        length: text.length,
+      });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -103,6 +113,7 @@ export default function WriteRoute() {
           setResult(null);
           setText('');
           setPhoto(null);
+          setMarks(null);
         }}
         onEdit={() => setResult(null)}
       />
@@ -203,16 +214,20 @@ export default function WriteRoute() {
             ) : null}
           </View>
         )}
-        <TextInput
+        <MarkedTextInput
           value={text}
           onChangeText={setText}
           placeholder="Start writing here, or take a photo of your writing…"
-          placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Your writing"
-          multiline
-          textAlignVertical="top"
-          style={[styles.input, styles.textArea, inputStyle]}
+          anchors={marks?.anchors ?? []}
+          originalLength={marks?.length ?? text.length}
         />
+        {marks && marks.anchors.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            Orange lines show the mistakes from your feedback. They go away when you change those
+            words.
+          </ThemedText>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -320,7 +335,7 @@ function FeedbackView({
                   key={i}
                   accessibilityLabel="New paragraph here"
                   style={[styles.paragraphMark, { color: theme.markA }]}>
-                  {'¶ '}
+                  {'\n¶ '}
                 </ThemedText>
               ) : segment.number === null ? (
                 segment.text
@@ -484,10 +499,6 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.one,
-  },
-  textArea: {
-    minHeight: 220,
-    lineHeight: 24,
   },
   centered: {
     textAlign: 'center',
