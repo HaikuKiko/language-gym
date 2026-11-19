@@ -30,6 +30,8 @@ export const Colors = {
     markABg: '#FDE8D3',
     markB: '#0F4C8F',
     markBBg: '#D6E6FB',
+    /** Highlight for words guessed from a photo of handwriting. */
+    guessBg: '#FFE27A',
   },
   dark: {
     text: '#ffffff',
@@ -53,6 +55,7 @@ export const Colors = {
     markABg: '#3D2410',
     markB: '#93C5FD',
     markBBg: '#132F55',
+    guessBg: '#6B5400',
   },
 } as const;
 
