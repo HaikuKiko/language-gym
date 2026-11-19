@@ -74,6 +74,8 @@ export type PhotoReading = {
   transcript: string;
   legibility: 'good' | 'partial' | 'poor';
   containsWriting: boolean;
+  /** Hard-to-read words that were guessed; check them against the paper. */
+  guessedWords: string[];
   note: string;
   remainingToday: number;
 };
@@ -101,6 +103,7 @@ export async function readPhoto(image: { base64: string; mediaType: string }): P
     transcript: data.transcript,
     legibility: data.legibility,
     containsWriting: data.contains_writing,
+    guessedWords: Array.isArray(data.guessed_words) ? data.guessed_words : [],
     note: data.note,
     remainingToday: data.remaining_today,
   };

@@ -99,6 +99,26 @@ export async function loadAssignedPrompts(): Promise<WritingPrompt[]> {
   }));
 }
 
+/**
+ * Teacher marking: any Task 2 essay against any question (or, with no
+ * question, the question is worked out from the essay). No course needed.
+ */
+export async function requestTeacherIeltsFeedback(question: string, text: string): Promise<IeltsResponse> {
+  const client = requireSupabase();
+  await ensureSignedIn();
+  const { data, error } = await client.functions.invoke('assess-writing', {
+    body: { track: 'ielts', teacher: true, question: question.trim(), text },
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const details = await (error.context as Response).json().catch(() => null);
+      if (details && typeof details.message === 'string') throw new Error(details.message);
+    }
+    throw new Error('Marking is not available right now. Please try again later.');
+  }
+  return { feedback: data.feedback as IeltsFeedback, remainingToday: data.remaining_today };
+}
+
 export async function requestIeltsFeedback(promptId: number, text: string): Promise<IeltsResponse> {
   const client = requireSupabase();
   await ensureSignedIn();

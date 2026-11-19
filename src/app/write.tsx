@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
 import { MarkedTextInput } from '@/components/marked-text-input';
+import { PhotoNote } from '@/components/photo-note';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -197,24 +198,7 @@ export default function WriteRoute() {
             style={styles.photoButton}
           />
         </View>
-        {photo && (
-          <View
-            style={[
-              styles.photoNote,
-              { backgroundColor: photo.legibility === 'good' ? theme.accentSoft : theme.markABg },
-            ]}>
-            <ThemedText type="smallBold">Check the text before you get feedback</ThemedText>
-            <ThemedText type="small">
-              This is what we read in your photo. Fix anything that is different from what you
-              wrote, but don&apos;t correct your own mistakes: the feedback is about them.
-            </ThemedText>
-            {photo.note ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                {photo.note}
-              </ThemedText>
-            ) : null}
-          </View>
-        )}
+        {photo && <PhotoNote photo={photo} />}
         <MarkedTextInput
           value={text}
           onChangeText={setText}
@@ -402,11 +386,6 @@ const styles = StyleSheet.create({
   photoButton: {
     flexGrow: 1,
     flexBasis: 140,
-  },
-  photoNote: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    gap: Spacing.one,
   },
   centered: {
     textAlign: 'center',
