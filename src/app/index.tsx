@@ -19,6 +19,8 @@ export default function HomeRoute() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The join form starts closed, unless the link (e.g. the QR code) brought a code.
+  const [joinOpen, setJoinOpen] = useState(!!params.code);
   const [open, setOpen] = useState<{ code: string; asHost: boolean } | null>(null);
 
   const configured = supabase !== null;
@@ -68,6 +70,9 @@ export default function HomeRoute() {
         </View>
       )}
 
+      {!joinOpen ? (
+        <Button label="Join a session with a code" variant="secondary" onPress={() => setJoinOpen(true)} />
+      ) : (
       <ThemedView type="backgroundElement" style={styles.card}>
         <ThemedText type="smallBold">Join a session</ThemedText>
         <TextInput
@@ -76,6 +81,7 @@ export default function HomeRoute() {
           placeholder="Join code"
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Join code"
+          autoFocus={!params.code}
           keyboardType="number-pad"
           inputMode="numeric"
           style={[inputStyle, styles.codeInput]}
@@ -101,6 +107,7 @@ export default function HomeRoute() {
           </ThemedText>
         )}
       </ThemedView>
+      )}
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Practise on your own</ThemedText>
