@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BusyOverlay } from '@/components/busy-overlay';
+import { CalibrationCard } from '@/components/calibration-card';
 import { Button } from '@/components/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { MarkedTextInput } from '@/components/marked-text-input';
@@ -125,6 +126,7 @@ export default function TeacherIeltsRoute() {
         subtitle={question.trim() ? 'Teacher marking' : 'Teacher marking · question worked out from the essay'}
         improveLabel="Back to the essay"
         onImprove={() => setResult(null)}
+        extra={<CalibrationCard feedback={result.feedback} question={question} essay={text} />}
       />
     );
   }
@@ -223,8 +225,9 @@ export default function TeacherIeltsRoute() {
           </ThemedText>
         )}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-          Marked by an AI (Claude) as a guide, not an official IELTS result. The essay is not saved.
+          Marked by an AI (Claude) as a guide, not an official IELTS result. The essay is only saved if you add your own marks.
         </ThemedText>
+        <Button label="Calibration: AI compared with teachers" variant="secondary" onPress={() => router.push('/calibration')} />
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
       <BusyOverlay
