@@ -64,7 +64,12 @@ export type IeltsFeedback = {
   length_penalty_applied: boolean;
 };
 
-export type IeltsResponse = { feedback: IeltsFeedback; remainingToday: number };
+export type IeltsResponse = {
+  feedback: IeltsFeedback;
+  remainingToday: number;
+  /** Teacher marking only: essays marked today, including this one. */
+  usedToday?: number;
+};
 
 /** Short names for the tiles; the full names are used everywhere else. */
 export const CRITERION_SHORT: Record<IeltsCriterion['code'], string> = {
@@ -116,7 +121,11 @@ export async function requestTeacherIeltsFeedback(question: string, text: string
     }
     throw new Error('Marking is not available right now. Please try again later.');
   }
-  return { feedback: data.feedback as IeltsFeedback, remainingToday: data.remaining_today };
+  return {
+    feedback: data.feedback as IeltsFeedback,
+    remainingToday: data.remaining_today,
+    usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
+  };
 }
 
 export async function requestIeltsFeedback(promptId: number, text: string): Promise<IeltsResponse> {

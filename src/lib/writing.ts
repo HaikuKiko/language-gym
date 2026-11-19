@@ -78,17 +78,27 @@ export type PhotoReading = {
   guessedWords: string[];
   note: string;
   remainingToday: number;
+  /** How many photos this person has had read today, including this one. */
+  usedToday?: number;
 };
 
 /** Marks Claude leaves where it could not read a word. */
 export const UNREADABLE_MARK = '[?]';
 
-export async function readPhoto(image: { base64: string; mediaType: string }): Promise<PhotoReading> {
+export async function readPhoto(
+  image: { base64: string; mediaType: string },
+  options: { teacher?: boolean } = {},
+): Promise<PhotoReading> {
   const client = requireSupabase();
   await ensureSignedIn();
 
   const { data, error } = await client.functions.invoke('assess-writing', {
-    body: { mode: 'transcribe', image: image.base64, media_type: image.mediaType },
+    body: {
+      mode: 'transcribe',
+      image: image.base64,
+      media_type: image.mediaType,
+      ...(options.teacher ? { teacher: true } : {}),
+    },
   });
 
   if (error) {
@@ -106,6 +116,7 @@ export async function readPhoto(image: { base64: string; mediaType: string }): P
     guessedWords: Array.isArray(data.guessed_words) ? data.guessed_words : [],
     note: data.note,
     remainingToday: data.remaining_today,
+    usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
   };
 }
 
