@@ -45,6 +45,8 @@ export default function TeacherIeltsRoute() {
   const [photo, setPhoto] = useState<PhotoReading | null>(null);
   const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Shown after every 5 photos or essays, so teachers can keep track.
+  const [usage, setUsage] = useState<string | null>(null);
   const [result, setResult] = useState<IeltsResponse | null>(null);
   const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
 
@@ -66,6 +68,11 @@ export default function TeacherIeltsRoute() {
     setError(null);
     try {
       const response = await requestTeacherIeltsFeedback(question, text);
+      if (response.usedToday && response.usedToday % 5 === 0) {
+        setUsage(
+          `You have marked ${response.usedToday} essays today (the limit is ${response.usedToday + response.remainingToday}).`,
+        );
+      }
       setResult(response);
       setMarks({
         anchors: anchorsFrom(markCorrections(text, response.feedback.corrections)),
@@ -83,7 +90,10 @@ export default function TeacherIeltsRoute() {
       const image = await pickPhoto(source);
       if (!image) return;
       setReading(target);
-      const read = await readPhoto(image);
+      const read = await readPhoto(image, { teacher: true });
+      if (read.usedToday && read.usedToday % 5 === 0) {
+        setUsage(`You have read ${read.usedToday} photos today.`);
+      }
       if (!read.containsWriting || !read.transcript.trim()) {
         setError('We could not find any writing in that photo. Please try another one.');
       } else if (target === 'question') {
@@ -128,6 +138,13 @@ export default function TeacherIeltsRoute() {
           Writing Task 2 band scores for any essay and any question. No student account needed.
         </ThemedText>
       </View>
+
+      {usage && (
+        <View style={[styles.usage, { backgroundColor: theme.markABg }]}>
+          <ThemedText type="smallBold">{usage}</ThemedText>
+          <Button label="OK" variant="secondary" onPress={() => setUsage(null)} />
+        </View>
+      )}
 
       <View style={styles.section}>
         <ThemedText type="smallBold">The question (optional)</ThemedText>
@@ -248,5 +265,14 @@ const styles = StyleSheet.create({
   },
   centered: {
     textAlign: 'center',
+  },
+  usage: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
   },
 });

@@ -17,8 +17,10 @@
  * Teacher:   POST { track: "ielts", teacher: true, question?, text }
  *            Marks any Task 2 essay against any question (or works the
  *            question out), with no enrolment; its own daily limit.
- * Photo:     POST { mode: "transcribe", image, media_type }   (image is base64)
- *            -> 200 { transcript, legibility, contains_writing, note, remaining_today }
+ * Photo:     POST { mode: "transcribe", image, media_type, teacher? }   (image is base64)
+ *            -> 200 { transcript, legibility, contains_writing, guessed_words, note,
+ *                     remaining_today, used_today }
+ *            teacher: true skips the 5-a-day limit (safety cap TEACHER_PHOTO_CAP).
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -50,6 +52,22 @@ const IELTS_MAX_WORDS = 700;
 const teacherLimitSetting = Number.parseInt((Deno.env.get("TEACHER_DAILY_LIMIT") ?? "30").trim(), 10);
 const teacherDailyLimit = Number.isFinite(teacherLimitSetting) && teacherLimitSetting > 0 ? teacherLimitSetting : 30;
 const TEACHER_TASK_TYPE = "task2_teacher";
+/** Teachers' photo readings: no 5-a-day limit, only this safety cap. */
+const TEACHER_PHOTO_CAP = 100;
+const TEACHER_PHOTO_TYPE = "teacher_photo";
+
+/** How many rows of this task type the user has made today (UTC). */
+async function usedTodayByTaskType(admin: SupabaseClient, userId: string, taskType: string): Promise<number | null> {
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  const { count, error } = await admin
+    .from("writing_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("task_type", taskType)
+    .gte("created_at", since.toISOString());
+  return error ? null : (count ?? 0);
+}
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -142,13 +160,17 @@ Deno.serve(async (request) => {
       return fail(400, "too_large", "That photo is too large. Please try again.");
     }
 
-    const used = await usedToday(admin, userId, "transcribe");
+    const teacher = body.teacher === true;
+    const used = teacher
+      ? await usedTodayByTaskType(admin, userId, TEACHER_PHOTO_TYPE)
+      : await usedToday(admin, userId, "transcribe");
+    const photoLimit = teacher ? TEACHER_PHOTO_CAP : dailyLimit;
     if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
-    if (used >= dailyLimit) {
+    if (used >= photoLimit) {
       return fail(
         429,
         "daily_limit",
-        `You have used all ${dailyLimit} photo readings for today. You can still type your writing.`,
+        `You have used all ${photoLimit} photo readings for today. You can still type your writing.`,
       );
     }
 
@@ -166,6 +188,7 @@ Deno.serve(async (request) => {
     const { error: insertError } = await admin.from("writing_submissions").insert({
       user_id: userId,
       kind: "transcribe",
+      ...(teacher ? { task_type: TEACHER_PHOTO_TYPE } : {}),
       level: "-",
       word_count: countWords(result.transcript.transcript),
       model: MODEL,
@@ -176,7 +199,8 @@ Deno.serve(async (request) => {
 
     return reply(200, {
       ...result.transcript,
-      remaining_today: Math.max(0, dailyLimit - used - 1),
+      remaining_today: Math.max(0, photoLimit - used - 1),
+      used_today: used + 1,
     });
   }
 
@@ -445,5 +469,6 @@ async function teacherIeltsFeedback(
   return reply(200, {
     feedback: result.feedback,
     remaining_today: Math.max(0, teacherDailyLimit - used - 1),
+    used_today: used + 1,
   });
 }
