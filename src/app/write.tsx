@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
+import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
@@ -23,6 +24,7 @@ import {
   MIN_WORDS,
   UNREADABLE_MARK,
   anchorsFrom,
+  guessAnchorsFrom,
   countWords,
   markCorrections,
   readPhoto,
@@ -55,6 +57,8 @@ export default function WriteRoute() {
   const [photo, setPhoto] = useState<PhotoReading | null>(null);
   // Mistakes from the last feedback, underlined while the student edits.
   const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  // Words guessed from the last photo, highlighted until they are changed.
+  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
 
   const words = countWords(text);
   const plan = findWeek(weeks, level, week);
@@ -99,6 +103,10 @@ export default function WriteRoute() {
       } else {
         setText(reading.transcript);
         setPhoto(reading);
+        setGuesses({
+          anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
+          length: reading.transcript.length,
+        });
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -116,6 +124,7 @@ export default function WriteRoute() {
           setText('');
           setPhoto(null);
           setMarks(null);
+          setGuesses(null);
         }}
         onEdit={() => setResult(null)}
       />
@@ -206,6 +215,7 @@ export default function WriteRoute() {
           accessibilityLabel="Your writing"
           anchors={marks?.anchors ?? []}
           originalLength={marks?.length ?? text.length}
+          guesses={guesses}
         />
         {marks && marks.anchors.length > 0 && (
           <ThemedText type="small" themeColor="textSecondary">
@@ -237,6 +247,8 @@ export default function WriteRoute() {
         </ThemedText>
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
+      <BusyOverlay visible={reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
+      <BusyOverlay visible={busy} title="Checking your writing…" detail="This usually takes 15 to 30 seconds." />
     </Screen>
   );
 }

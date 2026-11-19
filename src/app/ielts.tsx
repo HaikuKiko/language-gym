@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
@@ -32,6 +33,7 @@ import { errorMessage } from '@/lib/supabase';
 import {
   UNREADABLE_MARK,
   anchorsFrom,
+  guessAnchorsFrom,
   countWords,
   markCorrections,
   readPhoto,
@@ -52,6 +54,7 @@ export default function IeltsRoute() {
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(false);
   const [photo, setPhoto] = useState<PhotoReading | null>(null);
+  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IeltsResponse | null>(null);
   const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
@@ -205,6 +208,10 @@ export default function IeltsRoute() {
       } else {
         changeText(reading.transcript);
         setPhoto(reading);
+        setGuesses({
+          anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
+          length: reading.transcript.length,
+        });
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -308,6 +315,7 @@ export default function IeltsRoute() {
           accessibilityLabel="Your essay"
           anchors={marks?.anchors ?? []}
           originalLength={marks?.length ?? text.length}
+          guesses={guesses}
         />
         <View style={styles.row}>
           <ThemedText type="small">
@@ -346,6 +354,8 @@ export default function IeltsRoute() {
         </ThemedText>
         {back}
       </View>
+      <BusyOverlay visible={reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
+      <BusyOverlay visible={busy} title="Marking your essay…" detail="This usually takes 20 to 40 seconds." />
     </Screen>
   );
 }

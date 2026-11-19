@@ -237,16 +237,13 @@ export function anchorsFrom(marked: MarkedText): MistakeAnchor[] {
     .map((note) => ({ original: note.correction.original, start: note.start! }));
 }
 
-/**
- * Splits the text being edited into plain and underlined parts. A mistake is
- * underlined only while its exact words are still near where they were, so
- * the line goes away when the student changes them.
- */
-export function underlineMistakes(
+/** Where each anchor's words are now, if they are still near where they were. */
+function findAnchorRanges(
   text: string,
   anchors: MistakeAnchor[],
   originalLength: number,
-): { text: string; marked: boolean }[] {
+  taken: { start: number; end: number }[] = [],
+): { start: number; end: number }[] {
   const searchable = normalise(text);
   const drift = Math.abs(text.length - originalLength) + 12;
   const ranges: { start: number; end: number }[] = [];
@@ -259,23 +256,72 @@ export function underlineMistakes(
     for (;;) {
       const at = searchable.indexOf(target, from);
       if (at === -1) break;
-      const clash = ranges.some((r) => at < r.end && at + target.length > r.start);
-      if (!clash && Math.abs(at - anchor.start) <= drift) {
+      const clash = [...taken, ...ranges].some((r) => at < r.end && at + target.length > r.start);
+      // Whole words only, so "evening" stops matching once it becomes "evenings".
+      const isWordChar = (c: string | undefined) => !!c && /[\p{L}\p{N}]/u.test(c);
+      const cutsWord =
+        (isWordChar(target[0]) && isWordChar(searchable[at - 1])) ||
+        (isWordChar(target[target.length - 1]) && isWordChar(searchable[at + target.length]));
+      if (!clash && !cutsWord && Math.abs(at - anchor.start) <= drift) {
         if (best === null || Math.abs(at - anchor.start) < Math.abs(best - anchor.start)) best = at;
       }
       from = at + 1;
     }
     if (best !== null) ranges.push({ start: best, end: best + target.length });
   }
+  return ranges;
+}
 
-  ranges.sort((a, b) => a.start - b.start);
-  const parts: { text: string; marked: boolean }[] = [];
+export type MarkKind = 'mistake' | 'guess';
+
+/**
+ * Splits the text being edited into plain, underlined (a mistake from the
+ * last feedback) and highlighted (a word guessed from a photo) parts. A mark
+ * stays only while its exact words are still near where they were, so it
+ * goes away when the words are changed.
+ */
+export function markParts(
+  text: string,
+  mistakes: { anchors: MistakeAnchor[]; length: number } | null,
+  guesses: { anchors: MistakeAnchor[]; length: number } | null,
+): { text: string; kind: MarkKind | null }[] {
+  const mistakeRanges = mistakes ? findAnchorRanges(text, mistakes.anchors, mistakes.length) : [];
+  const guessRanges = guesses ? findAnchorRanges(text, guesses.anchors, guesses.length, mistakeRanges) : [];
+  const ranges = [
+    ...mistakeRanges.map((r) => ({ ...r, kind: 'mistake' as const })),
+    ...guessRanges.map((r) => ({ ...r, kind: 'guess' as const })),
+  ].sort((a, b) => a.start - b.start);
+
+  const parts: { text: string; kind: MarkKind | null }[] = [];
   let cursor = 0;
   for (const range of ranges) {
-    if (range.start > cursor) parts.push({ text: text.slice(cursor, range.start), marked: false });
-    parts.push({ text: text.slice(range.start, range.end), marked: true });
+    if (range.start < cursor) continue;
+    if (range.start > cursor) parts.push({ text: text.slice(cursor, range.start), kind: null });
+    parts.push({ text: text.slice(range.start, range.end), kind: range.kind });
     cursor = range.end;
   }
-  if (cursor < text.length) parts.push({ text: text.slice(cursor), marked: false });
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), kind: null });
   return parts;
+}
+
+/**
+ * Where each guessed word from a photo sits in the transcript, in order, so
+ * it can be highlighted. Words are matched whole where possible.
+ */
+export function guessAnchorsFrom(transcript: string, guessed: string[]): MistakeAnchor[] {
+  const anchors: MistakeAnchor[] = [];
+  let from = 0;
+  for (const word of guessed) {
+    const target = word.trim();
+    if (!target) continue;
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escaped})(?=$|[^\\p{L}\\p{N}])`, 'gu');
+    re.lastIndex = from;
+    const match = re.exec(transcript) ?? new RegExp(re.source, 'gu').exec(transcript);
+    if (!match) continue;
+    const start = match.index + match[1].length;
+    anchors.push({ original: target, start });
+    from = start + target.length;
+  }
+  return anchors;
 }

@@ -3,7 +3,7 @@ import { Platform, StyleSheet, Text, TextInput, View, type TextInputProps } from
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { underlineMistakes, type MistakeAnchor } from '@/lib/writing';
+import { markParts, type MistakeAnchor } from '@/lib/writing';
 
 type MarkedTextInputProps = Omit<TextInputProps, 'style' | 'multiline'> & {
   value: string;
@@ -11,13 +11,16 @@ type MarkedTextInputProps = Omit<TextInputProps, 'style' | 'multiline'> & {
   anchors: MistakeAnchor[];
   /** Length of the text the feedback was about, to tell how far words moved. */
   originalLength: number;
+  /** Words guessed from a photo, highlighted in yellow until they are changed. */
+  guesses?: { anchors: MistakeAnchor[]; length: number } | null;
 };
 
 const MIN_HEIGHT = 220;
 
 /**
  * A multi-line writing box that underlines earlier mistakes with orange
- * squiggles, like a word processor. On the web a copy of the text sits
+ * squiggles, like a word processor, and highlights words guessed from a
+ * photo in yellow. On the web a copy of the text sits
  * behind a transparent text box, with only the underlines visible, so the
  * lines move with the text as it is edited. Other platforms get a plain box.
  */
@@ -25,12 +28,15 @@ export function MarkedTextInput({
   value,
   anchors,
   originalLength,
+  guesses = null,
   ...inputProps
 }: MarkedTextInputProps) {
   const theme = useTheme();
   const [height, setHeight] = useState(MIN_HEIGHT);
-  const showMarks = Platform.OS === 'web' && anchors.length > 0;
-  const parts = showMarks ? underlineMistakes(value, anchors, originalLength) : [];
+  const showMarks = Platform.OS === 'web' && (anchors.length > 0 || (guesses?.anchors.length ?? 0) > 0);
+  const parts = showMarks
+    ? markParts(value, anchors.length > 0 ? { anchors, length: originalLength } : null, guesses)
+    : [];
 
   return (
     <View style={[styles.box, { backgroundColor: theme.backgroundElement, minHeight: height }]}>
@@ -40,8 +46,12 @@ export function MarkedTextInput({
           pointerEvents="none"
           style={[styles.text, styles.mirror, { color: 'transparent' }]}>
           {parts.map((part, i) =>
-            part.marked ? (
+            part.kind === 'mistake' ? (
               <Text key={i} style={[styles.squiggle, { textDecorationColor: theme.markA }]}>
+                {part.text}
+              </Text>
+            ) : part.kind === 'guess' ? (
+              <Text key={i} style={[styles.guess, { backgroundColor: theme.guessBg }]}>
                 {part.text}
               </Text>
             ) : (
@@ -88,6 +98,12 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: 'transparent',
+    // Above the copy with the marks, so highlights sit behind the words.
+    position: 'relative',
+    zIndex: 1,
+  },
+  guess: {
+    borderRadius: 3,
   },
   squiggle: {
     textDecorationLine: 'underline',

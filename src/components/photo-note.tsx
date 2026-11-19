@@ -26,7 +26,15 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
           <ThemedText type="smallBold">
             {guessed.length === 1 ? 'We guessed this word: ' : `We guessed these ${guessed.length} words: `}
           </ThemedText>
-          {guessed.map((w) => `“${w}”`).join(', ')}
+          {guessed.map((w, i) => (
+            <ThemedText key={i} type="small">
+              {i > 0 ? ', ' : ''}
+              <ThemedText type="small" style={[styles.guess, { backgroundColor: theme.guessBg }]}>
+                {`\u202F${w}\u202F`}
+              </ThemedText>
+            </ThemedText>
+          ))}
+          {'. They are highlighted in yellow below.'}
         </ThemedText>
       ) : null}
       {photo.note ? (
@@ -39,6 +47,9 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
 }
 
 const styles = StyleSheet.create({
+  guess: {
+    borderRadius: 3,
+  },
   note: {
     padding: Spacing.three,
     borderRadius: Spacing.three,

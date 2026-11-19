@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
+import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { MarkedTextInput } from '@/components/marked-text-input';
@@ -22,6 +23,7 @@ import { errorMessage, supabase } from '@/lib/supabase';
 import {
   UNREADABLE_MARK,
   anchorsFrom,
+  guessAnchorsFrom,
   countWords,
   markCorrections,
   readPhoto,
@@ -41,6 +43,7 @@ export default function TeacherIeltsRoute() {
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<'question' | 'essay' | null>(null);
   const [photo, setPhoto] = useState<PhotoReading | null>(null);
+  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IeltsResponse | null>(null);
   const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
@@ -88,6 +91,10 @@ export default function TeacherIeltsRoute() {
       } else {
         setText(read.transcript);
         setPhoto(read);
+        setGuesses({
+          anchors: guessAnchorsFrom(read.transcript, read.guessedWords),
+          length: read.transcript.length,
+        });
         setMarks(null);
       }
     } catch (e) {
@@ -174,6 +181,7 @@ export default function TeacherIeltsRoute() {
           accessibilityLabel="The essay"
           anchors={marks?.anchors ?? []}
           originalLength={marks?.length ?? text.length}
+          guesses={guesses}
         />
       </View>
 
@@ -198,6 +206,12 @@ export default function TeacherIeltsRoute() {
         </ThemedText>
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
+      <BusyOverlay
+        visible={reading !== null}
+        title={reading === 'question' ? 'Reading the question…' : 'Reading the handwriting…'}
+        detail="This usually takes 10 to 20 seconds."
+      />
+      <BusyOverlay visible={busy} title="Marking the essay…" detail="This usually takes 20 to 40 seconds." />
     </Screen>
   );
 }
