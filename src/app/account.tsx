@@ -11,14 +11,20 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   CODE_LENGTH,
+  EMAIL_SIGN_IN,
+  PIN_LENGTH,
+  STUDENT_CODE_LENGTH,
   finishSaving,
   finishSignIn,
   isValidEmail,
   loadAccount,
   saveName,
+  saveWithPin,
+  signInWithPin,
   signOut,
   startSaving,
   startSignIn,
+  usesPin,
   type Account,
 } from '@/lib/account';
 import { errorMessage } from '@/lib/supabase';
@@ -41,6 +47,8 @@ export default function AccountRoute() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [pin, setPin] = useState('');
+  const [studentCode, setStudentCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -205,7 +213,8 @@ export default function AccountRoute() {
         <View style={styles.header}>
           <ThemedText type="subtitle">My account</ThemedText>
           <ThemedText themeColor="textSecondary">
-            {account.student.displayName} · {account.email}
+            {account.student.displayName}
+            {account.email && !usesPin(account.email) ? ` · ${account.email}` : ''}
           </ThemedText>
         </View>
 
@@ -216,6 +225,7 @@ export default function AccountRoute() {
           <ThemedText style={[styles.codeValue, { color: theme.onHero }]}>{account.student.studentCode}</ThemedText>
           <ThemedText type="small" style={[styles.centered, { color: theme.onHeroMuted }]}>
             Show this to your teacher. They will add you to your course.
+            {usesPin(account.email) ? ' Use it with your PIN to sign in on other devices.' : ''}
           </ThemedText>
         </View>
 
@@ -258,6 +268,139 @@ export default function AccountRoute() {
             })}
           />
           {messages}
+          {back}
+        </View>
+      </Screen>
+    );
+  }
+
+  // ---- Prototype: student code + PIN, no email -----------------------------
+  const pinInputProps = {
+    keyboardType: 'number-pad' as const,
+    inputMode: 'numeric' as const,
+    secureTextEntry: true,
+    maxLength: PIN_LENGTH,
+    style: [inputStyle, styles.pinInput],
+  };
+
+  if (!EMAIL_SIGN_IN && step.kind === 'sign-in') {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <ThemedText type="subtitle">Sign in</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Use the student code and PIN you chose when you saved your account.
+          </ThemedText>
+        </View>
+        <View style={styles.section}>
+          <ThemedText type="smallBold">Student code</ThemedText>
+          <TextInput
+            value={studentCode}
+            onChangeText={(text) => setStudentCode(text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, STUDENT_CODE_LENGTH))}
+            accessibilityLabel="Student code"
+            placeholder="For example K7Q2MX"
+            placeholderTextColor={theme.textSecondary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            style={[inputStyle, styles.studentCodeInput]}
+          />
+          <ThemedText type="smallBold">PIN</ThemedText>
+          <TextInput
+            value={pin}
+            onChangeText={(text) => setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH))}
+            accessibilityLabel="PIN"
+            {...pinInputProps}
+          />
+          <Button
+            label={busy ? 'Signing in…' : 'Sign in'}
+            disabled={busy || studentCode.length !== STUDENT_CODE_LENGTH || pin.length !== PIN_LENGTH}
+            onPress={() =>
+              run(async () => {
+                await signInWithPin(studentCode, pin);
+                setPin('');
+                setStep({ kind: 'save' });
+                await refresh();
+                if (params.next === 'ielts') router.replace('/ielts');
+              })
+            }
+          />
+          <Button label="I don't have a saved account yet" variant="secondary" onPress={() => setStep({ kind: 'save' })} />
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+            Forgot your PIN? Ask your teacher.
+          </ThemedText>
+          {messages}
+        </View>
+        {back}
+      </Screen>
+    );
+  }
+
+  if (!EMAIL_SIGN_IN) {
+    return (
+      <Screen>
+        <View style={styles.header}>
+          <ThemedText type="smallBold" style={{ color: theme.accent }}>
+            IELTS · CAMBRIDGE B2 FIRST
+          </ThemedText>
+          <ThemedText type="subtitle">Save my account</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Save your account so your essays, bands and progress stay with you on any phone, tablet or
+            computer.
+          </ThemedText>
+        </View>
+
+        <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedText type="small">✓ Everything you have done as a guest is kept.</ThemedText>
+          <ThemedText type="small">
+            ✓ No email needed. You get a student code, and you choose a {PIN_LENGTH}-number PIN.
+          </ThemedText>
+          <ThemedText type="small">
+            ✓ Sign in on any device with your student code and PIN.
+          </ThemedText>
+        </ThemedView>
+
+        <View style={styles.section}>
+          <ThemedText type="smallBold">Your name</ThemedText>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            accessibilityLabel="Your name"
+            placeholder="The name your teacher knows you by"
+            placeholderTextColor={theme.textSecondary}
+            maxLength={80}
+            autoComplete="name"
+            style={inputStyle}
+          />
+          <ThemedText type="smallBold">Choose a {PIN_LENGTH}-number PIN</ThemedText>
+          <TextInput
+            value={pin}
+            onChangeText={(text) => setPin(text.replace(/\D/g, '').slice(0, PIN_LENGTH))}
+            accessibilityLabel={`Choose a ${PIN_LENGTH}-number PIN`}
+            {...pinInputProps}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Write your PIN down. You need it to sign in on another device.
+          </ThemedText>
+          <Button
+            label={busy ? 'Saving…' : 'Save my account'}
+            disabled={busy || !name.trim() || pin.length !== PIN_LENGTH}
+            onPress={() =>
+              run(async () => {
+                await saveWithPin(name, pin);
+                setPin('');
+                await refresh();
+                if (params.next === 'ielts') router.replace('/ielts');
+              })
+            }
+          />
+          {messages}
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+            Already saved on another device?
+          </ThemedText>
+          <Button label="Sign in with my code and PIN" variant="secondary" onPress={() => setStep({ kind: 'sign-in' })} />
           {back}
         </View>
       </Screen>
@@ -385,6 +528,18 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     borderWidth: 1,
     fontSize: 16,
+  },
+  pinInput: {
+    minHeight: 56,
+    fontSize: 24,
+    fontWeight: 700,
+    letterSpacing: 12,
+    textAlign: 'center',
+  },
+  studentCodeInput: {
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: 4,
   },
   codeInput: {
     minHeight: 60,
