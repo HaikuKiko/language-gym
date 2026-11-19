@@ -12,7 +12,7 @@ import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
 import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import {
-  questionForGroup,
+  questionForRound,
   removeParticipant,
   type LiveParticipant,
   type LiveSession,
@@ -85,7 +85,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   }
 
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
-  const question = questionForGroup(session, questions, level, groupIndex, groups.length);
+  const question = questionForRound(session, questions, level);
   const plan = findWeek(weeks, level, session.week);
 
   return (
