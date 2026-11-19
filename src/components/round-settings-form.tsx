@@ -32,7 +32,8 @@ export function RoundSettingsForm({
 }: RoundSettingsFormProps) {
   const { level, week, roundMinutes, roundCount, roundRobin, autoAdvance } = settings;
   const questions = useQuestions();
-  const plan = findWeek(useWeeks(), level, week);
+  const weeks = useWeeks();
+  const plan = findWeek(weeks, level, week);
   const available = findQuestions(questions, level, week).length;
   const ownQuestions = week === null ? 0 : countForWeek(questions, level, week);
   const uniqueRounds = uniqueRoundCount(studentCount);
@@ -59,18 +60,18 @@ export function RoundSettingsForm({
       </View>
 
       <View style={styles.section}>
-        <ThemedText type="smallBold">Week</ThemedText>
+        <ThemedText type="smallBold">Theme</ThemedText>
         <View style={styles.chips}>
           {Array.from({ length: WEEKS_PER_LEVEL }, (_, i) => i + 1).map((n) => (
             <Chip
               key={n}
-              label={String(n)}
-              accessibilityLabel={`Week ${n}`}
+              label={findWeek(weeks, level, n)?.topic ?? `Week ${n}`}
+              accessibilityLabel={`Week ${n}: ${findWeek(weeks, level, n)?.topic ?? ''}`}
               selected={n === week}
               onPress={() => onChange({ week: n })}
             />
           ))}
-          <Chip label="Any" selected={week === null} onPress={() => onChange({ week: null })} />
+          <Chip label="Any theme" selected={week === null} onPress={() => onChange({ week: null })} />
         </View>
         <ThemedView type="backgroundElement" style={styles.plan}>
           {week === null ? (

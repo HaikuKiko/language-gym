@@ -141,14 +141,14 @@ export default function WriteRoute() {
       </View>
 
       <View style={styles.section}>
-        <ThemedText type="smallBold">Week (optional)</ThemedText>
+        <ThemedText type="smallBold">Theme (optional)</ThemedText>
         <View style={styles.chips}>
           <Chip label="None" selected={week === null} onPress={() => setWeek(null)} />
           {Array.from({ length: WEEKS_PER_LEVEL }, (_, i) => i + 1).map((n) => (
             <Chip
               key={n}
-              label={String(n)}
-              accessibilityLabel={`Week ${n}`}
+              label={findWeek(weeks, level, n)?.topic ?? `Week ${n}`}
+              accessibilityLabel={`Week ${n}: ${findWeek(weeks, level, n)?.topic ?? ''}`}
               selected={n === week}
               onPress={() => setWeek(n)}
             />
