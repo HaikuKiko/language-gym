@@ -29,10 +29,10 @@ export type SessionSettings = RoundSettings & {
 export const DEFAULT_ROUND_SETTINGS: RoundSettings = {
   level: 'B1',
   week: 1,
-  roundMinutes: 3,
+  roundMinutes: 2,
   roundCount: 3,
   roundRobin: true,
-  autoAdvance: false,
+  autoAdvance: true,
 };
 
 /** Time given at the start of each automatic round to find a partner. */

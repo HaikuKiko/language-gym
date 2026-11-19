@@ -35,8 +35,22 @@ async function loadQuestions(): Promise<Question[] | null> {
   if (!supabase) return null;
 
   // A fixed order, so every phone shuffles the same list the same way.
-  const read = (columns: string) =>
-    supabase!.from('questions').select(columns).eq('active', true).order('id');
+  // Supabase returns at most 1,000 rows per request, so read in pages.
+  const PAGE = 1000;
+  const read = async (columns: string) => {
+    const all: unknown[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase!
+        .from('questions')
+        .select(columns)
+        .eq('active', true)
+        .order('id')
+        .range(from, from + PAGE - 1);
+      if (error) return { data: null, error };
+      all.push(...(data ?? []));
+      if (!data || data.length < PAGE) return { data: all, error: null };
+    }
+  };
 
   let { data, error } = await read('level, topic, text, week');
   // A database set up before weeks were added has no "week" column.
