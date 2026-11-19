@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { JoinCourse } from '@/components/join-course';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -224,8 +225,9 @@ export default function AccountRoute() {
           </ThemedText>
           <ThemedText style={[styles.codeValue, { color: theme.onHero }]}>{account.student.studentCode}</ThemedText>
           <ThemedText type="small" style={[styles.centered, { color: theme.onHeroMuted }]}>
-            Show this to your teacher. They will add you to your course.
-            {usesPin(account.email) ? ' Use it with your PIN to sign in on other devices.' : ''}
+            {usesPin(account.email)
+              ? 'Keep this code safe. Use it with your PIN to sign in on other devices.'
+              : 'Keep this code safe. Your teacher can use it to find you.'}
           </ThemedText>
         </View>
 
@@ -235,29 +237,30 @@ export default function AccountRoute() {
             <ThemedText style={styles.courseName}>General English</ThemedText>
             <Pill label="Open to all" />
           </View>
-          {account.enrolments.map((e) => (
-            <View key={e.trackId} style={styles.courseRow}>
-              <ThemedText style={styles.courseName}>{e.trackName}</ThemedText>
-              <Pill label={e.target ? `Target ${e.target}` : 'Enrolled'} tone="accent" />
-            </View>
-          ))}
-          {account.enrolments.length === 0 && (
-            <ThemedText type="small" themeColor="textSecondary">
-              Doing IELTS or Cambridge B2 First? Show your teacher your student code.
-            </ThemedText>
-          )}
+          {account.courses.map((course) => {
+            const enrolment = account.enrolments.find((e) => e.trackId === course.id);
+            return (
+              <View key={course.id} style={styles.course}>
+                <View style={styles.courseRow}>
+                  <ThemedText style={styles.courseName}>{course.name}</ThemedText>
+                  {enrolment ? (
+                    <Pill label={enrolment.target ? `Target ${enrolment.target}` : 'Joined'} tone="accent" />
+                  ) : !course.active ? (
+                    <Pill label="Coming soon" />
+                  ) : null}
+                </View>
+                {!enrolment && course.active && (
+                  <JoinCourse trackId={course.id} trackName={course.name} onJoined={refresh} />
+                )}
+              </View>
+            );
+          })}
         </ThemedView>
 
         <View style={styles.section}>
           {account.enrolments.some((e) => e.trackId === 'ielts') && (
             <Button label="IELTS writing" onPress={() => router.push('/ielts')} />
           )}
-          <Button
-            label="Check for new courses"
-            variant="secondary"
-            disabled={busy}
-            onPress={() => run(refresh)}
-          />
           <Button
             label="Sign out"
             variant="secondary"
@@ -562,6 +565,9 @@ const styles = StyleSheet.create({
     lineHeight: 52,
     fontWeight: 800,
     letterSpacing: 6,
+  },
+  course: {
+    gap: Spacing.two,
   },
   courseRow: {
     flexDirection: 'row',

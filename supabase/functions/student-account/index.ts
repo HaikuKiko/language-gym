@@ -2,8 +2,11 @@
  * student-account: turns a guest into a saved student without email (the
  * prototype's "student code + PIN" sign-in).
  *
- * POST { name, pin }   (pin is 4 digits; the caller must be a guest)
- *   -> 200 { student_code, login_email }
+ * Save:  POST { name, pin }   (pin is 4 digits; the caller must be a guest)
+ *        -> 200 { student_code, login_email }
+ * Join:  POST { action: "join", track, target? }   (a saved student joins a
+ *        course themselves; target is a band like "6.5" for IELTS)
+ *        -> 200 { track, target }
  *
  * It creates the student record (which gives the student code), then gives
  * the same user a made-up login email built from that code and a password
@@ -59,6 +62,8 @@ Deno.serve(async (request) => {
   } catch {
     return fail(400, "bad_request", "The request was not valid JSON.");
   }
+  if (body.action === "join") return await join(user.id, user.is_anonymous === true, body);
+
   const name = typeof body.name === "string" ? body.name.trim().slice(0, 80) : "";
   const pin = typeof body.pin === "string" ? body.pin.trim() : "";
   if (!name) return fail(400, "bad_request", "Please type your name.");
@@ -106,3 +111,38 @@ Deno.serve(async (request) => {
 
   return reply(200, { student_code: code, login_email: email });
 });
+
+// ---- Joining a course -------------------------------------------------------
+
+/** Courses students can join themselves while the app is a prototype. */
+const SELF_ENROL_TRACKS = ["ielts", "b2_first"];
+
+async function join(userId: string, isGuest: boolean, body: Record<string, unknown>): Promise<Response> {
+  if (isGuest) return fail(403, "guest", "Save your account first.");
+  const track = typeof body.track === "string" ? body.track : "";
+  if (!SELF_ENROL_TRACKS.includes(track)) return fail(400, "bad_request", "You can't join that course here.");
+
+  let target: string | null = null;
+  if (body.target !== undefined && body.target !== null && body.target !== "") {
+    const value = Number.parseFloat(String(body.target));
+    const isBand = Number.isFinite(value) && value >= 1 && value <= 9 && value * 2 === Math.floor(value * 2);
+    if (track !== "ielts" || !isBand) return fail(400, "bad_request", "Choose a target band.");
+    target = value.toFixed(1);
+  }
+
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: trackRow } = await admin.from("tracks").select("active").eq("id", track).maybeSingle();
+  if (!trackRow?.active) return fail(400, "not_available", "This course is not open yet.");
+
+  const { data: student } = await admin.from("students").select("id").eq("id", userId).maybeSingle();
+  if (!student) return fail(403, "no_student", "Save your account first.");
+
+  const { error } = await admin
+    .from("enrolments")
+    .upsert({ user_id: userId, track_id: track, target }, { onConflict: "user_id,track_id" });
+  if (error) {
+    console.error("Could not join", error.message);
+    return fail(500, "server_error", "Could not join the course. Please try again.");
+  }
+  return reply(200, { track, target });
+}
