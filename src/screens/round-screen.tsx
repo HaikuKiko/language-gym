@@ -4,11 +4,11 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { GrammarCard } from '@/components/grammar-card';
 import { WeekFocus } from '@/components/week-focus';
 import { findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
+import { useTheme } from '@/hooks/use-theme';
 import { Spacing } from '@/constants/theme';
 import type { Question } from '@/data/questions';
 import { formatClock, useCountdown } from '@/hooks/use-countdown';
@@ -33,6 +33,7 @@ export function RoundScreen({
   onNext,
   onEnd,
 }: RoundScreenProps) {
+  const theme = useTheme();
   const auto = session.autoAdvance;
   const [stage, setStage] = useState<'changeover' | 'discussion'>(
     auto ? 'changeover' : 'discussion',
@@ -50,11 +51,11 @@ export function RoundScreen({
         <WeekFocus level={session.level} week={session.week} />
       </View>
 
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="small" themeColor="textSecondary">
-          Discuss
+      <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
+        <ThemedText type="smallBold" style={[styles.bigLabel, { color: theme.grammarLabel }]}>
+          EVERYONE&apos;S QUESTION
         </ThemedText>
-        <ThemedText style={styles.question}>{question.text}</ThemedText>
+        <ThemedText style={[styles.question, { color: theme.grammarText }]}>{question.text}</ThemedText>
         {session.questions.length > 1 && (
           <Button
             label="Different question"
@@ -63,9 +64,24 @@ export function RoundScreen({
             style={styles.changeQuestion}
           />
         )}
-      </ThemedView>
+      </View>
 
-      {plan && <GrammarCard week={plan} />}
+      <View style={styles.section}>
+        <ThemedText type="smallBold" style={styles.bigLabel}>
+          PARTNERS
+        </ThemedText>
+        <View style={styles.groups}>
+          {groups.map((group) => (
+            <View
+              key={group.map((p) => p.id).join('+')}
+              style={[styles.group, { backgroundColor: theme.hero }]}>
+              <ThemedText style={[styles.groupNames, { color: theme.onHero }]}>
+                {group.map((p) => p.name).join('  &  ')}
+              </ThemedText>
+            </View>
+          ))}
+        </View>
+      </View>
 
       {stage === 'changeover' ? (
         <TimerPanel
@@ -85,19 +101,7 @@ export function RoundScreen({
         />
       )}
 
-      <View style={styles.section}>
-        <ThemedText type="smallBold">Partners</ThemedText>
-        <View style={styles.groups}>
-          {groups.map((group) => (
-            <ThemedView
-              key={group.map((p) => p.id).join('+')}
-              type="backgroundElement"
-              style={styles.group}>
-              <ThemedText>{group.map((p) => p.name).join('  ·  ')}</ThemedText>
-            </ThemedView>
-          ))}
-        </View>
-      </View>
+      {plan && <GrammarCard week={plan} />}
 
       <View style={styles.section}>
         <Button label={lastRound ? 'Finish session' : 'Next round'} onPress={onNext} />
@@ -155,10 +159,19 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
+  bigLabel: {
+    letterSpacing: 1.5,
+  },
   question: {
-    fontSize: 26,
-    lineHeight: 34,
-    fontWeight: 600,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: 700,
+  },
+  groupNames: {
+    fontSize: 24,
+    lineHeight: 32,
+    fontWeight: 700,
+    textAlign: 'center',
   },
   changeQuestion: {
     alignSelf: 'flex-start',
@@ -188,6 +201,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
     flexGrow: 1,
-    flexBasis: 220,
+    flexBasis: 260,
+    justifyContent: 'center',
   },
 });

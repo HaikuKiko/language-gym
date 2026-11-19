@@ -3,12 +3,14 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { GrammarCard } from '@/components/grammar-card';
 import { RoundSettingsForm } from '@/components/round-settings-form';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { findQuestions } from '@/data/questions';
-import { useQuestions } from '@/hooks/use-questions';
+import { findWeek } from '@/data/weeks';
+import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import type { SessionSettings } from '@/lib/session';
 
@@ -27,6 +29,7 @@ export function SetupScreen({ settings, onChange, onStart, onBack }: SetupScreen
 
   const { participants } = settings;
   const questions = useQuestions();
+  const plan = findWeek(useWeeks(), settings.level, settings.week);
   const questionCount = findQuestions(questions, settings.level, settings.week).length;
 
   const problem =
@@ -98,6 +101,13 @@ export function SetupScreen({ settings, onChange, onStart, onBack }: SetupScreen
         studentCount={participants.length}
         onChange={(changes) => onChange({ ...settings, ...changes })}
       />
+
+      {plan && (plan.grammar || plan.help) ? (
+        <View style={styles.section}>
+          <ThemedText type="smallBold">Pre-teach before you start</ThemedText>
+          <GrammarCard week={plan} />
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Button label="Start session" disabled={problem !== null} onPress={onStart} />
