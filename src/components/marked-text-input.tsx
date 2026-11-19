@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
@@ -20,9 +20,11 @@ const MIN_HEIGHT = 220;
 /**
  * A multi-line writing box that underlines earlier mistakes with orange
  * squiggles, like a word processor, and highlights words guessed from a
- * photo in yellow. On the web a copy of the text sits
- * behind a transparent text box, with only the underlines visible, so the
- * lines move with the text as it is edited. Other platforms get a plain box.
+ * photo in yellow. On the web a copy of the text sits behind a transparent
+ * text box, with only the marks visible, so they move with the text as it is
+ * edited. The box grows to fit the text; if it does scroll, the copy scrolls
+ * with it, and nothing is drawn outside the box. Other platforms get a plain
+ * box.
  */
 export function MarkedTextInput({
   value,
@@ -33,43 +35,70 @@ export function MarkedTextInput({
 }: MarkedTextInputProps) {
   const theme = useTheme();
   const [height, setHeight] = useState(MIN_HEIGHT);
+  const [scrollY, setScrollY] = useState(0);
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const showMarks = Platform.OS === 'web' && (anchors.length > 0 || (guesses?.anchors.length ?? 0) > 0);
   const parts = showMarks
     ? markParts(value, anchors.length > 0 ? { anchors, length: originalLength } : null, guesses)
     : [];
 
+  // On the web, grow the box to fit the text whenever it changes, including
+  // text put in by a photo (which some browsers don't report as a size change).
+  useLayoutEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const el = inputRef.current as unknown as HTMLTextAreaElement | null;
+    if (!el || typeof el.scrollHeight !== 'number') return;
+    const previous = el.style.height;
+    el.style.height = '0px';
+    const needed = el.scrollHeight;
+    el.style.height = previous;
+    setHeight(Math.max(MIN_HEIGHT, Math.ceil(needed) + 2));
+  }, [value]);
+
   return (
     <View style={[styles.box, { backgroundColor: theme.backgroundElement, minHeight: height }]}>
       {showMarks && (
-        <Text
-          aria-hidden
-          pointerEvents="none"
-          style={[styles.text, styles.mirror, { color: 'transparent' }]}>
-          {parts.map((part, i) =>
-            part.kind === 'mistake' ? (
-              <Text key={i} style={[styles.squiggle, { textDecorationColor: theme.markA }]}>
-                {part.text}
-              </Text>
-            ) : part.kind === 'guess' ? (
-              <Text key={i} style={[styles.guess, { backgroundColor: theme.guessBg }]}>
-                {part.text}
-              </Text>
-            ) : (
-              part.text
-            ),
-          )}
-          {/* Keeps the last line's height the same as in the text box. */}
-          {'\n'}
-        </Text>
+        <View pointerEvents="none" style={styles.clip}>
+          <Text
+            aria-hidden
+            style={[
+              styles.text,
+              styles.mirror,
+              { color: 'transparent', transform: [{ translateY: -scrollY }] },
+            ]}>
+            {parts.map((part, i) =>
+              part.kind === 'mistake' ? (
+                <Text key={i} style={[styles.squiggle, { textDecorationColor: theme.markA }]}>
+                  {part.text}
+                </Text>
+              ) : part.kind === 'guess' ? (
+                <Text key={i} style={[styles.guess, { backgroundColor: theme.guessBg }]}>
+                  {part.text}
+                </Text>
+              ) : (
+                part.text
+              ),
+            )}
+            {/* Keeps the last line's height the same as in the text box. */}
+            {'\n'}
+          </Text>
+        </View>
       )}
       <TextInput
         {...inputProps}
+        ref={inputRef}
         value={value}
         multiline
         textAlignVertical="top"
         placeholderTextColor={theme.textSecondary}
         onContentSizeChange={(event) => {
-          setHeight(Math.max(MIN_HEIGHT, Math.ceil(event.nativeEvent.contentSize.height)));
+          setHeight((h) => Math.max(h, MIN_HEIGHT, Math.ceil(event.nativeEvent.contentSize.height)));
+        }}
+        onScroll={(event) => {
+          // Browsers report the raw scroll event, so read the position from the box.
+          const native = event.nativeEvent as { contentOffset?: { y: number } };
+          const target = event.currentTarget as unknown as { scrollTop?: number } | null;
+          setScrollY(native.contentOffset?.y ?? target?.scrollTop ?? 0);
         }}
         style={[styles.text, styles.input, { color: theme.text, height }]}
       />
@@ -81,6 +110,16 @@ const styles = StyleSheet.create({
   box: {
     borderRadius: Spacing.three,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  // Keeps the marks inside the box.
+  clip: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
   },
   // Shared by the text box and the copy behind it, so lines wrap the same way.
   text: {
