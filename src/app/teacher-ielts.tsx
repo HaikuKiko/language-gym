@@ -100,7 +100,11 @@ export default function TeacherIeltsRoute() {
         setQuestion(read.transcript);
       } else {
         setText(read.transcript);
-        setPhoto(read);
+        setPhoto(
+          read.fromCache
+            ? { ...read, note: `Same photo as last time, so we used the earlier reading (no wait). ${read.note}` }
+            : read,
+        );
         setGuesses({
           anchors: guessAnchorsFrom(read.transcript, read.guessedWords),
           length: read.transcript.length,
