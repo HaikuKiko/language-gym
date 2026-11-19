@@ -80,7 +80,45 @@ export type PhotoReading = {
   remainingToday: number;
   /** How many photos this person has had read today, including this one. */
   usedToday?: number;
+  /** True when the same photo was read before on this device and the earlier reading was reused. */
+  fromCache?: boolean;
 };
+
+// The last photo a teacher had read on this device, so uploading the same
+// photo again is instant and doesn't count again. Only one is kept.
+const LAST_PHOTO_KEY = 'language-gym:last-teacher-photo';
+
+async function photoKey(base64: string): Promise<string> {
+  try {
+    const subtle = globalThis.crypto?.subtle;
+    if (subtle) {
+      const digest = await subtle.digest('SHA-256', new TextEncoder().encode(base64));
+      return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch {
+    // Fall through to a simple hash.
+  }
+  let h = 2166136261;
+  for (let i = 0; i < base64.length; i++) h = Math.imul(h ^ base64.charCodeAt(i), 16777619);
+  return `${base64.length}-${(h >>> 0).toString(16)}`;
+}
+
+function loadLastPhoto(): { key: string; reading: PhotoReading } | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(LAST_PHOTO_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastPhoto(key: string, reading: PhotoReading) {
+  try {
+    globalThis.localStorage?.setItem(LAST_PHOTO_KEY, JSON.stringify({ key, reading }));
+  } catch {
+    // Storage full or blocked: just don't cache.
+  }
+}
 
 /** Marks Claude leaves where it could not read a word. */
 export const UNREADABLE_MARK = '[?]';
@@ -89,6 +127,12 @@ export async function readPhoto(
   image: { base64: string; mediaType: string },
   options: { teacher?: boolean } = {},
 ): Promise<PhotoReading> {
+  const key = options.teacher ? await photoKey(image.base64) : null;
+  if (key) {
+    const last = loadLastPhoto();
+    if (last && last.key === key) return { ...last.reading, usedToday: undefined, fromCache: true };
+  }
+
   const client = requireSupabase();
   await ensureSignedIn();
 
@@ -109,7 +153,7 @@ export async function readPhoto(
     throw new Error('We could not read the photo right now. Please try again later.');
   }
 
-  return {
+  const reading: PhotoReading = {
     transcript: data.transcript,
     legibility: data.legibility,
     containsWriting: data.contains_writing,
@@ -118,6 +162,8 @@ export async function readPhoto(
     remainingToday: data.remaining_today,
     usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
   };
+  if (key && reading.containsWriting) saveLastPhoto(key, reading);
+  return reading;
 }
 
 // ---------------------------------------------------------------------------
