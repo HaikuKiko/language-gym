@@ -22,7 +22,7 @@ import {
   formatCode,
   nextRound,
   pauseTimer,
-  questionForGroup,
+  questionForRound,
   remainingMs,
   removeParticipant,
   resetTimer,
@@ -154,7 +154,7 @@ export function LiveHostScreen({
               </Text>
             )}
           </View>
-          {link && <JoinQrCode url={link} />}
+          {link && <JoinQrCode url={link} code={formatCode(session.code)} />}
         </View>
 
         <ThemedView type="backgroundElement" style={styles.card}>
@@ -226,6 +226,7 @@ export function LiveHostScreen({
   const running = session.ends_at !== null && remaining > 0;
   const rosterIds = new Set(session.roster.map((p) => p.id));
   const waiting = participants.filter((p) => !rosterIds.has(p.id));
+  const question = questionForRound(session, questions, session.level);
 
   return (
     <Screen>
@@ -249,6 +250,15 @@ export function LiveHostScreen({
         </View>
       </View>
 
+      <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
+        <ThemedText type="smallBold" style={[styles.questionLabel, { color: theme.grammarLabel }]}>
+          EVERYONE&apos;S QUESTION
+        </ThemedText>
+        <ThemedText style={[styles.questionText, { color: theme.grammarText }]}>
+          {question ? question.text : 'There are no questions at this level yet.'}
+        </ThemedText>
+      </View>
+
       <ThemedView type="backgroundElement" style={[styles.card, styles.timerCard]}>
         <LiveTimer session={session} now={now} />
         <View style={styles.centeredRow}>
@@ -269,8 +279,7 @@ export function LiveHostScreen({
           <ThemedText type="smallBold">Partners</ThemedText>
         </View>
         <View style={styles.groups}>
-          {groups.map((group, index) => {
-            const question = questionForGroup(session, questions, session.level, index, groups.length);
+          {groups.map((group) => {
             return (
               <ThemedView
                 key={group.map((p) => p.id).join('+')}
@@ -294,7 +303,6 @@ export function LiveHostScreen({
                     {group.map((p) => p.name).join('  ·  ')}
                   </ThemedText>
                 </View>
-                {question && <ThemedText themeColor="textSecondary">{question.text}</ThemedText>}
               </ThemedView>
             );
           })}
@@ -321,6 +329,19 @@ export function LiveHostScreen({
 }
 
 const styles = StyleSheet.create({
+  questionCard: {
+    padding: Spacing.four,
+    borderRadius: Spacing.four,
+    gap: Spacing.two,
+  },
+  questionLabel: {
+    letterSpacing: 1.5,
+  },
+  questionText: {
+    fontSize: 26,
+    lineHeight: 34,
+    fontWeight: 700,
+  },
   section: {
     gap: Spacing.two,
   },

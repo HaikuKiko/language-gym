@@ -2,6 +2,8 @@
 
 Things agreed for later. Newest first.
 
+(Done: round robin phone sessions now give the whole class one question per round.)
+
 ## IELTS writing
 
 - **One question for the whole class.** Every student should be on the same

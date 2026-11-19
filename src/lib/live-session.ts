@@ -286,22 +286,20 @@ export function remainingMs(session: LiveSession, now: number): number {
 }
 
 /**
- * The question a group discusses this round at the given level. Every phone
- * works this out the same way, so partners see the
- * same question, and different groups get different questions.
+ * The question everyone discusses this round. Every phone works this out the
+ * same way, so the whole class is on the same question, with a new one each
+ * round.
  */
-export function questionForGroup(
+export function questionForRound(
   session: LiveSession,
   questions: readonly Question[],
   level: Level,
-  groupIndex: number,
-  groupCount: number,
 ): Question | null {
   const pool = findQuestions(questions, level, session.week);
   if (pool.length === 0) return null;
 
   const ordered = shuffle(pool, session.seed + LEVELS.indexOf(level));
-  return ordered[(session.round * groupCount + groupIndex) % ordered.length];
+  return ordered[session.round % ordered.length];
 }
 
 export function formatCode(code: string): string {
