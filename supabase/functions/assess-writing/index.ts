@@ -14,6 +14,9 @@
  *            -> 200 { feedback, remaining_today }
  * IELTS:     POST { track: "ielts", prompt_id, text }      (Writing Task 2)
  *            -> 200 { feedback, remaining_today }           (feedback.track is "ielts")
+ * Teacher:   POST { track: "ielts", teacher: true, question?, text }
+ *            Marks any Task 2 essay against any question (or works the
+ *            question out), with no enrolment; its own daily limit.
  * Photo:     POST { mode: "transcribe", image, media_type }   (image is base64)
  *            -> 200 { transcript, legibility, contains_writing, note, remaining_today }
  *
@@ -42,6 +45,11 @@ import { assessIeltsTask2, ESSAY_TYPES, type EssayType, parseTargetBand } from "
 
 /** IELTS essays can be longer than General English writing. */
 const IELTS_MAX_WORDS = 700;
+
+/** Teacher marking ("Mark an IELTS essay") has its own, larger daily limit. */
+const teacherLimitSetting = Number.parseInt((Deno.env.get("TEACHER_DAILY_LIMIT") ?? "30").trim(), 10);
+const teacherDailyLimit = Number.isFinite(teacherLimitSetting) && teacherLimitSetting > 0 ? teacherLimitSetting : 30;
+const TEACHER_TASK_TYPE = "task2_teacher";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -175,6 +183,10 @@ Deno.serve(async (request) => {
   // ---- Which course (track) --------------------------------------------------
   const track = body.track === undefined || body.track === null ? "general" : body.track;
   if (typeof track !== "string") return fail(400, "bad_request", "Unknown course.");
+
+  if (track === "ielts" && body.teacher === true) {
+    return await teacherIeltsFeedback(anthropic, admin, userId, body);
+  }
 
   if (track !== "general") {
     const { data: trackRow, error: trackError } = await admin
@@ -371,5 +383,67 @@ async function ieltsFeedback(
   return reply(200, {
     feedback: result.feedback,
     remaining_today: Math.max(0, dailyLimit - used - 1),
+  });
+}
+
+// ---- Teacher marking: any IELTS Task 2 essay, any question ------------------
+
+async function teacherIeltsFeedback(
+  anthropic: Anthropic,
+  admin: SupabaseClient,
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const text = typeof body.text === "string" ? body.text : "";
+  const question = typeof body.question === "string" ? body.question.trim().slice(0, 1500) : "";
+
+  const words = countWords(text);
+  if (words < MIN_WORDS) return fail(400, "too_short", `Please write at least ${MIN_WORDS} words.`);
+  if (words > IELTS_MAX_WORDS) {
+    return fail(400, "too_long", `Please write ${IELTS_MAX_WORDS} words or fewer.`);
+  }
+
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  const { count, error: countError } = await admin
+    .from("writing_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("task_type", TEACHER_TASK_TYPE)
+    .gte("created_at", since.toISOString());
+  if (countError) return fail(500, "server_error", "Something went wrong. Please try again.");
+  const used = count ?? 0;
+  if (used >= teacherDailyLimit) {
+    return fail(429, "daily_limit", `You have marked ${teacherDailyLimit} essays today. Try again tomorrow.`);
+  }
+
+  let result;
+  try {
+    result = await assessIeltsTask2(anthropic, { text, prompt: question, essayType: null, targetBand: null });
+  } catch (error) {
+    return claudeError(error);
+  }
+  if (!result.ok) {
+    console.error("Teacher IELTS assessment failed", result.reason, result.detail ?? "");
+    return fail(422, "no_feedback", "We couldn't finish the marking this time. Please try again.");
+  }
+
+  const { error: insertError } = await admin.from("writing_submissions").insert({
+    user_id: userId,
+    kind: "feedback",
+    track_id: "ielts",
+    task_type: TEACHER_TASK_TYPE,
+    level: "-",
+    word_count: words,
+    band: result.feedback.overall_band,
+    model: MODEL,
+    input_tokens: result.usage.input_tokens,
+    output_tokens: result.usage.output_tokens,
+  });
+  if (insertError) console.error("Could not record teacher marking", insertError.message);
+
+  return reply(200, {
+    feedback: result.feedback,
+    remaining_today: Math.max(0, teacherDailyLimit - used - 1),
   });
 }

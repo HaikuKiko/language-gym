@@ -134,6 +134,12 @@ export default function HomeRoute() {
       <View style={styles.section}>
         <ThemedText type="smallBold">Teachers</ThemedText>
         <Button
+          label="Mark an IELTS essay"
+          variant="secondary"
+          disabled={!configured}
+          onPress={() => router.push('/teacher-ielts')}
+        />
+        <Button
           label="Host a session"
           variant="secondary"
           disabled={!configured}

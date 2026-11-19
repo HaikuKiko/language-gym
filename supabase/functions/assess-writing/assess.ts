@@ -205,6 +205,8 @@ export const TranscriptSchema = z.object({
   transcript: z.string(),
   legibility: z.enum(["good", "partial", "poor"]),
   contains_writing: z.boolean(),
+  /** Words that were hard to read, given as best guesses in the transcript. */
+  guessed_words: z.array(z.string()),
   note: z.string(),
 });
 
@@ -216,11 +218,13 @@ Copy exactly what the student wrote. This is essential: keep every spelling, gra
 
 - Keep the student's paragraph breaks; join lines that are only wrapped because the page ran out of space.
 - Leave out words that are crossed out.
-- Write [?] for any word you cannot read. Do not guess.
+- When a word is hard to read, give your best guess from the letters you can see and the words around it, put that guess in the transcript, and also list it in guessed_words exactly as you wrote it. Only write [?] when you cannot make any sensible guess at all.
+- Guessing is only for handwriting you cannot read clearly. If a word is clear but wrongly spelt or used, copy it exactly as written and do not list it: the student's own mistakes must stay.
 - Copy only the student's writing, not printed instructions, page numbers or headings that are part of the worksheet.
-- legibility: "good" if you could read everything, "partial" if some words were unclear, "poor" if much of it was unreadable.
+- legibility: "good" if you could read everything, "partial" if some words were unclear or guessed, "poor" if much of it was unreadable.
+- guessed_words: every word you guessed, in the order they appear (empty if none).
 - contains_writing: false if the photo has no student writing in it; then leave transcript empty.
-- note: one short sentence for the student, for example "Two words were hard to read: please check the [?] marks." or "All clear." Use simple English.`;
+- note: one short sentence for the student, for example "Two words were hard to read, so we guessed them: please check." or "All clear." Use simple English.`;
 
 export async function transcribeImage(
   client: Anthropic,

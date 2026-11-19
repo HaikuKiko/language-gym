@@ -282,7 +282,10 @@ export type IeltsResult =
 function buildUserMessage(input: IeltsInput, wordCount: number, minWords: number): string {
   const lines = [
     "IELTS Writing Task 2.",
-    `Question: ${input.prompt.trim()}`,
+    `Question: ${
+      input.prompt.trim() ||
+      "(not given: work out the most likely Task 2 question from the essay, score Task Response against it, and say in task_check.position_comment what question you assumed)"
+    }`,
     `Essay type: ${input.essayType ? ESSAY_TYPE_NOTES[input.essayType] : "(not given: work it out from the question)"}`,
     `Word count: ${wordCount} (limit: at least ${minWords}${wordCount < minWords ? "; this essay is UNDER the limit" : ""})`,
     `Student's target band: ${input.targetBand ?? "(none given)"}`,
