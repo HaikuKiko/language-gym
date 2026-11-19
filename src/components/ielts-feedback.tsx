@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -18,6 +18,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CRITERION_SHORT, formatBand, type IeltsResponse } from '@/lib/ielts';
+import { ieltsReportHtml } from '@/lib/report-html';
 import { ieltsReport } from '@/lib/share-report';
 import { markCorrections } from '@/lib/writing';
 
@@ -28,6 +29,7 @@ export function IeltsFeedbackView({
   subtitle,
   onImprove,
   improveLabel = 'Improve this essay',
+  extra,
 }: {
   response: IeltsResponse;
   text: string;
@@ -35,6 +37,8 @@ export function IeltsFeedbackView({
   subtitle?: string;
   onImprove: () => void;
   improveLabel?: string;
+  /** Shown above the buttons, e.g. the teacher's own marks. */
+  extra?: ReactNode;
 }) {
   const theme = useTheme();
   const f = response.feedback;
@@ -153,11 +157,15 @@ export function IeltsFeedbackView({
       <CorrectionNotes marked={marked} />
       {f.paragraphing.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
+      {extra}
+
       <View style={styles.section}>
         <Button label={improveLabel} onPress={onImprove} />
         <ShareReportButton
           title="IELTS Writing feedback"
           report={() => ieltsReport(f, text, subtitle)}
+          html={() => ieltsReportHtml(f, text, subtitle)}
+          pdfName="ielts-feedback"
         />
         <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>

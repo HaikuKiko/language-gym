@@ -11,6 +11,7 @@ import { PhotoNote } from '@/components/photo-note';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ShareReportButton } from '@/components/share-report-button';
+import { writingReportHtml } from '@/lib/report-html';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -356,7 +357,12 @@ function FeedbackView({
 
       <View style={styles.section}>
         <Button label="Try again: fix it yourself" onPress={onEdit} />
-        <ShareReportButton title="Writing feedback" report={() => writingReport(f, text)} />
+        <ShareReportButton
+          title="Writing feedback"
+          report={() => writingReport(f, text)}
+          html={() => writingReportHtml(f, text)}
+          pdfName="writing-feedback"
+        />
         <Button label="Write something new" variant="secondary" onPress={onAgain} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           {response.remainingToday === 1
