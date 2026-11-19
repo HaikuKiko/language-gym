@@ -86,6 +86,18 @@ export default function HomeRoute() {
           disabled={!configured}
           onPress={() => router.push('/write')}
         />
+        <Button
+          label="IELTS writing"
+          variant="secondary"
+          disabled={!configured}
+          onPress={() => router.push('/ielts')}
+        />
+        <Button
+          label="My account"
+          variant="secondary"
+          disabled={!configured}
+          onPress={() => router.push('/account')}
+        />
       </View>
 
       <View style={styles.section}>

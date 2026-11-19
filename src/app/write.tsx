@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
@@ -326,86 +327,11 @@ function FeedbackView({
         </Section>
       )}
 
-      <Section title="Your writing">
-        <ThemedView type="backgroundElement" style={styles.studentText}>
-          <ThemedText style={styles.studentTextBody}>
-            {marked.segments.map((segment, i) =>
-              segment.paragraphMark ? (
-                <ThemedText
-                  key={i}
-                  accessibilityLabel="New paragraph here"
-                  style={[styles.paragraphMark, { color: theme.markA }]}>
-                  {'\n¶ '}
-                </ThemedText>
-              ) : segment.number === null ? (
-                segment.text
-              ) : (
-                <ThemedText key={i}>
-                  <ThemedText
-                    style={[
-                      styles.markedWords,
-                      { textDecorationColor: theme.markA },
-                    ]}>
-                    {segment.text}
-                  </ThemedText>
-                  <ThemedText style={[styles.markNumber, { color: theme.markA }]}>
-                    {` ${segment.number}`}
-                  </ThemedText>
-                </ThemedText>
-              ),
-            )}
-          </ThemedText>
-        </ThemedView>
-        {(marked.notes.length > 0 || marked.paragraphMarks > 0) && (
-          <ThemedText type="small" themeColor="textSecondary">
-            Your words stay as you wrote them.
-            {marked.notes.length > 0 ? ' The numbers show what to look at.' : ''}
-            {marked.paragraphMarks > 0 ? ' ¶ shows where a new paragraph can start.' : ''}
-          </ThemedText>
-        )}
-      </Section>
+      <MarkedWriting marked={marked} />
 
-      {marked.notes.length > 0 && (
-        <Section title="What to look at">
-          {marked.notes.map(({ number, correction }) => (
-            <ThemedView key={number} type="backgroundElement" style={styles.note}>
-              <View style={[styles.noteNumber, { backgroundColor: theme.markA }]}>
-                <ThemedText type="smallBold" style={styles.noteNumberText}>
-                  {number}
-                </ThemedText>
-              </View>
-              <View style={styles.noteBody}>
-                <ThemedText>
-                  <ThemedText themeColor="textSecondary">You wrote </ThemedText>
-                  <ThemedText style={[styles.noteWords, { color: theme.markA }]}>
-                    {correction.original}
-                  </ThemedText>
-                  <ThemedText themeColor="textSecondary"> → try </ThemedText>
-                  <ThemedText style={[styles.noteWords, { color: theme.markB }]}>
-                    {correction.corrected}
-                  </ThemedText>
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {correction.explanation}
-                </ThemedText>
-              </View>
-            </ThemedView>
-          ))}
-        </Section>
-      )}
+      <CorrectionNotes marked={marked} />
 
-      {f.paragraphing?.comment ? (
-        <Section title="Paragraphs">
-          <ThemedView type="backgroundElement" style={styles.note}>
-            <View style={[styles.noteNumber, { backgroundColor: theme.markA }]}>
-              <ThemedText type="smallBold" style={styles.noteNumberText}>
-                ¶
-              </ThemedText>
-            </View>
-            <ThemedText style={styles.noteBody}>{f.paragraphing.comment}</ThemedText>
-          </ThemedView>
-        </Section>
-      ) : null}
+      {f.paragraphing?.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
       {f.focus_grammar && (
         <View style={[styles.focus, { backgroundColor: theme.accentSoft }]}>
@@ -440,24 +366,6 @@ function FeedbackView({
         </ThemedText>
       </View>
     </Screen>
-  );
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <ThemedText type="smallBold">{title}</ThemedText>
-      {children}
-    </View>
-  );
-}
-
-function Bullet({ text }: { text: string }) {
-  return (
-    <View style={styles.bullet}>
-      <ThemedText themeColor="textSecondary">•</ThemedText>
-      <ThemedText style={styles.bulletText}>{text}</ThemedText>
-    </View>
   );
 }
 
@@ -525,50 +433,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
   },
-  studentText: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  studentTextBody: {
-    fontSize: 17,
-    lineHeight: 30,
-  },
-  markedWords: {
-    textDecorationLine: 'underline',
-    textDecorationStyle: 'wavy',
-  },
-  paragraphMark: {
-    fontSize: 17,
-    fontWeight: 800,
-  },
-  markNumber: {
-    fontSize: 12,
-    fontWeight: 700,
-  },
-  note: {
-    flexDirection: 'row',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  noteNumber: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteNumberText: {
-    color: '#ffffff',
-    lineHeight: 18,
-  },
-  noteBody: {
-    flexShrink: 1,
-    gap: Spacing.half,
-  },
-  noteWords: {
-    fontWeight: 700,
-  },
   focus: {
     padding: Spacing.four - 4,
     borderRadius: Spacing.four - 4,
@@ -596,12 +460,5 @@ const styles = StyleSheet.create({
   criterionName: {
     flexShrink: 1,
     minWidth: 0,
-  },
-  bullet: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  bulletText: {
-    flexShrink: 1,
   },
 });
