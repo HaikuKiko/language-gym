@@ -104,6 +104,46 @@ export async function fetchParticipants(sessionId: string): Promise<LiveParticip
 }
 
 /** Adds this device to the session, or renames it if it has already joined. */
+/**
+ * A session this device is still part of (as a student or the host) that has
+ * not finished and started in the last 12 hours, so the start page can offer
+ * a way back after a reload or a press of the back button. Null if none.
+ * Doesn't sign anyone in: a device with no identity yet has no session.
+ */
+export async function findMyOpenSession(): Promise<{ code: string; asHost: boolean } | null> {
+  const client = requireSupabase();
+  const { data } = await client.auth.getSession();
+  const userId = data.session?.user.id;
+  if (!userId) return null;
+  const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+
+  const [hosted, joined] = await Promise.all([
+    client
+      .from('sessions')
+      .select('code, created_at')
+      .eq('host_id', userId)
+      .neq('status', 'finished')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(1),
+    client
+      .from('participants')
+      .select('joined_at, sessions!inner(code, status, created_at)')
+      .eq('user_id', userId)
+      .neq('sessions.status', 'finished')
+      .gte('sessions.created_at', since)
+      .order('joined_at', { ascending: false })
+      .limit(1),
+  ]);
+
+  const host = hosted.data?.[0];
+  const student = joined.data?.[0] as { joined_at: string; sessions: { code: string } | { code: string }[] } | undefined;
+  const studentCode = student ? (Array.isArray(student.sessions) ? student.sessions[0]?.code : student.sessions.code) : undefined;
+  if (studentCode) return { code: studentCode, asHost: false };
+  if (host) return { code: host.code, asHost: true };
+  return null;
+}
+
 export async function joinSession(code: string, name: string): Promise<LiveSession> {
   const client = requireSupabase();
   const userId = await ensureSignedIn();
