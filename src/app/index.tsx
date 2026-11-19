@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
@@ -8,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CODE_LENGTH, joinSession } from '@/lib/live-session';
+import { CODE_LENGTH, findMyOpenSession, joinSession } from '@/lib/live-session';
 import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/lib/supabase';
 
 /** Start page: students join with a code, teachers host a session. */
@@ -19,8 +19,17 @@ export default function HomeRoute() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<{ code: string; asHost: boolean } | null>(null);
 
   const configured = supabase !== null;
+
+  // Still in a session (after a reload or the back button)? Offer the way back.
+  useEffect(() => {
+    if (!configured) return;
+    findMyOpenSession()
+      .then(setOpen)
+      .catch(() => setOpen(null));
+  }, [configured]);
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.background }];
 
   async function join() {
@@ -43,6 +52,21 @@ export default function HomeRoute() {
           Talk with a new partner every round, with a question to get you started.
         </ThemedText>
       </View>
+
+      {open && (
+        <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
+          <ThemedText type="smallBold">
+            {open.asHost ? 'Your session is still running' : "You're still in a session"}
+          </ThemedText>
+          <Button
+            label="Back to my session"
+            onPress={() => router.push({ pathname: '/session/[code]', params: { code: open.code } })}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Code {open.code}
+          </ThemedText>
+        </View>
+      )}
 
       <ThemedView type="backgroundElement" style={styles.card}>
         <ThemedText type="smallBold">Join a session</ThemedText>
