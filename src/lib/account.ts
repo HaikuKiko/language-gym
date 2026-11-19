@@ -9,6 +9,8 @@
  * -> "Allow manual linking" on; and the "Change email address" and "Magic
  * link" email templates must include {{ .Token }} (the 6-digit code).
  */
+import { FunctionsHttpError } from '@supabase/supabase-js';
+
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 
 export type Student = { id: string; displayName: string; studentCode: string };
@@ -25,6 +27,68 @@ export type Account = {
 };
 
 export const CODE_LENGTH = 6;
+
+/**
+ * Off while the app is a prototype: email codes need an email sender (SMTP)
+ * set up in Supabase. Until then students save their account with a name
+ * and a 4-digit PIN, and sign in with their student code and PIN. Turn this
+ * on (and do the Supabase setup above) to use email codes again.
+ */
+export const EMAIL_SIGN_IN = false;
+
+export const PIN_LENGTH = 4;
+export const STUDENT_CODE_LENGTH = 6;
+
+/** Must match the student-account edge function. */
+const PIN_LOGIN_DOMAIN = '@students.language-gym.invalid';
+function loginEmail(studentCode: string): string {
+  return `${studentCode.trim().toLowerCase()}${PIN_LOGIN_DOMAIN}`;
+}
+function pinPassword(studentCode: string, pin: string): string {
+  return `lg-${studentCode.trim().toUpperCase()}-${pin.trim()}`;
+}
+
+/** True for accounts saved with a code and PIN rather than a real email. */
+export function usesPin(email: string | null): boolean {
+  return !!email && email.endsWith(PIN_LOGIN_DOMAIN);
+}
+
+/** Saves a guest account with a name and PIN; returns the new student code. */
+export async function saveWithPin(name: string, pin: string): Promise<string> {
+  const client = requireSupabase();
+  await ensureSignedIn();
+  const { data, error } = await client.functions.invoke('student-account', {
+    body: { name: name.trim(), pin: pin.trim() },
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const details = await (error.context as Response).json().catch(() => null);
+      if (details && typeof details.message === 'string') throw new Error(details.message);
+    }
+    throw new Error('Could not save your account. Please try again.');
+  }
+  const code = data.student_code as string;
+  await signInWithPin(code, pin);
+  return code;
+}
+
+export async function signInWithPin(studentCode: string, pin: string): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client.auth.signInWithPassword({
+    email: loginEmail(studentCode),
+    password: pinPassword(studentCode, pin),
+  });
+  if (error) {
+    const m = error.message.toLowerCase();
+    throw new Error(
+      m.includes('invalid') || m.includes('credentials')
+        ? 'That student code or PIN is wrong. Check them and try again.'
+        : m.includes('rate') || m.includes('too many')
+          ? 'Too many tries. Please wait a few minutes.'
+          : error.message,
+    );
+  }
+}
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
