@@ -2,7 +2,7 @@
 
 Things agreed for later. Newest first.
 
-(Done: round robin phone sessions now give the whole class one question per round.)
+(Done: one question per round for the whole class; round robin button; bigger partner and question on phones; full grammar on the teacher's screen.)
 
 ## IELTS writing
 

@@ -30,7 +30,7 @@ export function RoundSettingsForm({
   studentCount = 0,
   levelHint,
 }: RoundSettingsFormProps) {
-  const { level, week, roundMinutes, roundCount, autoAdvance } = settings;
+  const { level, week, roundMinutes, roundCount, roundRobin, autoAdvance } = settings;
   const questions = useQuestions();
   const plan = findWeek(useWeeks(), level, week);
   const available = findQuestions(questions, level, week).length;
@@ -135,6 +135,27 @@ export function RoundSettingsForm({
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Number of rounds</ThemedText>
+        <View style={styles.chips}>
+          <Chip
+            label="Round robin"
+            selected={roundRobin}
+            onPress={() => onChange({ roundRobin: true })}
+          />
+          <Chip
+            label="Choose a number"
+            selected={!roundRobin}
+            onPress={() => onChange({ roundRobin: false })}
+          />
+        </View>
+        {roundRobin ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Everyone talks to everyone once.{' '}
+            {uniqueRounds > 0
+              ? `With ${studentCount} students that is ${uniqueRounds} ${uniqueRounds === 1 ? 'round' : 'rounds'}.`
+              : 'The number of rounds is set when you start: one less than the number of students (with an odd number, one group of three each round).'}
+          </ThemedText>
+        ) : (
+        <>
         <View style={styles.row}>
           <Button
             label="−"
@@ -160,6 +181,8 @@ export function RoundSettingsForm({
               ? `With ${studentCount} students, partners start repeating after round ${uniqueRounds}.`
               : `With ${studentCount} students, everyone gets a new partner for up to ${uniqueRounds} ${uniqueRounds === 1 ? 'round' : 'rounds'}.`}
           </ThemedText>
+        )}
+        </>
         )}
       </View>
     </>

@@ -4,7 +4,7 @@
  * Supabase. See supabase/schema.sql for the tables.
  */
 import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
-import type { Participant } from '@/lib/round-robin';
+import { uniqueRoundCount, type Participant } from '@/lib/round-robin';
 import { CHANGEOVER_SECONDS, shuffle, type RoundSettings } from '@/lib/session';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 
@@ -31,7 +31,21 @@ export type LiveSession = {
   /** Who is taking part in the current round. */
   roster: Participant[];
   seed: number;
+  /** Flags; "round-robin" means the rounds are set from the class size at the start. */
+  categories?: string[];
 };
+
+const ROUND_ROBIN = 'round-robin';
+
+/** True when the number of rounds is worked out from the class size at the start. */
+export function isRoundRobin(session: LiveSession): boolean {
+  return session.categories?.includes(ROUND_ROBIN) ?? false;
+}
+
+/** Rounds needed for everyone to talk to everyone once (at least 1). */
+export function roundRobinRounds(studentCount: number): number {
+  return Math.max(1, uniqueRoundCount(studentCount));
+}
 
 export type LiveParticipant = {
   id: string;
@@ -53,8 +67,8 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
 
   const base = {
     level: settings.level,
-    // Older column, kept so the insert works on any version of the database.
-    categories: [],
+    // An older column, now used for flags (see isRoundRobin).
+    categories: settings.roundRobin ? [ROUND_ROBIN] : [],
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
     auto_advance: settings.autoAdvance,
@@ -233,7 +247,13 @@ export function startSession(
   participants: LiveParticipant[],
   now: number,
 ): SessionChanges {
-  return { status: 'playing', round: 0, roster: rosterFrom(participants), ...roundStart(session, now) };
+  return {
+    status: 'playing',
+    round: 0,
+    roster: rosterFrom(participants),
+    ...(isRoundRobin(session) ? { round_count: roundRobinRounds(participants.length) } : {}),
+    ...roundStart(session, now),
+  };
 }
 
 /** Moves to the next round, or finishes the session after the last one. */

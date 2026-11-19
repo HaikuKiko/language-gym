@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/button';
 import { Avatar } from '@/components/avatar';
 import { ExternalLink } from '@/components/external-link';
+import { GrammarCard } from '@/components/grammar-card';
 import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
 import { LiveTimer } from '@/components/live-timer';
 import { Pill } from '@/components/pill';
@@ -14,12 +15,15 @@ import { ThemedView } from '@/components/themed-view';
 import { WeekFocus } from '@/components/week-focus';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
-import { useQuestions } from '@/hooks/use-questions';
+import { findWeek } from '@/data/weeks';
+import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   beginDiscussion,
   endSession,
   formatCode,
+  isRoundRobin,
+  roundRobinRounds,
   nextRound,
   pauseTimer,
   questionForRound,
@@ -52,6 +56,7 @@ export function LiveHostScreen({
 }: LiveHostScreenProps) {
   const now = useNow();
   const questions = useQuestions();
+  const plan = findWeek(useWeeks(), session.level, session.week);
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
 
@@ -195,12 +200,32 @@ export function LiveHostScreen({
         <View style={styles.pills}>
           <Pill label={`Level ${session.level}`} />
           {session.week != null && <Pill label={`Week ${session.week}`} />}
-          <Pill
-            label={`${session.round_count} ${session.round_count === 1 ? 'round' : 'rounds'}`}
-          />
+          {isRoundRobin(session) ? (
+            <Pill
+              label={
+                participants.length >= 2
+                  ? `Round robin: ${roundRobinRounds(participants.length)} rounds`
+                  : 'Round robin'
+              }
+            />
+          ) : (
+            <Pill
+              label={`${session.round_count} ${session.round_count === 1 ? 'round' : 'rounds'}`}
+            />
+          )}
           <Pill label={`${session.round_minutes} min each`} />
           <Pill label={session.auto_advance ? 'Automatic timer' : 'Manual timer'} />
         </View>
+
+        {plan && (plan.grammar || plan.help) ? (
+          <View style={styles.section}>
+            <ThemedText type="smallBold">Pre-teach before you start</ThemedText>
+            <GrammarCard week={plan} />
+            <ThemedText type="small" themeColor="textSecondary">
+              Students see a short version of this on their phones, with sentence starters.
+            </ThemedText>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Button
@@ -313,6 +338,8 @@ export function LiveHostScreen({
           </ThemedText>
         )}
       </View>
+
+      {plan ? <GrammarCard week={plan} /> : null}
 
       <View style={styles.section}>
         <Button
