@@ -12,11 +12,13 @@ import {
   ParagraphNote,
 } from '@/components/feedback-parts';
 import { Screen } from '@/components/screen';
+import { ShareReportButton } from '@/components/share-report-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CRITERION_SHORT, formatBand, type IeltsResponse } from '@/lib/ielts';
+import { ieltsReport } from '@/lib/share-report';
 import { markCorrections } from '@/lib/writing';
 
 /** IELTS Task 2 band scores and feedback, for students and for teacher marking. */
@@ -153,6 +155,10 @@ export function IeltsFeedbackView({
 
       <View style={styles.section}>
         <Button label={improveLabel} onPress={onImprove} />
+        <ShareReportButton
+          title="IELTS Writing feedback"
+          report={() => ieltsReport(f, text, subtitle)}
+        />
         <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           AI band scores are a guide, not an official IELTS result.{' '}

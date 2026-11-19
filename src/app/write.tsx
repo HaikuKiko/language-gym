@@ -10,6 +10,7 @@ import { MarkedTextInput } from '@/components/marked-text-input';
 import { PhotoNote } from '@/components/photo-note';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
+import { ShareReportButton } from '@/components/share-report-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -18,6 +19,7 @@ import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import { pickPhoto } from '@/lib/photo';
+import { writingReport } from '@/lib/share-report';
 import { errorMessage, supabase } from '@/lib/supabase';
 import {
   MAX_WORDS,
@@ -354,6 +356,7 @@ function FeedbackView({
 
       <View style={styles.section}>
         <Button label="Try again: fix it yourself" onPress={onEdit} />
+        <ShareReportButton title="Writing feedback" report={() => writingReport(f, text)} />
         <Button label="Write something new" variant="secondary" onPress={onAgain} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           {response.remainingToday === 1
