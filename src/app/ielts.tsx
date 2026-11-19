@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { JoinCourse } from '@/components/join-course';
 import {
   Bullet,
   CorrectionNotes,
@@ -130,7 +131,7 @@ export default function IeltsRoute() {
               ? 'IELTS is for saved accounts, so your essays and bands stay with you on every device. It only takes a minute.'
               : !account.student
                 ? 'Add your name to your account first.'
-                : `You're not on the IELTS course yet. Show your teacher your student code: ${account.student.studentCode}.`}
+                : "Join the IELTS course to start. Choose your target band: you can change it later."}
           </ThemedText>
         </View>
         {account.isGuest || !account.student ? (
@@ -139,7 +140,7 @@ export default function IeltsRoute() {
             onPress={() => router.push({ pathname: '/account', params: { next: 'ielts' } })}
           />
         ) : (
-          <Button label="Check again" onPress={load} />
+          <JoinCourse trackId="ielts" trackName="IELTS" onJoined={load} />
         )}
         {back}
       </Screen>

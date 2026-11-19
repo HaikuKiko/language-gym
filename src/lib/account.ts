@@ -15,6 +15,8 @@ import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 
 export type Student = { id: string; displayName: string; studentCode: string };
 export type Enrolment = { trackId: string; trackName: string; target: string | null };
+/** A course other than General English, open to join or coming soon. */
+export type Course = { id: string; name: string; active: boolean };
 
 export type Account = {
   userId: string;
@@ -24,6 +26,8 @@ export type Account = {
   /** Null for guests, and for saved accounts that have not given a name yet. */
   student: Student | null;
   enrolments: Enrolment[];
+  /** IELTS, B2 First and any later courses (General English is open to all). */
+  courses: Course[];
 };
 
 export const CODE_LENGTH = 6;
@@ -122,6 +126,14 @@ export async function loadAccount(): Promise<Account> {
 
   let student: Student | null = null;
   let enrolments: Enrolment[] = [];
+  const { data: trackRows } = await client
+    .from('tracks')
+    .select('id, name, active')
+    .order('active', { ascending: false })
+    .order('id');
+  const courses: Course[] = (trackRows ?? [])
+    .filter((t) => t.id !== 'general')
+    .map((t) => ({ id: t.id, name: t.name, active: t.active }));
   if (!isGuest) {
     const [studentResult, enrolmentResult] = await Promise.all([
       client.from('students').select('id, display_name, student_code').eq('id', user.id).maybeSingle(),
@@ -141,7 +153,7 @@ export async function loadAccount(): Promise<Account> {
     });
   }
 
-  return { userId: user.id, isGuest, email: user.email ?? null, student, enrolments };
+  return { userId: user.id, isGuest, email: user.email ?? null, student, enrolments, courses };
 }
 
 /** Step 1 of saving a guest account: emails a code to confirm the address. */
@@ -203,6 +215,21 @@ export async function saveName(name: string): Promise<void> {
     ? await client.from('students').update({ display_name: displayName }).eq('id', data.user.id)
     : await client.from('students').insert({ display_name: displayName });
   if (error) throw new Error('Could not save your name. Please try again.');
+}
+
+/** A saved student joins a course themselves (prototype: no teacher needed). */
+export async function joinCourse(trackId: string, target: string | null): Promise<void> {
+  const client = requireSupabase();
+  const { error } = await client.functions.invoke('student-account', {
+    body: { action: 'join', track: trackId, target },
+  });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const details = await (error.context as Response).json().catch(() => null);
+      if (details && typeof details.message === 'string') throw new Error(details.message);
+    }
+    throw new Error('Could not join the course. Please try again.');
+  }
 }
 
 /** Signs out of the saved account; the device becomes a new guest. */
