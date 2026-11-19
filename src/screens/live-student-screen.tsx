@@ -1,16 +1,16 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { GrammarCard } from '@/components/grammar-card';
+import { GrammarHint } from '@/components/grammar-card';
 import { LiveTimer } from '@/components/live-timer';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
 import { useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useTheme } from '@/hooks/use-theme';
 import {
   questionForRound,
   removeParticipant,
@@ -29,6 +29,7 @@ type LiveStudentScreenProps = {
 /** What a student sees on their own phone. */
 export function LiveStudentScreen({ session, participants, me }: LiveStudentScreenProps) {
   const now = useNow();
+  const theme = useTheme();
   const questions = useQuestions();
   const weeks = useWeeks();
   // The teacher sets one level for everyone.
@@ -90,29 +91,31 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <ThemedText type="small" themeColor="textSecondary">
-          {roundTitle} · {partners.length === 1 ? 'Your partner' : 'Your partners'}
-        </ThemedText>
-        <ThemedText type="subtitle">
+      <ThemedText type="smallBold" themeColor="textSecondary" style={styles.centered}>
+        {roundTitle}
+      </ThemedText>
+
+      <View style={[styles.partnerCard, { backgroundColor: theme.hero }]}>
+        <Text style={[styles.bigLabel, { color: theme.onHeroMuted }]}>
+          {partners.length > 1 ? 'TALK WITH YOUR PARTNERS' : 'TALK WITH YOUR PARTNER'}
+        </Text>
+        <Text style={[styles.partnerName, { color: theme.onHero }]}>
           {partners.length > 0 ? partners.map((p) => p.name).join(' & ') : 'No partner this round'}
-        </ThemedText>
+        </Text>
+      </View>
+
+      <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
+        <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>THE QUESTION</Text>
+        <Text style={[styles.questionText, { color: theme.grammarText }]}>
+          {question ? question.text : 'There are no questions at this level yet.'}
+        </Text>
       </View>
 
       <LiveTimer session={session} now={now} compact />
 
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.label}>
-          DISCUSS
-        </ThemedText>
-        <ThemedText style={styles.question}>
-          {question ? question.text : 'There are no questions at this level yet.'}
-        </ThemedText>
-      </ThemedView>
+      {plan && <GrammarHint week={plan} />}
 
-      {plan && <GrammarCard week={plan} />}
-
-      <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
+      <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
         {level}
         {session.week != null ? ` · Week ${session.week}` : ''}
         {plan ? `: ${plan.topic}` : ''}
@@ -129,20 +132,37 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.five,
   },
-  card: {
+  centered: {
+    textAlign: 'center',
+  },
+  partnerCard: {
+    paddingVertical: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Spacing.four,
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  questionCard: {
     padding: Spacing.four,
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
-  label: {
-    letterSpacing: 1,
+  bigLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 800,
+    letterSpacing: 1.5,
   },
-  footer: {
+  partnerName: {
+    fontSize: 40,
+    lineHeight: 48,
+    fontWeight: 800,
     textAlign: 'center',
   },
-  question: {
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: 600,
+  questionText: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: 700,
   },
+
 });

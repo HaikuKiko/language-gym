@@ -9,6 +9,12 @@ export type RoundSettings = {
   roundMinutes: number;
   roundCount: number;
   /**
+   * Round robin: everyone talks to everyone once. The number of rounds is
+   * worked out from the number of students when the session starts, and
+   * roundCount is ignored.
+   */
+  roundRobin: boolean;
+  /**
    * When true the whole session runs on its own: each round starts after a
    * short changeover and moves on when its time is up.
    */
@@ -25,6 +31,7 @@ export const DEFAULT_ROUND_SETTINGS: RoundSettings = {
   week: 1,
   roundMinutes: 3,
   roundCount: 3,
+  roundRobin: true,
   autoAdvance: false,
 };
 

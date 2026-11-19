@@ -1,5 +1,5 @@
-import { Fragment } from 'react';
-import { StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { Fragment, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type TextStyle } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import type { Week } from '@/data/weeks';
@@ -29,7 +29,7 @@ export function parseMarks(source: string): Segment[] {
 }
 
 /** A line of text with its [..] and {..} parts in bold, in two colours. */
-function MarkedText({ source, style }: { source: string; style: TextStyle | TextStyle[] }) {
+export function MarkedText({ source, style }: { source: string; style: TextStyle | TextStyle[] }) {
   const theme = useTheme();
   return (
     <Text style={style}>
@@ -53,7 +53,7 @@ function MarkedText({ source, style }: { source: string; style: TextStyle | Text
 }
 
 /** The pattern as coloured blocks, e.g. [If + past simple] , [would + verb]. */
-function Pattern({ source }: { source: string }) {
+export function Pattern({ source }: { source: string }) {
   const theme = useTheme();
   return (
     <View style={[styles.pattern, { backgroundColor: theme.background }]}>
@@ -137,6 +137,36 @@ export function GrammarCard({ week }: { week: Week }) {
 }
 
 const styles = StyleSheet.create({
+  hint: {
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
+  },
+  hintHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    minHeight: 44,
+  },
+  hintTitle: {
+    flexShrink: 1,
+    gap: Spacing.half,
+  },
+  hintGrammar: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: 600,
+  },
+  hintToggle: {
+    flexShrink: 0,
+    fontSize: 15,
+    fontWeight: 700,
+  },
+  hintBody: {
+    gap: Spacing.two,
+  },
   card: {
     padding: Spacing.four - 4,
     borderRadius: Spacing.four - 4,
@@ -215,3 +245,45 @@ const styles = StyleSheet.create({
     fontWeight: 600,
   },
 });
+
+/**
+ * The short version for students' phones: the grammar point in one line, and
+ * a tap to see the pattern and a sentence starter. The full card (use,
+ * examples, "also this week") is for the teacher's screen.
+ */
+export function GrammarHint({ week }: { week: Week }) {
+  const theme = useTheme();
+  const [open, setOpen] = useState(false);
+  const help = week.help;
+  if (!week.grammar && !help) return null;
+  const hasMore = !!(help?.pattern || help?.starter || help?.examples.length);
+
+  return (
+    <View style={[styles.hint, { backgroundColor: theme.accentSoft }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        disabled={!hasMore}
+        onPress={() => setOpen(!open)}
+        style={styles.hintHeader}>
+        <View style={styles.hintTitle}>
+          <Text style={[styles.label, { color: theme.grammarLabel }]}>TRY TO USE</Text>
+          <Text style={[styles.hintGrammar, { color: theme.grammarText }]}>{week.grammar}</Text>
+        </View>
+        {hasMore ? (
+          <Text style={[styles.hintToggle, { color: theme.grammarLabel }]}>{open ? 'Hide ▴' : 'Help ▾'}</Text>
+        ) : null}
+      </Pressable>
+      {open && help ? (
+        <View style={styles.hintBody}>
+          {help.pattern ? <Pattern source={help.pattern} /> : null}
+          {help.starter ? (
+            <MarkedText source={`“${help.starter}”`} style={[styles.starterText, { color: theme.grammarText }]} />
+          ) : help.examples[0] ? (
+            <MarkedText source={help.examples[0]} style={[styles.exampleText, { color: theme.grammarText }]} />
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}

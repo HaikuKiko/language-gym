@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { findQuestions } from '@/data/questions';
+import { uniqueRoundCount } from '@/lib/round-robin';
 import { useQuestions } from '@/hooks/use-questions';
 import {
   DEFAULT_ROUND_SETTINGS,
@@ -36,6 +37,9 @@ export default function SingleScreenSession() {
             name: 'playing',
             session: {
               ...settings,
+              ...(settings.roundRobin
+                ? { roundCount: Math.max(1, uniqueRoundCount(settings.participants.length)) }
+                : {}),
               questions: shuffle(findQuestions(questions, settings.level, settings.week)),
             },
             round: 0,
