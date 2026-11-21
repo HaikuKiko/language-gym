@@ -6,6 +6,10 @@ Things agreed for later. Newest first.
 
 ## IELTS writing
 
+- **Create the calibration table.** Run `supabase/updates/2026-11-19-calibration.sql`
+  in the Supabase SQL editor (not done yet on 21 Nov). Until then "Save my marks"
+  says calibration is not set up.
+
 - **One question for the whole class.** Every student should be on the same
   Task 2 question. Today several questions can be ticked as `assigned` and
   students pick between them; change it so only one is active at a time

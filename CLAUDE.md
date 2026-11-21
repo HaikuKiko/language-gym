@@ -1,0 +1,79 @@
+# Language Gym: notes for Claude
+
+Read AGENTS.md too (Expo rules). Current sprint: see `docs/sprint-speed-friending.md`.
+Things agreed for later: `BACKLOG.md`.
+
+## The owner
+
+- An EFL teacher, new to coding. Uses an iPad, an Android phone and a Windows PC.
+- Write plainly: short answers, direct clickable links, no jargon without a one-line explanation.
+- Prototype stage: simple, "weak" security is fine (codes + 4-digit PINs, no email sign-in).
+
+## How to work with them
+
+- **You open AND merge the pull requests yourself**, then tell them. Develop on the branch the
+  session gives you; merge into `main`.
+- **Show a mock-up before any big UI change** (render an HTML mock-up to a PNG with Playwright and
+  send it) and wait for "go".
+- **"Don't interrupt"**: they queue new requests while you work. Finish the current task, then do
+  the next one.
+- **Tell them when a change is live** (see "Checking the live site").
+- Give them SQL to paste instead of running schema changes yourself (see "Database").
+- No model names in commits, PRs or code comments.
+
+## The app
+
+- Expo SDK 58, Expo Router (`src/app`), react-native-web, TypeScript strict.
+  Check: `npx tsc --noEmit` (lint does not run in the cloud container).
+- After adding a route, refresh the typed routes by running
+  `CI=1 npx expo start --web --port 8099` for ~40 s, then stop it.
+- Live site: https://language-gym.gjballvn.workers.dev/ (Cloudflare Workers builds `main`
+  in ~3–5 min; the instant-failing branch preview build is harmless).
+
+### Parts of the app
+
+- **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
+  `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
+  components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
+  Questions table: 1,488 rows (levels × themes, 15 each); defaults: Automatic, 2 minutes, round robin.
+- **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading).
+- **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
+  `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
+  `calibration-card.tsx`.
+- **Accounts:** `account.tsx`, `src/lib/account.ts` (student code + PIN, self-enrol on IELTS).
+- **Sharing:** `share-report-button.tsx`, `src/lib/share-report.ts` (text),
+  `report-html.ts` + `report-pdf.ts` (PDF that looks like the screen, print).
+
+## Database (Supabase project `pzvjttzapbzoozpxndbd`)
+
+- Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
+  enrolments, writing_prompts, calibration_marks (once created). Anonymous sign-in; RLS on.
+- **Schema changes:** the Supabase tool's approval prompt never reaches the owner and times out.
+  Write the SQL to `supabase/updates/<date>-<name>.sql`, append it to `supabase/schema.sql`, and
+  give the owner the SQL in a code block plus
+  https://supabase.com/dashboard/project/pzvjttzapbzoozpxndbd/sql/new . Plain selects/inserts
+  through the tool work.
+- Publishable key (safe in the app): `sb_publishable_kVWg8im2CG_jzSfWeIe6gA_VZehq7HU`.
+
+## Edge functions
+
+- `assess-writing` (index.ts, assess.ts, ielts.ts, deno.json): feedback, IELTS marking, photo
+  reading. Deploy with the Supabase tool, pasting **all four files in full**,
+  `import_map_path: "deno.json"`, `verify_jwt: true`. Check locally first:
+  `deno check --min-dep-age 0 index.ts`.
+  Limits: students 5 feedback + 5 photos a day; teachers 30 markings, 100 photos (notice every 5).
+- `student-account`: save with PIN, sign in, join a course.
+- The Anthropic API key is a Supabase secret (`ANTHROPIC_API_KEY`), never in the app.
+
+## Testing
+
+- Build: `npx expo export --platform web --output-dir <scratch>/dist`, serve it with a small
+  Python SPA server on port 8098, drive it with Playwright (chromium only). Fake the function
+  replies with `page.route('**/functions/v1/assess-writing', …)` to avoid spending API calls.
+- Restart the local server after rebuilding (deleting `dist` breaks it).
+
+## Checking the live site
+
+Route code loads in separate files, so search the entry bundle **and** the chunk files it
+references for a string that only the new code has. Poll every 30 s (up to 40 min) in the
+background, then tell the owner it's live.
