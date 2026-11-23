@@ -10,6 +10,7 @@ import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { JoinCourse } from '@/components/join-course';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { PhotoNote } from '@/components/photo-note';
+import { PhotoPages } from '@/components/photo-pages';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -28,7 +29,7 @@ import {
   type IeltsResponse,
   type WritingPrompt,
 } from '@/lib/ielts';
-import { pickPhoto } from '@/lib/photo';
+import type { PreparedPhoto } from '@/lib/photo';
 import { errorMessage } from '@/lib/supabase';
 import {
   UNREADABLE_MARK,
@@ -196,15 +197,18 @@ export default function IeltsRoute() {
     setBusy(false);
   }
 
-  async function scan(source: 'camera' | 'library') {
+  async function readPages(pages: PreparedPhoto[]): Promise<boolean> {
     setError(null);
+    setReading(true);
+    let ok = false;
     try {
-      const image = await pickPhoto(source);
-      if (!image) return;
-      setReading(true);
-      const reading = await readPhoto(image);
+      const reading = await readPhoto(pages);
       if (!reading.containsWriting || !reading.transcript.trim()) {
-        setError('We could not find any writing in that photo. Please try another one.');
+        setError(
+          pages.length > 1
+            ? 'We could not find any writing in those photos. Please try other ones.'
+            : 'We could not find any writing in that photo. Please try another one.',
+        );
       } else {
         changeText(reading.transcript);
         setPhoto(reading);
@@ -212,11 +216,13 @@ export default function IeltsRoute() {
           anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
           length: reading.transcript.length,
         });
+        ok = true;
       }
     } catch (e) {
       setError(errorMessage(e));
     }
     setReading(false);
+    return ok;
   }
 
   const [statement, ...rest] = prompt.prompt.split(/\n\s*\n/);
@@ -291,22 +297,12 @@ export default function IeltsRoute() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.photoButtons}>
-          <Button
-            label={reading ? 'Reading your photo…' : 'Take a photo'}
-            variant="secondary"
-            disabled={reading || busy}
-            onPress={() => scan('camera')}
-            style={styles.photoButton}
-          />
-          <Button
-            label="Choose a photo"
-            variant="secondary"
-            disabled={reading || busy}
-            onPress={() => scan('library')}
-            style={styles.photoButton}
-          />
-        </View>
+        <PhotoPages
+          disabled={busy}
+          reading={reading}
+          onRead={readPages}
+          onError={setError}
+        />
         {photo && <PhotoNote photo={photo} />}
         <MarkedTextInput
           value={text}
@@ -425,15 +421,6 @@ const styles = StyleSheet.create({
   timerButtons: {
     flexDirection: 'row',
     gap: Spacing.two,
-  },
-  photoButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  photoButton: {
-    flexGrow: 1,
-    flexBasis: 140,
   },
   row: {
     flexDirection: 'row',

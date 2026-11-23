@@ -8,6 +8,7 @@ import { Button } from '@/components/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { PhotoNote } from '@/components/photo-note';
+import { PhotoPages } from '@/components/photo-pages';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -19,7 +20,7 @@ import {
   requestTeacherIeltsFeedback,
   type IeltsResponse,
 } from '@/lib/ielts';
-import { pickPhoto } from '@/lib/photo';
+import { pickPhoto, type PreparedPhoto } from '@/lib/photo';
 import { errorMessage, supabase } from '@/lib/supabase';
 import {
   UNREADABLE_MARK,
@@ -85,25 +86,42 @@ export default function TeacherIeltsRoute() {
     setBusy(false);
   }
 
-  async function scan(target: 'question' | 'essay', source: 'camera' | 'library') {
+  async function scanQuestion() {
     setError(null);
     try {
-      const image = await pickPhoto(source);
-      if (!image) return;
-      setReading(target);
-      const read = await readPhoto(image, { teacher: true });
+      const image = await pickPhoto('library');
+      if (image) await readPages('question', [image]);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  async function readPages(target: 'question' | 'essay', pages: PreparedPhoto[]): Promise<boolean> {
+    setError(null);
+    setReading(target);
+    let ok = false;
+    try {
+      const read = await readPhoto(pages, { teacher: true });
       if (read.usedToday && read.usedToday % 5 === 0) {
         setUsage(`You have read ${read.usedToday} photos today.`);
       }
       if (!read.containsWriting || !read.transcript.trim()) {
-        setError('We could not find any writing in that photo. Please try another one.');
+        setError(
+          pages.length > 1
+            ? 'We could not find any writing in those photos. Please try other ones.'
+            : 'We could not find any writing in that photo. Please try another one.',
+        );
       } else if (target === 'question') {
         setQuestion(read.transcript);
+        ok = true;
       } else {
         setText(read.transcript);
         setPhoto(
           read.fromCache
-            ? { ...read, note: `Same photo as last time, so we used the earlier reading (no wait). ${read.note}` }
+            ? {
+                ...read,
+                note: `${pages.length > 1 ? 'Same photos' : 'Same photo'} as last time, so we used the earlier reading (no wait). ${read.note}`,
+              }
             : read,
         );
         setGuesses({
@@ -111,11 +129,13 @@ export default function TeacherIeltsRoute() {
           length: read.transcript.length,
         });
         setMarks(null);
+        ok = true;
       }
     } catch (e) {
       setError(errorMessage(e));
     }
     setReading(null);
+    return ok;
   }
 
   if (result) {
@@ -169,7 +189,7 @@ export default function TeacherIeltsRoute() {
           label={reading === 'question' ? 'Reading the question…' : 'Scan the question'}
           variant="secondary"
           disabled={reading !== null || busy}
-          onPress={() => scan('question', 'library')}
+          onPress={scanQuestion}
         />
       </View>
 
@@ -180,22 +200,12 @@ export default function TeacherIeltsRoute() {
             {words} words{words > 0 && words < IELTS_MIN_WORDS ? ` (under ${IELTS_MIN_WORDS})` : ''}
           </ThemedText>
         </View>
-        <View style={styles.photoButtons}>
-          <Button
-            label={reading === 'essay' ? 'Reading the photo…' : 'Take a photo'}
-            variant="secondary"
-            disabled={reading !== null || busy}
-            onPress={() => scan('essay', 'camera')}
-            style={styles.photoButton}
-          />
-          <Button
-            label="Choose a photo"
-            variant="secondary"
-            disabled={reading !== null || busy}
-            onPress={() => scan('essay', 'library')}
-            style={styles.photoButton}
-          />
-        </View>
+        <PhotoPages
+          disabled={busy || reading === 'question'}
+          reading={reading === 'essay'}
+          onRead={(pages) => readPages('essay', pages)}
+          onError={setError}
+        />
         {photo && <PhotoNote photo={photo} />}
         <MarkedTextInput
           value={text}
@@ -260,15 +270,6 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     fontSize: 16,
     lineHeight: 24,
-  },
-  photoButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  photoButton: {
-    flexGrow: 1,
-    flexBasis: 140,
   },
   centered: {
     textAlign: 'center',

@@ -8,6 +8,7 @@ import { Chip } from '@/components/chip';
 import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { PhotoNote } from '@/components/photo-note';
+import { PhotoPages } from '@/components/photo-pages';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ShareReportButton } from '@/components/share-report-button';
@@ -19,7 +20,7 @@ import { LEVELS, type Level } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
-import { pickPhoto } from '@/lib/photo';
+import type { PreparedPhoto } from '@/lib/photo';
 import { writingReport } from '@/lib/share-report';
 import { errorMessage, supabase } from '@/lib/supabase';
 import {
@@ -94,15 +95,18 @@ export default function WriteRoute() {
     setBusy(false);
   }
 
-  async function scan(source: 'camera' | 'library') {
+  async function readPages(pages: PreparedPhoto[]): Promise<boolean> {
     setError(null);
+    setReading(true);
+    let ok = false;
     try {
-      const image = await pickPhoto(source);
-      if (!image) return;
-      setReading(true);
-      const reading = await readPhoto(image);
+      const reading = await readPhoto(pages);
       if (!reading.containsWriting || !reading.transcript.trim()) {
-        setError('We could not find any writing in that photo. Please try another one.');
+        setError(
+          pages.length > 1
+            ? 'We could not find any writing in those photos. Please try other ones.'
+            : 'We could not find any writing in that photo. Please try another one.',
+        );
       } else {
         setText(reading.transcript);
         setPhoto(reading);
@@ -110,11 +114,13 @@ export default function WriteRoute() {
           anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
           length: reading.transcript.length,
         });
+        ok = true;
       }
     } catch (e) {
       setError(errorMessage(e));
     }
     setReading(false);
+    return ok;
   }
 
   if (result) {
@@ -194,22 +200,12 @@ export default function WriteRoute() {
             {words} / {MAX_WORDS} words
           </ThemedText>
         </View>
-        <View style={styles.photoButtons}>
-          <Button
-            label={reading ? 'Reading your photo…' : 'Take a photo'}
-            variant="secondary"
-            disabled={reading || busy || supabase === null}
-            onPress={() => scan('camera')}
-            style={styles.photoButton}
-          />
-          <Button
-            label="Choose a photo"
-            variant="secondary"
-            disabled={reading || busy || supabase === null}
-            onPress={() => scan('library')}
-            style={styles.photoButton}
-          />
-        </View>
+        <PhotoPages
+          disabled={busy || supabase === null}
+          reading={reading}
+          onRead={readPages}
+          onError={setError}
+        />
         {photo && <PhotoNote photo={photo} />}
         <MarkedTextInput
           value={text}
@@ -398,15 +394,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderRadius: Spacing.three,
     fontSize: 16,
-  },
-  photoButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  photoButton: {
-    flexGrow: 1,
-    flexBasis: 140,
   },
   centered: {
     textAlign: 'center',

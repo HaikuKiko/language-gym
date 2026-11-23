@@ -10,11 +10,24 @@ const MAX_SIDE = 1568;
 
 export type PreparedPhoto = { base64: string; mediaType: 'image/jpeg' };
 
+/** Most pages read together as one piece of writing (the server allows the same). */
+export const MAX_PAGES = 4;
+
 /**
  * Opens the camera (or the photo library) and returns the photo as a resized
  * JPEG in base64, or null if the student cancelled.
  */
 export async function pickPhoto(source: 'camera' | 'library'): Promise<PreparedPhoto | null> {
+  const photos = await pickPhotos(source, 1);
+  return photos[0] ?? null;
+}
+
+/**
+ * Takes one photo, or chooses up to `max` from the library (in the order they
+ * were picked), each resized to JPEG base64. Empty if cancelled.
+ */
+export async function pickPhotos(source: 'camera' | 'library', max: number): Promise<PreparedPhoto[]> {
+  if (max < 1) return [];
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -26,10 +39,19 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PreparedP
   const result =
     source === 'camera'
       ? await ImagePicker.launchCameraAsync(options)
-      : await ImagePicker.launchImageLibraryAsync(options);
-  if (result.canceled || result.assets.length === 0) return null;
+      : await ImagePicker.launchImageLibraryAsync(
+          max > 1
+            ? { ...options, allowsMultipleSelection: true, selectionLimit: max, orderedSelection: true }
+            : options,
+        );
+  if (result.canceled || result.assets.length === 0) return [];
 
-  const asset = result.assets[0];
+  const prepared: PreparedPhoto[] = [];
+  for (const asset of result.assets.slice(0, max)) prepared.push(await prepare(asset));
+  return prepared;
+}
+
+async function prepare(asset: ImagePicker.ImagePickerAsset): Promise<PreparedPhoto> {
   const context = ImageManipulator.manipulate(asset.uri);
   if (Math.max(asset.width, asset.height) > MAX_SIDE) {
     context.resize(asset.width >= asset.height ? { width: MAX_SIDE } : { height: MAX_SIDE });

@@ -18,7 +18,7 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
     <View style={[styles.note, { backgroundColor: clear ? theme.accentSoft : theme.markABg }]}>
       <ThemedText type="smallBold">Check the text before you get feedback</ThemedText>
       <ThemedText type="small">
-        This is what we read in the photo. Fix anything that is different from the paper, but
+        {photo.pages > 1 ? `This is what we read in the ${photo.pages} pages.` : 'This is what we read in the photo.'} Fix anything that is different from the paper, but
         don&apos;t correct the writer&apos;s own mistakes: the feedback is about them.
       </ThemedText>
       {guessed.length > 0 ? (
