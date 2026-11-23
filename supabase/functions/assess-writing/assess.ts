@@ -17,6 +17,9 @@ export const MIN_WORDS = 20;
 export const MAX_WORDS = 600;
 
 const Level = z.enum(CEFR_LEVELS);
+/** An area's level may also be a "+" level (clearly above it, not yet the next). */
+export const AREA_LEVELS = ["Pre-A1", "A1", "A1+", "A2", "A2+", "B1", "B1+", "B2", "B2+", "C1", "C2"] as const;
+const AreaLevel = z.enum(AREA_LEVELS);
 
 /** One mistake, underlined in the student's own text by the app. Shared with the IELTS feedback. */
 export const CorrectionSchema = z.object({
@@ -43,7 +46,7 @@ export const FeedbackSchema = z.object({
     z.object({
       // The four areas on the school's writing sheets.
       criterion: z.enum(["Content", "Organisation", "Grammar", "Vocabulary"]),
-      level: Level,
+      level: AreaLevel,
       comment: z.string(),
     }),
   ),
@@ -105,6 +108,7 @@ Short texts give limited evidence. When the text is short or narrow in range, gi
   - Organisation: how the text is ordered and linked: sentences and paragraphs, linking words, and a logical flow.
   - Grammar: the range and accuracy of grammar and punctuation, including the focus grammar point if one is given.
   - Vocabulary: the range and accuracy of words and phrases, spelling, and how well they suit the topic.
+  For an area's level you may add "+" (A1+, A2+, B1+, B2+) when the writing in that area is clearly above that level but not yet at the next one. The teacher uses these levels to follow each student's progress, so judge each area carefully and consistently.
 - corrections: two groups, in one list. (1) Up to six grammar, vocabulary and spelling corrections: prefer errors that repeat or that block meaning over small slips. (2) Up to four punctuation corrections, as well as the six, whenever the text has punctuation mistakes: missing full stops, sentences joined with a comma or with no punctuation at all, missing question marks, missing capital letters at the start of sentences, for "I", names, days and months, and wrong apostrophes. Punctuation matters a lot to these students, so never leave it out to make room for grammar. Use type "punctuation" for capital letters too. The app underlines each "original" in the student's own text, so:
   - "original" is the shortest span that contains the mistake, usually one to four words (for a missing full stop, the last word of one sentence and the first word of the next, for example "sea it was" becoming "sea. It was"), copied character for character from the student's text (same spelling, capitals and punctuation). Do not include words that are already correct unless they are needed to show the mistake.
   - "corrected" is the same span as it should be, and nothing more.

@@ -10,6 +10,8 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatScore, scoreFor } from '@/lib/class-scores';
+import { loadClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import {
   loadClassSet,
   pagePhotoUrls,
@@ -33,10 +35,12 @@ export default function ClassSetRoute() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [set, setSet] = useState<ClassSet | null | undefined>(undefined);
+  const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
   const [pages, setPages] = useState<ClassSetPage[]>([]);
   const [photos, setPhotos] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  const [students, setStudents] = useState<ClassStudent[]>([]);
   const started = useRef(false);
 
   const onChange = useCallback((page: ClassSetPage) => {
@@ -44,9 +48,9 @@ export default function ClassSetRoute() {
   }, []);
 
   const run = useCallback(
-    async (loadedSet: ClassSet, loadedPages: ClassSetPage[], retryErrors = false) => {
+    async (loadedSet: ClassSet, loadedPages: ClassSetPage[], students: ClassStudent[], retryErrors = false) => {
       setWorking(true);
-      await processClassSet(loadedSet, loadedPages, onChange, { retryErrors });
+      await processClassSet(loadedSet, loadedPages, onChange, { retryErrors, students });
       setWorking(false);
     },
     [onChange],
@@ -60,10 +64,13 @@ export default function ClassSetRoute() {
       if (!loaded) return;
       setPages(loaded.pages);
       pagePhotoUrls(loaded.pages).then(setPhotos);
+      const classData = loaded.set.class_id ? await loadClass(loaded.set.class_id) : null;
+      setSchoolClass(classData?.schoolClass ?? null);
+      setStudents(classData?.students ?? []);
       // Read and mark whatever is not finished yet (also after a refresh).
       if (!started.current && loaded.pages.some((p) => p.status !== 'done' && p.status !== 'error')) {
         started.current = true;
-        run(loaded.set, loaded.pages);
+        run(loaded.set, loaded.pages, classData?.students ?? []);
       }
     } catch (e) {
       setError(errorMessage(e));
@@ -93,8 +100,8 @@ export default function ClassSetRoute() {
     return (
       <Screen>
         <ThemedText type="subtitle">Class set</ThemedText>
-        <ThemedText themeColor="textSecondary">This class set isn&apos;t on this device.</ThemedText>
-        <Button label="Back to class sets" variant="secondary" onPress={() => router.replace('/class-sets')} />
+        <ThemedText themeColor="textSecondary">This writing isn&apos;t on this device or account.</ThemedText>
+        <Button label="Back to class writing" variant="secondary" onPress={() => router.replace('/class-sets')} />
       </Screen>
     );
   }
@@ -102,17 +109,25 @@ export default function ClassSetRoute() {
   const done = pages.filter((p) => p.status === 'done').length;
   const failed = pages.filter((p) => p.status === 'error');
   const finished = done + failed.length;
-  const noName = pages.filter((p) => !p.student_name.trim()).length;
+  // Pages whose student still needs choosing: no name, or (in a class) not matched to a student.
+  const needsName = (p: ClassSetPage) => !p.student_name.trim() || (!!set.class_id && !p.student_id);
+  const noName = pages.filter(needsName).length;
 
   return (
     <Screen>
       <View style={styles.header}>
         <ThemedText type="smallBold" style={{ color: theme.accent }}>
-          {['CLASS SET', set.class_name, new Date(set.created_at).toLocaleDateString()].filter(Boolean).join(' · ')}
+          {['CLASS WRITING', schoolClass?.name ?? set.class_name, new Date(set.created_at).toLocaleDateString()]
+            .filter(Boolean)
+            .join(' · ')}
         </ThemedText>
         <ThemedText type="subtitle">{set.title || 'Class set'}</ThemedText>
         <View style={styles.pills}>
-          <Pill label={`Feedback for ${set.level}`} tone="accent" />
+          {schoolClass ? (
+            <Pill label={`Target ${schoolClass.target_level}`} tone="accent" />
+          ) : (
+            <Pill label={`Feedback for ${set.level}`} tone="accent" />
+          )}
           <Pill label={`${pages.length} pages`} />
         </View>
       </View>
@@ -124,13 +139,14 @@ export default function ClassSetRoute() {
         <ProgressBar fraction={pages.length > 0 ? finished / pages.length : 0} />
         {noName > 0 && (
           <ThemedText type="small" style={{ color: theme.markA }}>
-            {noName === 1 ? '1 page has' : `${noName} pages have`} no name: tap it to type the student&apos;s name.
+            {noName === 1 ? '1 page needs' : `${noName} pages need`} the student checking: tap to choose who wrote it.
           </ThemedText>
         )}
       </View>
 
       {pages.map((page) => {
-        const named = !!page.student_name.trim();
+        const named = !needsName(page);
+        const score = schoolClass ? scoreFor(page.area_levels, schoolClass.target_level) : null;
         return (
           <Pressable
             key={page.id}
@@ -153,7 +169,7 @@ export default function ClassSetRoute() {
             </View>
             <View style={styles.rowText}>
               <ThemedText type="smallBold" style={!named ? { color: theme.markA } : undefined}>
-                {pageTitle(page)}
+                {page.student_name.trim() && !named ? `${page.student_name}?` : pageTitle(page)}
                 {!named ? ' ✎' : ''}
               </ThemedText>
               {page.status === 'error' && (
@@ -162,7 +178,14 @@ export default function ClassSetRoute() {
                 </ThemedText>
               )}
             </View>
-            {page.status === 'done' && page.cefr_level ? (
+            {page.status === 'done' && score !== null ? (
+              <View style={styles.scoreBox}>
+                <ThemedText style={styles.score}>{formatScore(score)}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {page.cefr_level}
+                </ThemedText>
+              </View>
+            ) : page.status === 'done' && page.cefr_level ? (
               <Pill label={page.cefr_level} tone="accent" />
             ) : (
               <ThemedText type="small" themeColor="textSecondary">
@@ -175,12 +198,20 @@ export default function ClassSetRoute() {
 
       <View style={styles.section}>
         {failed.length > 0 && !working && (
-          <Button label={`Try the ${failed.length} unfinished again`} onPress={() => run(set, pages, true)} />
+          <Button label={`Try the ${failed.length} unfinished again`} onPress={() => run(set, pages, students, true)} />
         )}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Tap a page to see that student&apos;s feedback or change the name. Marked by an AI (Claude) as a guide.
         </ThemedText>
-        <Button label="Back to class sets" variant="secondary" onPress={() => router.replace('/class-sets')} />
+        {schoolClass ? (
+          <Button
+            label={`Back to ${schoolClass.name}`}
+            variant="secondary"
+            onPress={() => router.replace({ pathname: '/classes/[id]', params: { id: schoolClass.id } })}
+          />
+        ) : (
+          <Button label="Back to class writing" variant="secondary" onPress={() => router.replace('/class-sets')} />
+        )}
       </View>
     </Screen>
   );
@@ -222,5 +253,14 @@ const styles = StyleSheet.create({
   },
   centered: {
     textAlign: 'center',
+  },
+  scoreBox: {
+    alignItems: 'center',
+    minWidth: 44,
+  },
+  score: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: 800,
   },
 });
