@@ -6,8 +6,8 @@
  *
  * The Anthropic API key lives only here, as the ANTHROPIC_API_KEY secret
  * (Supabase dashboard -> Edge Functions -> Secrets). Each signed-in user (guest
- * students included) gets DAILY_LIMIT feedback checks and DAILY_LIMIT photo
- * readings a day (default 5 of each). Only word counts, levels and token
+ * students included) gets dailyLimit feedback checks and dailyLimit photo
+ * readings a day. Only word counts, levels and token
  * usage are stored, never the writing or the photo.
  *
  * Feedback:  POST { text, level, task?, week? }            (General English)
@@ -22,7 +22,7 @@
  *            MAX_PAGES pages of one piece of writing, read together and counted as ONE reading.
  *            -> 200 { transcript, legibility, contains_writing, guessed_words, note,
  *                     remaining_today, used_today }
- *            teacher: true skips the 5-a-day limit (safety cap TEACHER_PHOTO_CAP).
+ *            teacher: true uses TEACHER_PHOTO_CAP instead of dailyLimit.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -51,11 +51,14 @@ import { assessIeltsTask2, ESSAY_TYPES, type EssayType, parseTargetBand } from "
 /** IELTS essays can be longer than General English writing. */
 const IELTS_MAX_WORDS = 700;
 
-/** Teacher marking ("Mark an IELTS essay") has its own, larger daily limit. */
-const teacherLimitSetting = Number.parseInt((Deno.env.get("TEACHER_DAILY_LIMIT") ?? "30").trim(), 10);
-const teacherDailyLimit = Number.isFinite(teacherLimitSetting) && teacherLimitSetting > 0 ? teacherLimitSetting : 30;
+// ---- Daily limits (change them here; they are no longer read from secrets) ----
+
+/** Students: feedback checks a day, and separately photo readings a day. */
+const dailyLimit = 50;
+/** Teacher marking ("Mark an IELTS essay"): essays marked a day. */
+const teacherDailyLimit = 50;
 const TEACHER_TASK_TYPE = "task2_teacher";
-/** Teachers' photo readings: no 5-a-day limit, only this safety cap. */
+/** Teachers' photo readings a day (a safety cap). */
 const TEACHER_PHOTO_CAP = 100;
 const TEACHER_PHOTO_TYPE = "teacher_photo";
 
@@ -88,12 +91,6 @@ function reply(status: number, body: Record<string, unknown>): Response {
 function fail(status: number, error: string, message: string): Response {
   return reply(status, { error, message });
 }
-
-const dailyLimitSetting = Deno.env.get("DAILY_LIMIT");
-const parsedLimit = Number.parseInt((dailyLimitSetting ?? "5").trim(), 10);
-const dailyLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 5;
-// Shows in the function logs, to check the setting Supabase passes in.
-console.log(`Daily limit: ${dailyLimit} (DAILY_LIMIT setting: ${JSON.stringify(dailyLimitSetting ?? null)})`);
 
 type Kind = "feedback" | "transcribe";
 
