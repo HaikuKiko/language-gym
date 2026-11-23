@@ -61,7 +61,8 @@ Things agreed for later: `BACKLOG.md`.
   reading. Deploy with the Supabase tool, pasting **all four files in full**,
   `import_map_path: "deno.json"`, `verify_jwt: true`. Check locally first:
   `deno check --min-dep-age 0 index.ts`.
-  Limits: students 5 feedback + 5 photos a day; teachers 30 markings, 100 photos (notice every 5).
+  Limits (constants at the top of index.ts, not secrets): students 50 feedback + 50 photo readings
+  a day; teachers 50 markings, 100 photo readings (notice every 5). Several pages = one reading.
 - `student-account`: save with PIN, sign in, join a course.
 - The Anthropic API key is a Supabase secret (`ANTHROPIC_API_KEY`), never in the app.
 
