@@ -71,7 +71,7 @@ export default function TeacherIeltsRoute() {
     setError(null);
     try {
       const response = await requestTeacherIeltsFeedback(question, text);
-      if (response.usedToday && response.usedToday % 5 === 0) {
+      if (!response.cached && response.usedToday && response.usedToday % 5 === 0) {
         setUsage(
           `You have marked ${response.usedToday} essays today (the limit is ${response.usedToday + response.remainingToday}).`,
         );
@@ -103,7 +103,7 @@ export default function TeacherIeltsRoute() {
     let ok = false;
     try {
       const read = await readPhoto(pages, { teacher: true });
-      if (read.usedToday && read.usedToday % 5 === 0) {
+      if (!read.fromCache && read.usedToday && read.usedToday % 5 === 0) {
         setUsage(`You have read ${read.usedToday} photos today.`);
       }
       if (!read.containsWriting || !read.transcript.trim()) {
@@ -117,14 +117,7 @@ export default function TeacherIeltsRoute() {
         ok = true;
       } else {
         setText(read.transcript);
-        setPhoto(
-          read.fromCache
-            ? {
-                ...read,
-                note: `${pages.length > 1 ? 'Same photos' : 'Same photo'} as last time, so we used the earlier reading (no wait). ${read.note}`,
-              }
-            : read,
-        );
+        setPhoto(read);
         setGuesses({
           anchors: guessAnchorsFrom(read.transcript, read.guessedWords),
           length: read.transcript.length,

@@ -37,6 +37,12 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
           {'. They are highlighted in yellow below.'}
         </ThemedText>
       ) : null}
+      {photo.fromCache ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {photo.pages > 1 ? 'We read these photos before' : 'We read this photo before'}, so this is the same
+          reading (no wait, and it did not use a photo reading).
+        </ThemedText>
+      ) : null}
       {photo.note ? (
         <ThemedText type="small" themeColor="textSecondary">
           {photo.note}

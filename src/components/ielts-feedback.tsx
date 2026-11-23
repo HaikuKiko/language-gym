@@ -170,6 +170,7 @@ export function IeltsFeedbackView({
         <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           AI band scores are a guide, not an official IELTS result.{' '}
+          {response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
           {response.remainingToday === 1
             ? '1 feedback check left today.'
             : `${response.remainingToday} feedback checks left today.`}

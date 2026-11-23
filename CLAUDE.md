@@ -20,6 +20,9 @@ Things agreed for later: `BACKLOG.md`.
 - **Tell them when a change is live** (see "Checking the live site").
 - Give them SQL to paste instead of running schema changes yourself (see "Database").
 - No model names in commits, PRs or code comments.
+- **Limits and settings** (daily limits, word limits, how long things are kept, …) go in code as
+  named constants (`UPPER_CASE`) in one block at the top of the file, never as secrets or numbers
+  buried in the code.
 
 ## The app
 
@@ -61,8 +64,12 @@ Things agreed for later: `BACKLOG.md`.
   reading. Deploy with the Supabase tool, pasting **all four files in full**,
   `import_map_path: "deno.json"`, `verify_jwt: true`. Check locally first:
   `deno check --min-dep-age 0 index.ts`.
-  Limits (constants at the top of index.ts, not secrets): students 50 feedback + 50 photo readings
-  a day; teachers 50 markings, 100 photo readings (notice every 5). Several pages = one reading.
+  Limits and settings are constants in one block at the top of index.ts (not secrets):
+  students 50 feedback + 50 photo readings a day; teachers 50 markings, 100 photo readings
+  (notice every 5). Several pages = one reading.
+  Cache: results are saved for `CACHE_DAYS` (7) in the `response_cache` table under a SHA-256
+  fingerprint of the request (prompt, model, inputs, `CACHE_VERSION`). The same writing/photo
+  again returns the saved result with `cached: true`: no Claude call, no check used.
 - `student-account`: save with PIN, sign in, join a course.
 - The Anthropic API key is a Supabase secret (`ANTHROPIC_API_KEY`), never in the app.
 

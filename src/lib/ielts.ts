@@ -69,6 +69,8 @@ export type IeltsResponse = {
   remainingToday: number;
   /** Teacher marking only: essays marked today, including this one. */
   usedToday?: number;
+  /** True when this exact essay was sent before and the saved feedback was shown (no check used). */
+  cached?: boolean;
 };
 
 /** Short names for the tiles; the full names are used everywhere else. */
@@ -125,6 +127,7 @@ export async function requestTeacherIeltsFeedback(question: string, text: string
     feedback: data.feedback as IeltsFeedback,
     remainingToday: data.remaining_today,
     usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
+    cached: data.cached === true,
   };
 }
 
@@ -144,5 +147,9 @@ export async function requestIeltsFeedback(promptId: number, text: string): Prom
     throw new Error('Feedback is not available right now. Please try again later.');
   }
 
-  return { feedback: data.feedback as IeltsFeedback, remainingToday: data.remaining_today };
+  return {
+    feedback: data.feedback as IeltsFeedback,
+    remainingToday: data.remaining_today,
+    cached: data.cached === true,
+  };
 }

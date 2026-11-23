@@ -362,6 +362,7 @@ function FeedbackView({
         />
         <Button label="Write something new" variant="secondary" onPress={onAgain} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+          {response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
           {response.remainingToday === 1
             ? '1 feedback check left today.'
             : `${response.remainingToday} feedback checks left today.`}
