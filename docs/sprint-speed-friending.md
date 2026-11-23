@@ -55,8 +55,8 @@ from IELTS and General English writing.
 - Done and live: each round starts with "Find <name>" and a "We found each other!" button; the
   teacher's screen shows who we're waiting for; automatic mode starts the round when every pair has
   checked in (instead of a 20-second timer).
-- Ready for review (not merged): a **Speed friending** mode in the existing web app, sharing all the
+- Approved and live (23 Nov): a **Speed friending** mode in the existing web app, sharing all the
   session code with Conversation practice, with 128 fun questions
-  (`docs/speed-friending-questions.md`). The owner reviews the questions before it goes live.
+  (`docs/speed-friending-questions.md`), also in the `fun_questions` table (editable in Supabase).
 - Later: tapping phones together (motion "bump"), only if the button isn't enough. The standalone
   iPhone app and its own database are still open (see the recommendations above).
