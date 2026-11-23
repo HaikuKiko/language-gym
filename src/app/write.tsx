@@ -6,36 +6,29 @@ import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
-import { MarkedTextInput } from '@/components/marked-text-input';
-import { PhotoNote } from '@/components/photo-note';
-import { PhotoPages } from '@/components/photo-pages';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ShareReportButton } from '@/components/share-report-button';
 import { writingReportHtml } from '@/lib/report-html';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WritingBox } from '@/components/writing-box';
 import { Spacing } from '@/constants/theme';
 import { LEVELS, type Level } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
-import type { PreparedPhoto } from '@/lib/photo';
+import { useWritingDraft } from '@/hooks/use-writing-draft';
 import { writingReport } from '@/lib/share-report';
 import { errorMessage, supabase } from '@/lib/supabase';
 import {
   MAX_WORDS,
   MIN_WORDS,
-  UNREADABLE_MARK,
-  anchorsFrom,
-  guessAnchorsFrom,
   countWords,
   markCorrections,
-  readPhoto,
   requestFeedback,
-  type MistakeAnchor,
-  type PhotoReading,
+  writingProblem,
   type WritingResponse,
 } from '@/lib/writing';
 
@@ -54,31 +47,19 @@ export default function WriteRoute() {
   const [level, setLevel] = useSavedState<Level>('write:level', 'A1');
   const [week, setWeek] = useSavedState<number | null>('write:week', null);
   const [task, setTask] = useSavedState('write:task', '');
-  const [text, setText] = useSavedState('write:text', '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useSavedState<WritingResponse | null>('write:result', null);
-  const [reading, setReading] = useState(false);
-  const [photo, setPhoto] = useSavedState<PhotoReading | null>('write:photo', null);
-  // Mistakes from the last feedback, underlined while the student edits.
-  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('write:marks', null);
-  // Words guessed from the last photo, highlighted until they are changed.
-  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('write:guesses', null);
+  const draft = useWritingDraft('write', { onError: setError });
+  const text = draft.text;
 
   const words = countWords(text);
   const plan = findWeek(weeks, level, week);
   const inputStyle = { color: theme.text, backgroundColor: theme.backgroundElement };
-  const unreadable = text.split(UNREADABLE_MARK).length - 1;
   const problem =
     supabase === null
       ? 'Writing feedback is not set up yet.'
-      : unreadable > 0
-        ? `Replace the ${unreadable === 1 ? '[?] mark' : `${unreadable} [?] marks`} with the words you wrote.`
-        : words < MIN_WORDS
-        ? `Write at least ${MIN_WORDS} words (${words} so far).`
-        : words > MAX_WORDS
-          ? `Please shorten it to ${MAX_WORDS} words or fewer (${words} now).`
-          : null;
+      : writingProblem(text, { minWords: MIN_WORDS, maxWords: MAX_WORDS });
 
   async function submit() {
     setBusy(true);
@@ -86,42 +67,11 @@ export default function WriteRoute() {
     try {
       const response = await requestFeedback({ text, level, task, week });
       setResult(response);
-      setMarks({
-        anchors: anchorsFrom(markCorrections(text, response.feedback.corrections)),
-        length: text.length,
-      });
+      draft.showMistakes(response.feedback.corrections);
     } catch (e) {
       setError(errorMessage(e));
     }
     setBusy(false);
-  }
-
-  async function readPages(pages: PreparedPhoto[]): Promise<boolean> {
-    setError(null);
-    setReading(true);
-    let ok = false;
-    try {
-      const reading = await readPhoto(pages);
-      if (!reading.containsWriting || !reading.transcript.trim()) {
-        setError(
-          pages.length > 1
-            ? 'We could not find any writing in those photos. Please try other ones.'
-            : 'We could not find any writing in that photo. Please try another one.',
-        );
-      } else {
-        setText(reading.transcript);
-        setPhoto(reading);
-        setGuesses({
-          anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
-          length: reading.transcript.length,
-        });
-        ok = true;
-      }
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-    setReading(false);
-    return ok;
   }
 
   if (result) {
@@ -131,10 +81,7 @@ export default function WriteRoute() {
         text={text}
         onAgain={() => {
           setResult(null);
-          setText('');
-          setPhoto(null);
-          setMarks(null);
-          setGuesses(null);
+          draft.clear();
         }}
         onEdit={() => setResult(null)}
       />
@@ -201,28 +148,12 @@ export default function WriteRoute() {
             {words} / {MAX_WORDS} words
           </ThemedText>
         </View>
-        <PhotoPages
+        <WritingBox
+          draft={draft}
           disabled={busy || supabase === null}
-          reading={reading}
-          onRead={readPages}
-          onError={setError}
-        />
-        {photo && <PhotoNote photo={photo} />}
-        <MarkedTextInput
-          value={text}
-          onChangeText={setText}
           placeholder="Start writing here, or take a photo of your writing…"
-          accessibilityLabel="Your writing"
-          anchors={marks?.anchors ?? []}
-          originalLength={marks?.length ?? text.length}
-          guesses={guesses}
+          label="Your writing"
         />
-        {marks && marks.anchors.length > 0 && (
-          <ThemedText type="small" themeColor="textSecondary">
-            Orange lines show the mistakes from your feedback. They go away when you change those
-            words.
-          </ThemedText>
-        )}
       </View>
 
       <View style={styles.section}>
@@ -247,7 +178,7 @@ export default function WriteRoute() {
         </ThemedText>
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
-      <BusyOverlay visible={reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
+      <BusyOverlay visible={draft.reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
       <BusyOverlay visible={busy} title="Checking your writing…" detail="This usually takes 15 to 30 seconds." />
     </Screen>
   );

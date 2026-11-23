@@ -135,6 +135,32 @@ function saveLastPhoto(key: string, reading: PhotoReading) {
 export const UNREADABLE_MARK = '[?]';
 
 /**
+ * Why the writing can't be sent yet, or null when it can. The same checks
+ * for every writing screen: no [?] left from a photo, and the word limits.
+ */
+export function writingProblem(
+  text: string,
+  rules: { minWords: number; maxWords: number; teacher?: boolean },
+): string | null {
+  const words = countWords(text);
+  const unreadable = text.split(UNREADABLE_MARK).length - 1;
+  if (unreadable > 0) {
+    const marks = unreadable === 1 ? 'the [?] mark' : `the ${unreadable} [?] marks`;
+    return `Replace ${marks} with the words ${rules.teacher ? 'on the paper' : 'you wrote'}.`;
+  }
+  if (words < rules.minWords) {
+    return rules.teacher
+      ? `Add the essay (at least ${rules.minWords} words).`
+      : `Write at least ${rules.minWords} words (${words} so far).`;
+  }
+  if (words > rules.maxWords) return `Please shorten it to ${rules.maxWords} words or fewer (${words} now).`;
+  return null;
+}
+
+/** Where marks sit in a text, and how long that text was then. */
+export type TextMarks = { anchors: MistakeAnchor[]; length: number };
+
+/**
  * Reads one or more photos (the pages of one piece of writing, in order) into
  * a single transcript. All the pages together count as one photo reading.
  */

@@ -1,0 +1,52 @@
+import type { ReactNode } from 'react';
+
+import { MarkedTextInput } from '@/components/marked-text-input';
+import { PhotoNote } from '@/components/photo-note';
+import { PhotoPages } from '@/components/photo-pages';
+import { ThemedText } from '@/components/themed-text';
+import type { WritingDraft } from '@/hooks/use-writing-draft';
+
+/**
+ * The writing part of every writing screen: add photos of the pages, check
+ * the photo reading, and write or edit in the box (yellow = guessed from a
+ * photo, orange = mistakes from the last feedback). One copy for General
+ * English, IELTS and teacher marking.
+ */
+export function WritingBox({
+  draft,
+  disabled,
+  placeholder,
+  label,
+  children,
+}: {
+  draft: WritingDraft;
+  /** No new photos while something else is busy. */
+  disabled?: boolean;
+  placeholder: string;
+  /** Read out by screen readers, e.g. "Your essay". */
+  label: string;
+  /** Shown under the box, e.g. a word count. */
+  children?: ReactNode;
+}) {
+  return (
+    <>
+      <PhotoPages disabled={disabled} reading={draft.reading} onRead={draft.readPages} onError={draft.onError} />
+      {draft.photo && <PhotoNote photo={draft.photo} />}
+      <MarkedTextInput
+        value={draft.text}
+        onChangeText={draft.setText}
+        placeholder={placeholder}
+        accessibilityLabel={label}
+        anchors={draft.marks?.anchors ?? []}
+        originalLength={draft.marks?.length ?? draft.text.length}
+        guesses={draft.guesses}
+      />
+      {children}
+      {draft.marks && draft.marks.anchors.length > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Orange lines show the mistakes from your last feedback. They go away when you change those words.
+        </ThemedText>
+      )}
+    </>
+  );
+}

@@ -8,17 +8,16 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { JoinCourse } from '@/components/join-course';
-import { MarkedTextInput } from '@/components/marked-text-input';
-import { PhotoNote } from '@/components/photo-note';
-import { PhotoPages } from '@/components/photo-pages';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WritingBox } from '@/components/writing-box';
 import { Spacing } from '@/constants/theme';
 import { formatClock, useCountdown } from '@/hooks/use-countdown';
 import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
+import { useWritingDraft } from '@/hooks/use-writing-draft';
 import { loadAccount, type Account } from '@/lib/account';
 import {
   ESSAY_TYPE_NAMES,
@@ -30,18 +29,8 @@ import {
   type IeltsResponse,
   type WritingPrompt,
 } from '@/lib/ielts';
-import type { PreparedPhoto } from '@/lib/photo';
 import { errorMessage } from '@/lib/supabase';
-import {
-  UNREADABLE_MARK,
-  anchorsFrom,
-  guessAnchorsFrom,
-  countWords,
-  markCorrections,
-  readPhoto,
-  type MistakeAnchor,
-  type PhotoReading,
-} from '@/lib/writing';
+import { countWords, writingProblem } from '@/lib/writing';
 
 const draftKey = (promptId: number) => `ielts-draft-${promptId}`;
 
@@ -52,14 +41,18 @@ export default function IeltsRoute() {
   const [prompts, setPrompts] = useState<WritingPrompt[] | null>(null);
   const [promptId, setPromptId] = useSavedState<number | null>('ielts:promptId', null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [text, setText] = useSavedState('ielts:text', '');
   const [busy, setBusy] = useState(false);
-  const [reading, setReading] = useState(false);
-  const [photo, setPhoto] = useSavedState<PhotoReading | null>('ielts:photo', null);
-  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('ielts:guesses', null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useSavedState<IeltsResponse | null>('ielts:result', null);
-  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('ielts:marks', null);
+  // Each change is also kept as a draft for this question, so a closed tab
+  // doesn't lose 40 minutes' work.
+  const draft = useWritingDraft('ielts', {
+    onError: setError,
+    onTextChange: (next) => {
+      if (promptId !== null) AsyncStorage.setItem(draftKey(promptId), next).catch(() => {});
+    },
+  });
+  const text = draft.text;
   const timer = useCountdown(TASK2_MINUTES * 60);
 
   const load = useCallback(async () => {
@@ -88,28 +81,24 @@ export default function IeltsRoute() {
     let cancelled = false;
     AsyncStorage.getItem(draftKey(promptId))
       .then((saved) => {
-        if (!cancelled) setText(saved ?? '');
+        if (!cancelled) draft.setText(saved ?? '');
       })
       .catch(() => {});
     // A different question: the old underlines no longer apply. (Not after a
     // refresh, when the same question and its feedback are restored.)
-    if (lastPromptId.current !== promptId) setMarks(null);
+    if (lastPromptId.current !== promptId) draft.setMarks(null);
     lastPromptId.current = promptId;
     return () => {
       cancelled = true;
     };
+    // Only when the question changes; draft is a new object on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptId]);
-
-  function changeText(next: string) {
-    setText(next);
-    if (promptId !== null) AsyncStorage.setItem(draftKey(promptId), next).catch(() => {});
-  }
 
   const prompt = prompts?.find((p) => p.id === promptId) ?? null;
   const enrolment = account?.enrolments.find((e) => e.trackId === 'ielts') ?? null;
   const words = countWords(text);
   const minWords = prompt?.minWords ?? 250;
-  const unreadable = text.split(UNREADABLE_MARK).length - 1;
 
   const back = <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />;
 
@@ -176,14 +165,7 @@ export default function IeltsRoute() {
     );
   }
 
-  const problem =
-    unreadable > 0
-      ? `Replace the ${unreadable === 1 ? '[?] mark' : `${unreadable} [?] marks`} with the words you wrote.`
-      : words < IELTS_HARD_MIN_WORDS
-        ? `Write at least ${IELTS_HARD_MIN_WORDS} words to get feedback.`
-        : words > IELTS_MAX_WORDS
-          ? `Please shorten it to ${IELTS_MAX_WORDS} words or fewer (${words} now).`
-          : null;
+  const problem = writingProblem(text, { minWords: IELTS_HARD_MIN_WORDS, maxWords: IELTS_MAX_WORDS });
 
   async function submit() {
     if (!prompt) return;
@@ -193,42 +175,11 @@ export default function IeltsRoute() {
       const response = await requestIeltsFeedback(prompt.id, text);
       timer.pause();
       setResult(response);
-      setMarks({
-        anchors: anchorsFrom(markCorrections(text, response.feedback.corrections)),
-        length: text.length,
-      });
+      draft.showMistakes(response.feedback.corrections);
     } catch (e) {
       setError(errorMessage(e));
     }
     setBusy(false);
-  }
-
-  async function readPages(pages: PreparedPhoto[]): Promise<boolean> {
-    setError(null);
-    setReading(true);
-    let ok = false;
-    try {
-      const reading = await readPhoto(pages);
-      if (!reading.containsWriting || !reading.transcript.trim()) {
-        setError(
-          pages.length > 1
-            ? 'We could not find any writing in those photos. Please try other ones.'
-            : 'We could not find any writing in that photo. Please try another one.',
-        );
-      } else {
-        changeText(reading.transcript);
-        setPhoto(reading);
-        setGuesses({
-          anchors: guessAnchorsFrom(reading.transcript, reading.guessedWords),
-          length: reading.transcript.length,
-        });
-        ok = true;
-      }
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-    setReading(false);
-    return ok;
   }
 
   const [statement, ...rest] = prompt.prompt.split(/\n\s*\n/);
@@ -303,35 +254,24 @@ export default function IeltsRoute() {
       </View>
 
       <View style={styles.section}>
-        <PhotoPages
+        <WritingBox
+          draft={draft}
           disabled={busy}
-          reading={reading}
-          onRead={readPages}
-          onError={setError}
-        />
-        {photo && <PhotoNote photo={photo} />}
-        <MarkedTextInput
-          value={text}
-          onChangeText={changeText}
           placeholder="Write your essay here, or take a photo of your handwriting…"
-          accessibilityLabel="Your essay"
-          anchors={marks?.anchors ?? []}
-          originalLength={marks?.length ?? text.length}
-          guesses={guesses}
-        />
-        <View style={styles.row}>
-          <ThemedText type="small">
-            <ThemedText type="smallBold">{words}</ThemedText> words
+          label="Your essay">
+          <View style={styles.row}>
+            <ThemedText type="small">
+              <ThemedText type="smallBold">{words}</ThemedText> words
+            </ThemedText>
+            <ThemedText type="small" style={{ color: words >= minWords ? theme.textSecondary : theme.warning }}>
+              {words >= minWords ? `Over ${minWords}: well done` : `${minWords - words} more to reach ${minWords}`}
+            </ThemedText>
+          </View>
+          <ProgressBar fraction={words / minWords} />
+          <ThemedText type="small" themeColor="textSecondary">
+            Under {minWords} words loses one band on Task Response.
           </ThemedText>
-          <ThemedText type="small" style={{ color: words >= minWords ? theme.textSecondary : theme.warning }}>
-            {words >= minWords ? `Over ${minWords}: well done` : `${minWords - words} more to reach ${minWords}`}
-          </ThemedText>
-        </View>
-        <ProgressBar fraction={words / minWords} />
-        <ThemedText type="small" themeColor="textSecondary">
-          Under {minWords} words loses one band on Task Response.
-          {marks && marks.anchors.length > 0 ? ' Orange lines show the mistakes from your last feedback.' : ''}
-        </ThemedText>
+        </WritingBox>
       </View>
 
       <View style={styles.section}>
@@ -356,7 +296,7 @@ export default function IeltsRoute() {
         </ThemedText>
         {back}
       </View>
-      <BusyOverlay visible={reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
+      <BusyOverlay visible={draft.reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
       <BusyOverlay visible={busy} title="Marking your essay…" detail="This usually takes 20 to 40 seconds." />
     </Screen>
   );
