@@ -4,8 +4,8 @@
  * Supabase. See supabase/schema.sql for the tables.
  */
 import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
-import { uniqueRoundCount, type Participant } from '@/lib/round-robin';
-import { CHANGEOVER_SECONDS, shuffle, type RoundSettings } from '@/lib/session';
+import { groupsForRound, uniqueRoundCount, type Group, type Participant } from '@/lib/round-robin';
+import { shuffle, type RoundSettings } from '@/lib/session';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 
 export const CODE_LENGTH = 6;
@@ -23,6 +23,7 @@ export type LiveSession = {
   auto_advance: boolean;
   /** 0-based. */
   round: number;
+  /** "changeover": students are finding their partners; "discussion": talking. */
   stage: 'changeover' | 'discussion';
   /** Set while the timer is running. */
   ends_at: string | null;
@@ -33,6 +34,8 @@ export type LiveSession = {
   seed: number;
   /** Flags; "round-robin" means the rounds are set from the class size at the start. */
   categories?: string[];
+  /** Students the host marked as having found their partner this round. */
+  found_ids?: string[];
 };
 
 const ROUND_ROBIN = 'round-robin';
@@ -53,6 +56,8 @@ export type LiveParticipant = {
   user_id: string;
   name: string;
   joined_at: string;
+  /** The round in which this student tapped "We found each other!". */
+  found_round?: number | null;
 };
 
 type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
@@ -189,6 +194,12 @@ export async function removeParticipant(participantId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** A student taps "We found each other!": marks their own row for this round. */
+export async function markFound(participantId: string, round: number): Promise<void> {
+  const { error } = await requireSupabase().from('participants').update({ found_round: round }).eq('id', participantId);
+  if (error) throw new Error(error.message);
+}
+
 /**
  * Saves changes to the session (host only). With `onlyIfUnmoved`, the change
  * is skipped when the session has already moved to another round or stage,
@@ -216,30 +227,21 @@ export function rosterFrom(participants: LiveParticipant[]): Participant[] {
   return participants.map((p) => ({ id: p.id, name: p.name }));
 }
 
-export function stageDurationMs(
-  session: LiveSession,
-  stage: LiveSession['stage'] = session.stage,
-): number {
-  return stage === 'changeover' ? CHANGEOVER_SECONDS * 1000 : session.round_minutes * 60 * 1000;
+/** How long the talking lasts. Finding a partner has no time limit. */
+export function stageDurationMs(session: LiveSession): number {
+  return session.round_minutes * 60 * 1000;
 }
 
 function timestampAfter(now: number, ms: number): string {
   return new Date(now + ms).toISOString();
 }
 
-/** Timer state at the start of a round. */
-function roundStart(session: LiveSession, now: number): SessionChanges {
-  return session.auto_advance
-    ? {
-        stage: 'changeover',
-        ends_at: timestampAfter(now, stageDurationMs(session, 'changeover')),
-        remaining_ms: null,
-      }
-    : {
-        stage: 'discussion',
-        ends_at: null,
-        remaining_ms: stageDurationMs(session, 'discussion'),
-      };
+/**
+ * Every round starts with finding partners, with no clock: the question
+ * appears once every pair has found each other (see beginDiscussion).
+ */
+function roundStart(): SessionChanges {
+  return { stage: 'changeover', ends_at: null, remaining_ms: null, found_ids: [] };
 }
 
 export function startSession(
@@ -252,7 +254,7 @@ export function startSession(
     round: 0,
     roster: rosterFrom(participants),
     ...(isRoundRobin(session) ? { round_count: roundRobinRounds(participants.length) } : {}),
-    ...roundStart(session, now),
+    ...roundStart(),
   };
 }
 
@@ -267,15 +269,15 @@ export function nextRound(
     round: session.round + 1,
     // Picks up anyone who joined or was removed during the last round.
     roster: rosterFrom(participants),
-    ...roundStart(session, now),
+    ...roundStart(),
   };
 }
 
-/** Automatic mode: the changeover is over, start the discussion clock. */
+/** Everyone has found their partner (or the host starts anyway): show the question and start the clock. */
 export function beginDiscussion(session: LiveSession, now: number): SessionChanges {
   return {
     stage: 'discussion',
-    ends_at: timestampAfter(now, stageDurationMs(session, 'discussion')),
+    ends_at: timestampAfter(now, stageDurationMs(session)),
     remaining_ms: null,
   };
 }
@@ -289,7 +291,17 @@ export function pauseTimer(session: LiveSession, now: number): SessionChanges {
 }
 
 export function resetTimer(session: LiveSession): SessionChanges {
-  return { ends_at: null, remaining_ms: stageDurationMs(session, session.stage) };
+  return { ends_at: null, remaining_ms: stageDurationMs(session) };
+}
+
+/** The host marks a pair as found (or not), e.g. when a phone is flat. */
+export function setGroupFound(session: LiveSession, group: Group, found: boolean): SessionChanges {
+  const ids = new Set(session.found_ids ?? []);
+  for (const p of group) {
+    if (found) ids.add(p.id);
+    else ids.delete(p.id);
+  }
+  return { found_ids: [...ids] };
 }
 
 export function endSession(): SessionChanges {
@@ -299,6 +311,24 @@ export function endSession(): SessionChanges {
 // ---------------------------------------------------------------------------
 // Reading the session
 // ---------------------------------------------------------------------------
+
+export type GroupStatus = { group: Group; found: boolean };
+
+/**
+ * Which pairs (or groups of three) have found each other this round. A group
+ * is found when any member tapped the button this round or the host marked
+ * it; someone with no partner counts as found.
+ */
+export function findingStatus(session: LiveSession, participants: LiveParticipant[]) {
+  const tapped = new Set(participants.filter((p) => p.found_round === session.round).map((p) => p.id));
+  const marked = new Set(session.found_ids ?? []);
+  const groups: GroupStatus[] = groupsForRound(session.roster, session.round).map((group) => ({
+    group,
+    found: group.length < 2 || group.some((p) => tapped.has(p.id) || marked.has(p.id)),
+  }));
+  const ready = groups.filter((g) => g.found).length;
+  return { groups, ready, total: groups.length, allFound: groups.length > 0 && ready === groups.length };
+}
 
 export function remainingMs(session: LiveSession, now: number): number {
   if (session.ends_at) return Math.max(0, Date.parse(session.ends_at) - now);

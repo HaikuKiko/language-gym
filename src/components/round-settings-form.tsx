@@ -21,6 +21,8 @@ type RoundSettingsFormProps = {
   studentCount?: number;
   /** Shown under the level picker. */
   levelHint?: string;
+  /** Phone sessions: each round starts when every pair has found each other. */
+  phones?: boolean;
 };
 
 /** Level, week, round length, timer mode and number of rounds. */
@@ -29,6 +31,7 @@ export function RoundSettingsForm({
   onChange,
   studentCount = 0,
   levelHint,
+  phones = false,
 }: RoundSettingsFormProps) {
   const { level, week, roundMinutes, roundCount, roundRobin, autoAdvance } = settings;
   const questions = useQuestions();
@@ -128,9 +131,13 @@ export function RoundSettingsForm({
           />
         </View>
         <ThemedText type="small" themeColor="textSecondary">
-          {autoAdvance
-            ? `The session runs by itself: ${CHANGEOVER_SECONDS} seconds to find a partner, then the round, then straight on to the next one.`
-            : 'You start the timer and move to the next round yourself.'}
+          {phones
+            ? autoAdvance
+              ? 'The session runs by itself: each round starts as soon as every pair has found each other, and the next round begins when time is up.'
+              : 'Students find their partner first; you start each round and move to the next one yourself.'
+            : autoAdvance
+              ? `The session runs by itself: ${CHANGEOVER_SECONDS} seconds to find a partner, then the round, then straight on to the next one.`
+              : 'You start the timer and move to the next round yourself.'}
         </ThemedText>
       </View>
 

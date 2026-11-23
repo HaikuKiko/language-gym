@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { GrammarHint } from '@/components/grammar-card';
@@ -12,12 +13,15 @@ import { useNow } from '@/hooks/use-now';
 import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  findingStatus,
+  markFound,
   questionForRound,
   removeParticipant,
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
+import { errorMessage } from '@/lib/supabase';
 
 type LiveStudentScreenProps = {
   session: LiveSession;
@@ -34,6 +38,22 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   const weeks = useWeeks();
   // The teacher sets one level for everyone.
   const level = session.level;
+  // The round this phone tapped "We found each other!", shown straight away
+  // while the change reaches the other phones.
+  const [tappedRound, setTappedRound] = useState<number | null>(null);
+  const [tapError, setTapError] = useState<string | null>(null);
+
+  async function found() {
+    const round = session.round;
+    setTappedRound(round);
+    setTapError(null);
+    try {
+      await markFound(me.id, round);
+    } catch (e) {
+      setTappedRound(null);
+      setTapError(errorMessage(e));
+    }
+  }
 
   async function leave() {
     await removeParticipant(me.id).catch(() => {});
@@ -80,14 +100,96 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
             This round has already started. You&apos;ll get a partner when the next round begins.
           </ThemedText>
         </View>
-        <LiveTimer session={session} now={now} />
+        {session.stage === 'discussion' && <LiveTimer session={session} now={now} />}
       </Screen>
     );
   }
 
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
+  const partnerNames = partners.map((p) => p.name).join(' & ');
   const question = questionForRound(session, questions, level);
   const plan = findWeek(weeks, level, session.week);
+
+  // ---- First: find your partner (no question yet) ---------------------------
+  if (session.stage === 'changeover') {
+    const status = findingStatus(session, participants);
+    const weFound = (status.groups[groupIndex]?.found ?? false) || tappedRound === session.round;
+
+    if (partners.length === 0) {
+      return (
+        <Screen>
+          <ThemedText type="smallBold" themeColor="textSecondary" style={styles.centered}>
+            {roundTitle}
+          </ThemedText>
+          <View style={styles.message}>
+            <ThemedText type="subtitle">No partner this round</ThemedText>
+            <ThemedText themeColor="textSecondary">You&apos;ll get a partner in the next round.</ThemedText>
+          </View>
+        </Screen>
+      );
+    }
+
+    return (
+      <Screen>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.centered}>
+          {roundTitle}
+        </ThemedText>
+
+        <View style={[styles.partnerCard, styles.findCard, { backgroundColor: theme.hero }]}>
+          <Text style={[styles.bigLabel, { color: theme.onHeroMuted }]}>
+            {weFound
+              ? partners.length > 1
+                ? 'YOUR PARTNERS'
+                : 'YOUR PARTNER'
+              : partners.length > 1
+                ? 'FIND YOUR PARTNERS'
+                : 'FIND YOUR PARTNER'}
+          </Text>
+          <Text style={[styles.partnerName, styles.findName, { color: theme.onHero }]}>{partnerNames}</Text>
+        </View>
+
+        {weFound ? (
+          <>
+            <View style={[styles.doneBox, { backgroundColor: theme.successSoft }]}>
+              <Text style={[styles.doneText, { color: theme.successText }]}>✓ You found each other</Text>
+            </View>
+            <ThemedText themeColor="textSecondary" style={styles.centered}>
+              Waiting for the others to find their partners…
+            </ThemedText>
+            <ThemedText type="smallBold" style={styles.centered}>
+              {status.ready} of {status.total} {status.total === 1 ? 'pair' : 'pairs'} ready
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+              Say hello while you wait!
+            </ThemedText>
+          </>
+        ) : (
+          <>
+            <ThemedText themeColor="textSecondary" style={styles.centered}>
+              Look for {partnerNames} in the room. When you&apos;ve found each other, one of you taps the button.
+            </ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={found}
+              style={({ pressed }) => [
+                styles.foundButton,
+                { backgroundColor: theme.success },
+                pressed && styles.pressed,
+              ]}>
+              <Text style={[styles.foundButtonText, { color: theme.onSuccess }]}>We found each other!</Text>
+            </Pressable>
+            {tapError && (
+              <ThemedText type="small" themeColor="warning" style={styles.centered}>
+                {tapError}
+              </ThemedText>
+            )}
+          </>
+        )}
+      </Screen>
+    );
+  }
+
+  // ---- Then: the question ------------------------------------------------------
 
   return (
     <Screen>
@@ -96,16 +198,14 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
       </ThemedText>
 
       <View style={[styles.partnerCard, { backgroundColor: theme.hero }]}>
-        <Text style={[styles.bigLabel, { color: theme.onHeroMuted }]}>
-          {partners.length > 1 ? 'TALK WITH YOUR PARTNERS' : 'TALK WITH YOUR PARTNER'}
-        </Text>
+        <Text style={[styles.bigLabel, { color: theme.onHeroMuted }]}>TALK WITH</Text>
         <Text style={[styles.partnerName, { color: theme.onHero }]}>
-          {partners.length > 0 ? partners.map((p) => p.name).join(' & ') : 'No partner this round'}
+          {partners.length > 0 ? partnerNames : 'No partner this round'}
         </Text>
       </View>
 
       <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
-        <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>THE QUESTION</Text>
+        <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>TALK ABOUT</Text>
         <Text style={[styles.questionText, { color: theme.grammarText }]}>
           {question ? question.text : 'There are no questions at this level yet.'}
         </Text>
@@ -163,6 +263,36 @@ const styles = StyleSheet.create({
     fontSize: 30,
     lineHeight: 38,
     fontWeight: 700,
+  },
+  findCard: {
+    paddingVertical: Spacing.five,
+  },
+  findName: {
+    fontSize: 48,
+    lineHeight: 56,
+  },
+  doneBox: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    alignItems: 'center',
+  },
+  doneText: {
+    fontSize: 18,
+    fontWeight: 700,
+  },
+  foundButton: {
+    paddingVertical: Spacing.four,
+    borderRadius: Spacing.four,
+    alignItems: 'center',
+    marginTop: Spacing.three,
+  },
+  foundButtonText: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: 800,
+  },
+  pressed: {
+    opacity: 0.8,
   },
 
 });

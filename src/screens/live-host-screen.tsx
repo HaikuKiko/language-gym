@@ -9,6 +9,7 @@ import { GrammarCard } from '@/components/grammar-card';
 import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
 import { LiveTimer } from '@/components/live-timer';
 import { Pill } from '@/components/pill';
+import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -21,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   beginDiscussion,
   endSession,
+  findingStatus,
   formatCode,
   isRoundRobin,
   roundRobinRounds,
@@ -30,13 +32,14 @@ import {
   remainingMs,
   removeParticipant,
   resetTimer,
+  setGroupFound,
   startSession,
   startTimer,
   updateSession,
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
-import { groupsForRound } from '@/lib/round-robin';
+import { groupsForRound, type Group } from '@/lib/round-robin';
 import { errorMessage } from '@/lib/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
 
@@ -100,6 +103,15 @@ export function LiveHostScreen({
   useEffect(() => {
     if (expired) advance();
   }, [expired, session.round, session.stage]);
+
+  // Every pair has found each other: in automatic mode, start the round.
+  const finding = playing && session.stage === 'changeover';
+  const everyoneFound = finding && findingStatus(session, participants).allFound;
+  const startRound = useEffectEvent(() => save(beginDiscussion(session, Date.now()), true));
+
+  useEffect(() => {
+    if (everyoneFound && session.auto_advance) startRound();
+  }, [everyoneFound, session.auto_advance, session.round]);
 
   if (session.status === 'finished') {
     return (
@@ -275,69 +287,81 @@ export function LiveHostScreen({
         </View>
       </View>
 
-      <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
-        <ThemedText type="smallBold" style={[styles.questionLabel, { color: theme.grammarLabel }]}>
-          EVERYONE&apos;S QUESTION
-        </ThemedText>
-        <ThemedText style={[styles.questionText, { color: theme.grammarText }]}>
-          {question ? question.text : 'There are no questions at this level yet.'}
-        </ThemedText>
-      </View>
-
-      <ThemedView type="backgroundElement" style={[styles.card, styles.timerCard]}>
-        <LiveTimer session={session} now={now} />
-        <View style={styles.centeredRow}>
-          {remaining > 0 && (
-            <Button
-              label={running ? 'Pause' : session.auto_advance ? 'Resume' : 'Start timer'}
-              onPress={() =>
-                save(running ? pauseTimer(session, Date.now()) : startTimer(session, Date.now()))
-              }
-            />
-          )}
-          <Button label="Reset" variant="secondary" onPress={() => save(resetTimer(session))} />
-        </View>
-      </ThemedView>
-
-      <View style={styles.section}>
-        <View style={styles.cardHeader}>
-          <ThemedText type="smallBold">Partners</ThemedText>
-        </View>
-        <View style={styles.groups}>
-          {groups.map((group) => {
-            return (
-              <ThemedView
-                key={group.map((p) => p.id).join('+')}
-                type="backgroundElement"
-                style={[styles.card, styles.group]}>
-                <View style={styles.groupPeople}>
-                  <View style={styles.avatars}>
-                    {group.map((p, i) => (
-                      <View
-                        key={p.id}
-                        style={[
-                          styles.avatarRing,
-                          { borderColor: theme.backgroundElement },
-                          i > 0 && styles.avatarOverlap,
-                        ]}>
-                        <Avatar id={p.id} name={p.name} />
-                      </View>
-                    ))}
-                  </View>
-                  <ThemedText type="smallBold" style={styles.groupNames}>
-                    {group.map((p) => p.name).join('  ·  ')}
-                  </ThemedText>
-                </View>
-              </ThemedView>
-            );
-          })}
-        </View>
-        {waiting.length > 0 && (
-          <ThemedText type="small" themeColor="textSecondary">
-            Joining next round: {waiting.map((p) => p.name).join(', ')}
+      {finding ? (
+        <FindingPartners
+          session={session}
+          participants={participants}
+          waitingToJoin={waiting}
+          onMark={(group, found) => save(setGroupFound(session, group, found))}
+          onStart={() => save(beginDiscussion(session, Date.now()), true)}
+        />
+      ) : (
+        <>
+        <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
+          <ThemedText type="smallBold" style={[styles.questionLabel, { color: theme.grammarLabel }]}>
+            EVERYONE&apos;S QUESTION
           </ThemedText>
-        )}
-      </View>
+          <ThemedText style={[styles.questionText, { color: theme.grammarText }]}>
+            {question ? question.text : 'There are no questions at this level yet.'}
+          </ThemedText>
+        </View>
+
+        <ThemedView type="backgroundElement" style={[styles.card, styles.timerCard]}>
+          <LiveTimer session={session} now={now} />
+          <View style={styles.centeredRow}>
+            {remaining > 0 && (
+              <Button
+                label={running ? 'Pause' : session.auto_advance ? 'Resume' : 'Start timer'}
+                onPress={() =>
+                  save(running ? pauseTimer(session, Date.now()) : startTimer(session, Date.now()))
+                }
+              />
+            )}
+            <Button label="Reset" variant="secondary" onPress={() => save(resetTimer(session))} />
+          </View>
+        </ThemedView>
+
+        <View style={styles.section}>
+          <View style={styles.cardHeader}>
+            <ThemedText type="smallBold">Partners</ThemedText>
+          </View>
+          <View style={styles.groups}>
+            {groups.map((group) => {
+              return (
+                <ThemedView
+                  key={group.map((p) => p.id).join('+')}
+                  type="backgroundElement"
+                  style={[styles.card, styles.group]}>
+                  <View style={styles.groupPeople}>
+                    <View style={styles.avatars}>
+                      {group.map((p, i) => (
+                        <View
+                          key={p.id}
+                          style={[
+                            styles.avatarRing,
+                            { borderColor: theme.backgroundElement },
+                            i > 0 && styles.avatarOverlap,
+                          ]}>
+                          <Avatar id={p.id} name={p.name} />
+                        </View>
+                      ))}
+                    </View>
+                    <ThemedText type="smallBold" style={styles.groupNames}>
+                      {group.map((p) => p.name).join('  ·  ')}
+                    </ThemedText>
+                  </View>
+                </ThemedView>
+              );
+            })}
+          </View>
+          {waiting.length > 0 && (
+            <ThemedText type="small" themeColor="textSecondary">
+              Joining next round: {waiting.map((p) => p.name).join(', ')}
+            </ThemedText>
+          )}
+        </View>
+        </>
+      )}
 
       {plan ? <GrammarCard week={plan} /> : null}
 
@@ -355,7 +379,97 @@ export function LiveHostScreen({
   );
 }
 
+/**
+ * The start of each round: who has found their partner, and who we are
+ * still waiting for. The teacher can mark a pair as found, or start anyway.
+ */
+function FindingPartners({
+  session,
+  participants,
+  waitingToJoin,
+  onMark,
+  onStart,
+}: {
+  session: LiveSession;
+  participants: LiveParticipant[];
+  waitingToJoin: LiveParticipant[];
+  onMark: (group: Group, found: boolean) => void;
+  onStart: () => void;
+}) {
+  const theme = useTheme();
+  const { groups, ready, total, allFound } = findingStatus(session, participants);
+  // Pairs still looking come first, so they are easy to spot.
+  const ordered = [...groups.filter((g) => !g.found), ...groups.filter((g) => g.found)];
+  const names = (group: Group) => group.map((p) => p.name).join(group.length > 2 ? ', ' : ' & ');
+  const missing = groups.filter((g) => !g.found).map((g) => names(g.group));
+
+  return (
+    <View style={styles.section}>
+      <ThemedText type="subtitle">
+        {allFound ? 'Everyone has found their partner' : `Finding partners… ${ready} of ${total} ready`}
+      </ThemedText>
+      <ProgressBar fraction={total > 0 ? ready / total : 0} />
+      {missing.length > 0 && (
+        <ThemedText type="smallBold" style={{ color: theme.markA }}>
+          Waiting for: {missing.join(' · ')}
+        </ThemedText>
+      )}
+      <View style={styles.groups}>
+        {ordered.map(({ group, found }) => (
+          <Pressable
+            key={group.map((p) => p.id).join('+')}
+            accessibilityRole="button"
+            accessibilityLabel={`${names(group)}: ${found ? 'found, tap to undo' : 'waiting, tap to mark as found'}`}
+            onPress={() => onMark(group, !found)}
+            style={({ pressed }) => [
+              styles.findGroup,
+              found
+                ? { backgroundColor: theme.successSoft, borderColor: theme.successSoft }
+                : { backgroundColor: theme.markABg, borderColor: theme.markA },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold" style={[styles.groupNames, { color: found ? theme.successText : theme.markA }]}>
+              {names(group)}
+            </ThemedText>
+            <ThemedText type="smallBold" style={{ color: found ? theme.successText : theme.markA }}>
+              {found ? '✓' : 'waiting'}
+            </ThemedText>
+          </Pressable>
+        ))}
+      </View>
+      <ThemedText type="small" themeColor="textSecondary">
+        Tap a pair to mark them as found (if a phone is flat).{' '}
+        {session.auto_advance
+          ? 'The question appears on every phone as soon as all pairs are ready.'
+          : 'Start the round when everyone is ready.'}
+      </ThemedText>
+      {waitingToJoin.length > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Joining next round: {waitingToJoin.map((p) => p.name).join(', ')}
+        </ThemedText>
+      )}
+      <Button
+        label={allFound ? 'Start the round' : 'Start the round anyway'}
+        variant={allFound ? 'primary' : 'secondary'}
+        onPress={onStart}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  findGroup: {
+    flexGrow: 1,
+    flexBasis: 220,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+    borderWidth: 2,
+  },
   questionCard: {
     padding: Spacing.four,
     borderRadius: Spacing.four,
