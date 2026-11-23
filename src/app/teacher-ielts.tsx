@@ -4,6 +4,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BusyOverlay } from '@/components/busy-overlay';
 import { CalibrationCard } from '@/components/calibration-card';
+import { ShareCalibrationCard } from '@/components/share-calibration-card';
 import { Button } from '@/components/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { Screen } from '@/components/screen';
@@ -13,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
 import { useWritingDraft } from '@/hooks/use-writing-draft';
+import { aiMarking } from '@/lib/calibration';
 import {
   IELTS_HARD_MIN_WORDS,
   IELTS_MAX_WORDS,
@@ -101,7 +103,17 @@ export default function TeacherIeltsRoute() {
         subtitle={question.trim() ? 'Teacher marking' : 'Teacher marking · question worked out from the essay'}
         improveLabel="Back to the essay"
         onImprove={() => setResult(null)}
-        extra={<CalibrationCard feedback={result.feedback} question={question} essay={text} />}
+        extra={
+          <>
+            <CalibrationCard marking={aiMarking(result.feedback)} question={question} essay={text} />
+            <ShareCalibrationCard
+              marking={aiMarking(result.feedback)}
+              question={question}
+              essay={text}
+              photos={draft.pagePhotos}
+            />
+          </>
+        }
       />
     );
   }

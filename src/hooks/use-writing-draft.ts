@@ -38,6 +38,9 @@ export function useWritingDraft(
   const [guesses, setGuesses] = useSavedState<TextMarks | null>(`${screen}:guesses`, null);
   const [marks, setMarks] = useSavedState<TextMarks | null>(`${screen}:marks`, null);
   const [reading, setReading] = useState(false);
+  // The photos of the last pages read, e.g. to share the essay for
+  // calibration. Kept in memory only: they are too big to keep through a refresh.
+  const [pagePhotos, setPagePhotos] = useState<PreparedPhoto[]>([]);
 
   function setText(next: string) {
     setSavedText(next);
@@ -61,6 +64,7 @@ export function useWritingDraft(
       } else {
         setText(read.transcript);
         setPhoto(read);
+        setPagePhotos(pages);
         setGuesses({ anchors: guessAnchorsFrom(read.transcript, read.guessedWords), length: read.transcript.length });
         // Underlines from earlier feedback belong to the old text.
         setMarks(null);
@@ -84,9 +88,23 @@ export function useWritingDraft(
     setPhoto(null);
     setGuesses(null);
     setMarks(null);
+    setPagePhotos([]);
   }
 
-  return { text, setText, photo, guesses, marks, setMarks, reading, readPages, showMistakes, clear, onError: options.onError };
+  return {
+    text,
+    setText,
+    photo,
+    pagePhotos,
+    guesses,
+    marks,
+    setMarks,
+    reading,
+    readPages,
+    showMistakes,
+    clear,
+    onError: options.onError,
+  };
 }
 
 export type WritingDraft = ReturnType<typeof useWritingDraft>;
