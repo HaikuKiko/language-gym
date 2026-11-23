@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/constants/theme';
@@ -45,7 +46,7 @@ const MAX_SUGGESTIONS = 6;
 // ===========================================================================
 
 /** One student in a class set: the name, the levels per area, and the feedback. */
-export default function ClassSetPageRoute() {
+function ClassSetPageRouteScreen() {
   const theme = useTheme();
   const { id, page: pageParam } = useLocalSearchParams<{ id: string; page: string }>();
   const pageNumber = Number(pageParam);
@@ -499,3 +500,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function ClassSetPageRoute() {
+  return (
+    <TeacherOnly>
+      <ClassSetPageRouteScreen />
+    </TeacherOnly>
+  );
+}

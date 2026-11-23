@@ -6,6 +6,7 @@ import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -16,7 +17,7 @@ import { pickPhotos, type PreparedPhoto } from '@/lib/photo';
 import { errorMessage } from '@/lib/supabase';
 
 /** Upload a scan (or photos) of a class's writing for one of the teacher's classes. */
-export default function NewClassSetRoute() {
+function NewClassSetRouteScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ class?: string }>();
   const [classes, setClasses] = useState<SchoolClass[] | null>(null);
@@ -265,3 +266,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function NewClassSetRoute() {
+  return (
+    <TeacherOnly>
+      <NewClassSetRouteScreen />
+    </TeacherOnly>
+  );
+}

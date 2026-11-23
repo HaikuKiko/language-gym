@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { Pill } from '@/components/pill';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -31,7 +32,7 @@ const STATUS_TEXT: Record<ClassSetPage['status'], string> = {
 };
 
 /** One class set: every page (student), marked one after another. */
-export default function ClassSetRoute() {
+function ClassSetRouteScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [set, setSet] = useState<ClassSet | null | undefined>(undefined);
@@ -264,3 +265,12 @@ const styles = StyleSheet.create({
     fontWeight: 800,
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function ClassSetRoute() {
+  return (
+    <TeacherOnly>
+      <ClassSetRouteScreen />
+    </TeacherOnly>
+  );
+}

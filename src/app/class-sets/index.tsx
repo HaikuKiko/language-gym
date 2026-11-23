@@ -6,21 +6,20 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { loadAccount } from '@/lib/account';
 import { TARGET_LEVELS, type TargetLevel } from '@/lib/class-scores';
 import { loadClassSets, type ClassSet } from '@/lib/class-sets';
 import { createClass, loadClasses, type SchoolClass } from '@/lib/classes';
 import { errorMessage } from '@/lib/supabase';
 
 /** Class writing: the teacher's classes, and each class's marked writing. */
-export default function ClassWritingRoute() {
+function ClassWritingRouteScreen() {
   const theme = useTheme();
   const [classes, setClasses] = useState<(SchoolClass & { studentCount: number })[] | null>(null);
   const [sets, setSets] = useState<ClassSet[]>([]);
-  const [guest, setGuest] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
@@ -29,10 +28,9 @@ export default function ClassWritingRoute() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [loadedClasses, loadedSets, account] = await Promise.all([loadClasses(), loadClassSets(), loadAccount()]);
+      const [loadedClasses, loadedSets] = await Promise.all([loadClasses(), loadClassSets()]);
       setClasses(loadedClasses);
       setSets(loadedSets);
-      setGuest(account.isGuest);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -69,15 +67,6 @@ export default function ClassWritingRoute() {
         </ThemedText>
       </View>
 
-      {guest && (
-        <View style={[styles.note, { backgroundColor: theme.markABg }]}>
-          <ThemedText type="small">
-            These are kept on this device only. Save your account (My account) and sign in with it on your other
-            devices to see your classes everywhere.
-          </ThemedText>
-          <Button label="My account" variant="secondary" onPress={() => router.push('/account')} />
-        </View>
-      )}
 
       {error && <ThemedText themeColor="warning">{error}</ThemedText>}
       {classes === null && !error && <ActivityIndicator color={theme.accent} />}
@@ -205,3 +194,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function ClassWritingRoute() {
+  return (
+    <TeacherOnly>
+      <ClassWritingRouteScreen />
+    </TeacherOnly>
+  );
+}
