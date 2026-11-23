@@ -7,39 +7,50 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  aiBands,
   CODE_NAMES,
   CODES,
   deleteCalibration,
   formatBand,
   overallFrom,
   saveCalibration,
+  type AiMarking,
+  type Bands,
   type Code,
 } from '@/lib/calibration';
-import type { IeltsFeedback } from '@/lib/ielts';
 import { errorMessage } from '@/lib/supabase';
 
 const CHOICES = [3, 4, 5, 6, 7, 8, 9];
 
 /**
- * "Your marks (optional)": under a teacher's marking, the teacher taps the
- * band they would give for each criterion and saves it, building an ongoing
- * check of how the AI's marks compare with theirs.
+ * "Your marks": the teacher taps the band they would give for each criterion
+ * and saves it, building an ongoing check of how the AI's marks compare with
+ * the teachers'. Under a teacher's own marking the AI's bands show next to
+ * the choices. On a shared essay (blind) they stay hidden until the marks are
+ * saved, and then show side by side.
  */
 export function CalibrationCard({
-  feedback,
+  marking,
   question,
   essay,
+  blind = false,
+  sharedCode,
+  earlier,
 }: {
-  feedback: IeltsFeedback;
+  marking: AiMarking;
   question: string;
   essay: string;
+  /** Hide the AI's bands until the teacher has saved theirs. */
+  blind?: boolean;
+  /** The shared essay these marks are for (/calibrate/<code>). */
+  sharedCode?: string;
+  /** Marks this device saved before for the same shared essay. */
+  earlier?: { id: number; teacher: Bands } | null;
 }) {
   const theme = useTheme();
-  const ai = aiBands(feedback);
-  const [bands, setBands] = useState<Partial<Record<Code, number>>>({});
+  const ai = marking.ai;
+  const [bands, setBands] = useState<Partial<Record<Code, number>>>(earlier?.teacher ?? {});
   const [saving, setSaving] = useState(false);
-  const [savedId, setSavedId] = useState<number | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(earlier?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const complete = CODES.every((c) => bands[c] !== undefined);
 
@@ -51,8 +62,9 @@ export function CalibrationCard({
       const id = await saveCalibration({
         question,
         essay,
-        feedback,
+        marking,
         teacher: { tr: bands.tr!, cc: bands.cc!, lr: bands.lr!, gra: bands.gra! },
+        sharedCode,
       });
       setSavedId(id);
     } catch (e) {
@@ -70,19 +82,23 @@ export function CalibrationCard({
   return (
     <View style={[styles.card, { backgroundColor: theme.markABg }]}>
       <ThemedText type="smallBold" style={styles.title}>
-        Your marks (optional)
+        {blind ? 'Your marks' : 'Your marks (optional)'}
       </ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
-        Tap the band you would give for each one. It builds an ongoing check of the AI&apos;s marking.
+        {blind
+          ? "Tap the band you would give for each one. You will see the AI's bands after you save."
+          : "Tap the band you would give for each one. It builds an ongoing check of the AI's marking."}
       </ThemedText>
 
       {CODES.map((code) => (
         <View key={code} style={styles.criterion}>
           <View style={styles.row}>
             <ThemedText type="smallBold">{CODE_NAMES[code]}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              AI: {ai[code]}
-            </ThemedText>
+            {!blind && (
+              <ThemedText type="small" themeColor="textSecondary">
+                AI: {ai[code]}
+              </ThemedText>
+            )}
           </View>
           <View style={styles.choices}>
             {CHOICES.map((n) => {
@@ -114,7 +130,9 @@ export function CalibrationCard({
         <ThemedText type="smallBold">Your overall</ThemedText>
         <ThemedText type="smallBold">
           {complete
-            ? `${formatBand(overallFrom({ tr: bands.tr!, cc: bands.cc!, lr: bands.lr!, gra: bands.gra! }))}  (AI: ${formatBand(feedback.overall_band)})`
+            ? `${formatBand(overallFrom({ tr: bands.tr!, cc: bands.cc!, lr: bands.lr!, gra: bands.gra! }))}${
+                blind ? '' : `  (AI: ${formatBand(marking.aiOverall)})`
+              }`
             : '–'}
         </ThemedText>
       </View>
@@ -135,6 +153,13 @@ export function CalibrationCard({
           <ThemedText type="smallBold" style={{ color: theme.accent }}>
             Saved. Thank you!
           </ThemedText>
+          {blind && complete && (
+            <Comparison
+              teacher={{ tr: bands.tr!, cc: bands.cc!, lr: bands.lr!, gra: bands.gra! }}
+              ai={ai}
+              aiOverall={marking.aiOverall}
+            />
+          )}
           <Button label="See the calibration" onPress={() => router.push('/calibration')} />
           <Button label="Undo" variant="secondary" onPress={undo} />
         </>
@@ -148,7 +173,76 @@ export function CalibrationCard({
   );
 }
 
+/** Your bands next to the AI's, with differences in orange. */
+function Comparison({ teacher, ai, aiOverall }: { teacher: Bands; ai: Bands; aiOverall: number }) {
+  const theme = useTheme();
+  const teacherOverall = overallFrom(teacher);
+  const rows: { name: string; you: string; them: string; differs: boolean; bold?: boolean }[] = [
+    ...CODES.map((code) => ({
+      name: CODE_NAMES[code],
+      you: String(teacher[code]),
+      them: String(ai[code]),
+      differs: teacher[code] !== ai[code],
+    })),
+    {
+      name: 'Overall',
+      you: formatBand(teacherOverall),
+      them: formatBand(aiOverall),
+      differs: teacherOverall !== aiOverall,
+      bold: true,
+    },
+  ];
+  return (
+    <View style={[styles.table, { backgroundColor: theme.background }]}>
+      <View style={styles.tableRow}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.tableName}>
+          {' '}
+        </ThemedText>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tableCell}>
+          You
+        </ThemedText>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.tableCell}>
+          AI
+        </ThemedText>
+      </View>
+      {rows.map((r) => (
+        <View key={r.name} style={[styles.tableRow, { borderTopColor: theme.border }, styles.tableLine]}>
+          <ThemedText type={r.bold ? 'smallBold' : 'small'} style={styles.tableName}>
+            {r.name}
+          </ThemedText>
+          <ThemedText type="smallBold" style={styles.tableCell}>
+            {r.you}
+          </ThemedText>
+          <ThemedText type="smallBold" style={[styles.tableCell, r.differs && { color: theme.warning }]}>
+            {r.them}
+          </ThemedText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  table: {
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  tableLine: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  tableName: {
+    flex: 1,
+  },
+  tableCell: {
+    width: 48,
+    textAlign: 'center',
+  },
   card: {
     padding: Spacing.three,
     borderRadius: Spacing.three,

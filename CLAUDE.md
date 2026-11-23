@@ -42,7 +42,10 @@ Things agreed for later: `BACKLOG.md`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading).
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
-  `calibration-card.tsx`.
+  `calibration-card.tsx`. Sharing an essay for calibration: `share-calibration-card.tsx`,
+  `src/lib/shared-essay.ts`, `calibrate/[code].tsx` (other teachers mark blind, then compare).
+- **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem`: change those, not
+  each screen.
 - **Accounts:** `account.tsx`, `src/lib/account.ts` (student code + PIN, self-enrol on IELTS).
 - **Sharing:** `share-report-button.tsx`, `src/lib/share-report.ts` (text),
   `report-html.ts` + `report-pdf.ts` (PDF that looks like the screen, print).
@@ -50,7 +53,8 @@ Things agreed for later: `BACKLOG.md`.
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
-  enrolments, writing_prompts, response_cache, calibration_marks (once created). Anonymous sign-in; RLS on.
+  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays
+  (+ storage bucket `shared-essay-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool

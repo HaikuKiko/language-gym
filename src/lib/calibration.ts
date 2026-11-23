@@ -43,32 +43,42 @@ export type CalibrationRow = {
   teacherOverall: number;
 };
 
+/** What the AI gave an essay, to save next to a teacher's bands. */
+export type AiMarking = { ai: Bands; aiOverall: number; wordCount: number };
+
+export function aiMarking(f: IeltsFeedback): AiMarking {
+  return { ai: aiBands(f), aiOverall: f.overall_band, wordCount: f.word_count };
+}
+
 export async function saveCalibration(input: {
   question: string;
   essay: string;
-  feedback: IeltsFeedback;
+  marking: AiMarking;
   teacher: Bands;
+  /** The shared essay this is for (/calibrate/<code>), if any. */
+  sharedCode?: string;
 }): Promise<number> {
   const client = requireSupabase();
   await ensureSignedIn();
-  const ai = aiBands(input.feedback);
+  const { ai, aiOverall, wordCount } = input.marking;
   const { data, error } = await client
     .from('calibration_marks')
     .insert({
       question: input.question.trim(),
       essay: input.essay.trim(),
-      word_count: input.feedback.word_count,
+      word_count: wordCount,
       model: MARKING_MODEL,
       ai_tr: ai.tr,
       ai_cc: ai.cc,
       ai_lr: ai.lr,
       ai_gra: ai.gra,
-      ai_overall: input.feedback.overall_band,
+      ai_overall: aiOverall,
       teacher_tr: input.teacher.tr,
       teacher_cc: input.teacher.cc,
       teacher_lr: input.teacher.lr,
       teacher_gra: input.teacher.gra,
       teacher_overall: overallFrom(input.teacher),
+      ...(input.sharedCode ? { shared_code: input.sharedCode } : {}),
     })
     .select('id')
     .single();
@@ -81,6 +91,22 @@ export async function saveCalibration(input: {
     );
   }
   return data.id as number;
+}
+
+/** This device's earlier marks for a shared essay, if it was marked here before. */
+export async function findMySharedMarks(sharedCode: string): Promise<{ id: number; teacher: Bands } | null> {
+  const client = requireSupabase();
+  const userId = await ensureSignedIn();
+  const { data } = await client
+    .from('calibration_marks')
+    .select('id, teacher_tr, teacher_cc, teacher_lr, teacher_gra')
+    .eq('shared_code', sharedCode)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { id: data.id, teacher: { tr: data.teacher_tr, cc: data.teacher_cc, lr: data.teacher_lr, gra: data.teacher_gra } };
 }
 
 export async function deleteCalibration(id: number): Promise<void> {

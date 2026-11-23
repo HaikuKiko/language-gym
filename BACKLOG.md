@@ -2,19 +2,9 @@
 
 Things agreed for later. Newest first.
 
-(Done: calibration table created 23 Nov; one question per round for the whole class; round robin button; bigger partner and question on phones; full grammar on the teacher's screen.)
+(Done: calibration table created and sharing essays for calibration built, 23 Nov; one question per round for the whole class; round robin button; bigger partner and question on phones; full grammar on the teacher's screen.)
 
 ## IELTS writing
-
-- **Share a marked essay with another teacher (asked 23 Nov).** After "Mark an
-  IELTS essay", a "Share for calibration" button makes a link. Another teacher
-  opens it, sees the question, the essay and the photo of the page (not the
-  AI's bands, so they are not influenced), puts in their own bands, and only
-  then sees the AI's. Their marks go into `calibration_marks` like the owner's.
-  Needs: a table for shared essays (a short random code in the link, the
-  question, essay, AI bands), a place to keep the photo (Supabase Storage),
-  and a new screen. Results are already cached, so opening the link costs
-  nothing.
 
 - **One question for the whole class.** Every student should be on the same
   Task 2 question. Today several questions can be ticked as `assigned` and
