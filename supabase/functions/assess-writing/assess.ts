@@ -41,7 +41,8 @@ export const FeedbackSchema = z.object({
   strengths: z.array(z.string()),
   criteria: z.array(
     z.object({
-      criterion: z.enum(["Content", "Communicative achievement", "Organisation", "Language"]),
+      // The four areas on the school's writing sheets.
+      criterion: z.enum(["Content", "Organisation", "Grammar", "Vocabulary"]),
       level: Level,
       comment: z.string(),
     }),
@@ -99,11 +100,11 @@ Short texts give limited evidence. When the text is short or narrow in range, gi
 - level_explanation: one or two sentences giving the evidence for the level.
 - summary: two or three encouraging sentences on the writing overall.
 - strengths: two or three specific things the student did well, quoting short phrases from their text where possible.
-- criteria: exactly four entries, in this order, each with the CEFR level that criterion shows on its own and a one- or two-sentence comment:
-  - Content: whether the student did the task and included relevant, complete information. If no task was given, judge whether the text is clear and complete for its purpose.
-  - Communicative achievement: whether the style and tone suit the type of text and the reader, and whether the ideas come across clearly and hold the reader's attention.
+- criteria: exactly four entries, in this order (the four areas on the school's writing sheet), each with the CEFR level that area shows on its own and a one- or two-sentence comment:
+  - Content: whether the student did the task and answered every part of it with relevant, complete information, in a style that suits the reader. If no task was given, judge whether the text is clear and complete for its purpose.
   - Organisation: how the text is ordered and linked: sentences and paragraphs, linking words, and a logical flow.
-  - Language: the range and accuracy of grammar and vocabulary.
+  - Grammar: the range and accuracy of grammar and punctuation, including the focus grammar point if one is given.
+  - Vocabulary: the range and accuracy of words and phrases, spelling, and how well they suit the topic.
 - corrections: two groups, in one list. (1) Up to six grammar, vocabulary and spelling corrections: prefer errors that repeat or that block meaning over small slips. (2) Up to four punctuation corrections, as well as the six, whenever the text has punctuation mistakes: missing full stops, sentences joined with a comma or with no punctuation at all, missing question marks, missing capital letters at the start of sentences, for "I", names, days and months, and wrong apostrophes. Punctuation matters a lot to these students, so never leave it out to make room for grammar. Use type "punctuation" for capital letters too. The app underlines each "original" in the student's own text, so:
   - "original" is the shortest span that contains the mistake, usually one to four words (for a missing full stop, the last word of one sentence and the first word of the next, for example "sea it was" becoming "sea. It was"), copied character for character from the student's text (same spelling, capitals and punctuation). Do not include words that are already correct unless they are needed to show the mistake.
   - "corrected" is the same span as it should be, and nothing more.
@@ -230,6 +231,66 @@ Copy exactly what the student wrote. This is essential: keep every spelling, gra
 - contains_writing: false if the photo has no student writing in it; then leave transcript empty.
 - When there are several photos, they are the pages of ONE piece of writing, in order: give one transcript with page 1 first. If a sentence or paragraph runs on from one page to the next, join it up; do not add a paragraph break just because a new page starts. If a page has no student writing, skip it.
 - note: one short sentence for the student, for example "Two words were hard to read, so we guessed them: please check." or "All clear." Use simple English.`;
+
+/** A page of a class set: the transcript plus what is filled in on the printed sheet. */
+export const SheetSchema = TranscriptSchema.extend({
+  student_name: z.string(),
+  class_name: z.string(),
+  sheet_date: z.string(),
+  task: z.string(),
+  grammar_focus: z.string(),
+});
+
+export type SheetReading = z.infer<typeof SheetSchema>;
+
+export const SHEET_PROMPT = `${TRANSCRIBE_PROMPT}
+
+This photo is one page of a class set: usually a printed writing sheet with one student's handwriting on it. As well as the transcript, copy these from the sheet when they are there, and leave them empty when they are not:
+- student_name: the name written next to "Name", exactly as written. Never guess a name that is not on the page.
+- class_name: what is written next to "Class".
+- sheet_date: what is written next to "Date", as written.
+- task: the printed writing task, in one or two sentences, including the choices offered (for example "your best holiday, a scary moment or your first day in the UK"). If the student circled one choice, say which.
+- grammar_focus: the grammar point printed on the sheet (for example in a "Grammar" row), such as "Simple past".
+The transcript is still only the student's own writing: not the printed sheet, the name, the class, the date, or anything the teacher wrote.`;
+
+/** Reads one page of a class set (see SHEET_PROMPT). */
+export async function transcribeSheet(
+  client: Anthropic,
+  image: { data: string; mediaType: ImageMediaType },
+): Promise<
+  | { ok: true; sheet: SheetReading; usage: { input_tokens: number; output_tokens: number } }
+  | { ok: false; reason: "refused" | "too_long" | "unreadable"; detail?: string }
+> {
+  const response = await client.messages.parse({
+    model: MODEL,
+    max_tokens: 6000,
+    system: SHEET_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+          { type: "text", text: "Read this page of the class set." },
+        ],
+      },
+    ],
+    output_config: {
+      effort: "low",
+      format: zodOutputFormat(SheetSchema),
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    return { ok: false, reason: "refused", detail: response.stop_details?.category ?? undefined };
+  }
+  if (response.stop_reason === "max_tokens") return { ok: false, reason: "too_long" };
+  if (!response.parsed_output) return { ok: false, reason: "unreadable" };
+  return {
+    ok: true,
+    sheet: response.parsed_output,
+    usage: { input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens },
+  };
+}
 
 export async function transcribeImage(
   client: Anthropic,
