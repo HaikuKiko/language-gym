@@ -17,6 +17,7 @@ import {
   isFriending,
   markFound,
   questionForRound,
+  questionForStudent,
   removeParticipant,
   type LiveParticipant,
   type LiveSession,
@@ -110,7 +111,9 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
   const partnerNames = partners.map((p) => p.name).join(' & ');
-  const question = questionForRound(session, questions, level, funQuestions);
+  const question = friending
+    ? questionForStudent(session, funQuestions, me.id)
+    : questionForRound(session, questions, level);
   const plan = findWeek(weeks, level, session.week);
 
   // ---- First: find your partner (no question yet) ---------------------------
@@ -168,19 +171,24 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
           </>
         ) : (
           <>
-            <ThemedText themeColor="textSecondary" style={styles.centered}>
-              Look for {partnerNames} in the room. When you&apos;ve found each other, one of you taps the button.
+            <ThemedText type="subtitle" style={styles.centered}>
+              Found {partnerNames}? Tap the button
             </ThemedText>
+            <Text style={[styles.arrow, { color: theme.success }]}>↓</Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="We found each other!"
               onPress={found}
               style={({ pressed }) => [
                 styles.foundButton,
-                { backgroundColor: theme.success },
+                { backgroundColor: theme.success, borderColor: theme.successText },
                 pressed && styles.pressed,
               ]}>
-              <Text style={[styles.foundButtonText, { color: theme.onSuccess }]}>We found each other!</Text>
+              <Text style={[styles.foundButtonText, { color: theme.onSuccess }]}>👋 We found each other!</Text>
             </Pressable>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+              Only one of you needs to tap.
+            </ThemedText>
             {tapError && (
               <ThemedText type="small" themeColor="warning" style={styles.centered}>
                 {tapError}
@@ -208,11 +216,21 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
       </View>
 
       <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
-        <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>TALK ABOUT</Text>
+        <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>
+          {friending && partners.length > 0 ? `YOUR QUESTION: ASK ${partnerNames.toUpperCase()}` : 'TALK ABOUT'}
+        </Text>
         <Text style={[styles.questionText, { color: theme.grammarText }]}>
           {question ? question.text : 'There are no questions at this level yet.'}
         </Text>
       </View>
+
+      {friending && partners.length > 0 && (
+        <ThemedText themeColor="textSecondary" style={styles.centered}>
+          {partners.length > 1
+            ? `${partnerNames} have different questions for you. Take turns.`
+            : `${partnerNames} has a different question for you. Take turns.`}
+        </ThemedText>
+      )}
 
       <LiveTimer session={session} now={now} compact />
 
@@ -285,9 +303,17 @@ const styles = StyleSheet.create({
   },
   foundButton: {
     paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    borderRadius: 999,
     alignItems: 'center',
-    marginTop: Spacing.three,
+    borderBottomWidth: 6,
+    boxShadow: '0 6px 16px rgba(0, 0, 0, 0.25)',
+  },
+  arrow: {
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: 800,
+    textAlign: 'center',
   },
   foundButtonText: {
     fontSize: 22,
@@ -295,7 +321,8 @@ const styles = StyleSheet.create({
     fontWeight: 800,
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.85,
+    transform: [{ translateY: 3 }],
   },
 
 });

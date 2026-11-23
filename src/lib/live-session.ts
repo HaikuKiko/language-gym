@@ -346,23 +346,38 @@ export function remainingMs(session: LiveSession, now: number): number {
 }
 
 /**
- * The question everyone discusses this round. Every phone works this out the
- * same way, so the whole class is on the same question, with a new one each
- * round.
+ * Conversation practice: the question everyone discusses this round. Every
+ * phone works this out the same way, so the whole class is on the same
+ * question, with a new one each round.
  */
 export function questionForRound(
   session: LiveSession,
   questions: readonly Question[],
   level: Level,
-  funQuestions: readonly FunQuestion[] = [],
 ): { text: string } | null {
-  const pool: { text: string }[] = isFriending(session)
-    ? findFunQuestions(funQuestions, level, session.week)
-    : findQuestions(questions, level, session.week);
+  const pool = findQuestions(questions, level, session.week);
   if (pool.length === 0) return null;
-
   const ordered = shuffle(pool, session.seed + LEVELS.indexOf(level));
   return ordered[session.round % ordered.length];
+}
+
+/**
+ * Speed friending: each student has their own question to ask their partner.
+ * The questions are shuffled once per session; a student's question moves one
+ * step along the list each round, starting from their place in the roster, so
+ * partners have different questions and nobody gets the same one twice until
+ * the list runs out.
+ */
+export function questionForStudent(
+  session: LiveSession,
+  funQuestions: readonly FunQuestion[],
+  participantId: string,
+): { text: string } | null {
+  const pool = findFunQuestions(funQuestions, session.level, session.week);
+  if (pool.length === 0) return null;
+  const seat = Math.max(0, session.roster.findIndex((p) => p.id === participantId));
+  const ordered = shuffle(pool, session.seed + LEVELS.indexOf(session.level));
+  return ordered[(seat + session.round) % ordered.length];
 }
 
 export function formatCode(code: string): string {

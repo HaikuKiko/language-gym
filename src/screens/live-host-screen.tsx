@@ -17,7 +17,7 @@ import { WeekFocus } from '@/components/week-focus';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { findWeek } from '@/data/weeks';
-import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   beginDiscussion,
@@ -60,7 +60,6 @@ export function LiveHostScreen({
 }: LiveHostScreenProps) {
   const now = useNow();
   const questions = useQuestions();
-  const funQuestions = useFunQuestions();
   const friending = isFriending(session);
   const plan = findWeek(useWeeks(), session.level, session.week);
   const theme = useTheme();
@@ -267,7 +266,7 @@ export function LiveHostScreen({
   const running = session.ends_at !== null && remaining > 0;
   const rosterIds = new Set(session.roster.map((p) => p.id));
   const waiting = participants.filter((p) => !rosterIds.has(p.id));
-  const question = questionForRound(session, questions, session.level, funQuestions);
+  const question = friending ? null : questionForRound(session, questions, session.level);
 
   return (
     <Screen>
@@ -303,10 +302,14 @@ export function LiveHostScreen({
         <>
         <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
           <ThemedText type="smallBold" style={[styles.questionLabel, { color: theme.grammarLabel }]}>
-            EVERYONE&apos;S QUESTION
+            {friending ? 'QUESTIONS' : 'EVERYONE\'S QUESTION'}
           </ThemedText>
           <ThemedText style={[styles.questionText, { color: theme.grammarText }]}>
-            {question ? question.text : 'There are no questions at this level yet.'}
+            {friending
+              ? 'Everyone has their own question on their phone. Partners take turns asking.'
+              : question
+                ? question.text
+                : 'There are no questions at this level yet.'}
           </ThemedText>
         </View>
 
@@ -444,7 +447,7 @@ function FindingPartners({
       <ThemedText type="small" themeColor="textSecondary">
         Tap a pair to mark them as found (if a phone is flat).{' '}
         {session.auto_advance
-          ? 'The question appears on every phone as soon as all pairs are ready.'
+          ? `${isFriending(session) ? 'The questions appear' : 'The question appears'} on every phone as soon as all pairs are ready.`
           : 'Start the round when everyone is ready.'}
       </ThemedText>
       {waitingToJoin.length > 0 && (

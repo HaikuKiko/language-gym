@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { LEVELS, countForWeek, findQuestions } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
-import { findFunQuestions, funBandFor } from '@/data/fun-questions';
+import { FRIENDING_WEEKS, findFunQuestions } from '@/data/fun-questions';
 import { uniqueRoundCount } from '@/lib/round-robin';
 import { CHANGEOVER_SECONDS, type RoundSettings } from '@/lib/session';
 
@@ -70,7 +70,7 @@ export function RoundSettingsForm({
       <View style={styles.section}>
         <ThemedText type="smallBold">Theme</ThemedText>
         <View style={styles.chips}>
-          {Array.from({ length: WEEKS_PER_LEVEL }, (_, i) => i + 1).map((n) => (
+          {(friending ? [...FRIENDING_WEEKS] : Array.from({ length: WEEKS_PER_LEVEL }, (_, i) => i + 1)).map((n) => (
             <Chip
               key={n}
               label={findWeek(weeks, level, n)?.topic ?? `Week ${n}`}
@@ -84,11 +84,11 @@ export function RoundSettingsForm({
         {friending ? (
           <ThemedView type="backgroundElement" style={styles.plan}>
             <ThemedText type="smallBold">
-              {week === null ? 'Any theme' : (plan?.topic ?? `Theme ${week}`)} ·{' '}
-              {funBandFor(level) === 'easier' ? 'easier questions (A1–A2)' : 'questions for B1 and up'}
+              {level} · {week === null ? 'Any theme' : (plan?.topic ?? `Theme ${week}`)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {available} fun {available === 1 ? 'question' : 'questions'} for getting to know each other. No grammar
+              {available} fun {available === 1 ? 'question' : 'questions'} for getting to know each other, written for{' '}
+              {level}. Everyone gets their own question to ask their partner, and a new one each round. No grammar
               point.
             </ThemedText>
           </ThemedView>

@@ -139,6 +139,11 @@ export default function HomeRoute() {
           onPress={() => router.push('/class-sets')}
         />
         <Button
+          label="🎉 Speed friending"
+          disabled={!configured}
+          onPress={() => router.push({ pathname: '/host', params: { mode: 'friending' } })}
+        />
+        <Button
           label="Host a session"
           variant="secondary"
           disabled={!configured}

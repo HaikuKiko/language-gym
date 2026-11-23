@@ -133,12 +133,12 @@ async function loadWeeks(): Promise<Week[] | null> {
   return weeks.length > 0 ? weeks : null;
 }
 
-/** Speed friending's questions from the fun_questions table (null if missing or empty). */
+/** Speed friending's questions from the friending_questions table (null if missing or empty). */
 async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
-    .from('fun_questions')
-    .select('band, week, text')
+    .from('friending_questions')
+    .select('level, week, text')
     .eq('active', true)
     // A fixed order, so every phone shuffles the same list the same way.
     .order('id')
@@ -146,8 +146,8 @@ async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   if (error || !data) return null;
   const rows = data as unknown as Record<string, unknown>[];
   const questions = rows.flatMap((row): FunQuestion[] =>
-    (row.band === 'easier' || row.band === 'harder') && typeof row.week === 'number' && typeof row.text === 'string'
-      ? [{ band: row.band, week: row.week, text: row.text }]
+    isLevel(row.level) && typeof row.week === 'number' && typeof row.text === 'string'
+      ? [{ level: row.level, week: row.week, text: row.text }]
       : [],
   );
   return questions.length > 0 ? questions : null;
