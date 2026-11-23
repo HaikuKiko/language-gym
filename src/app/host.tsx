@@ -1,9 +1,8 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
 import { RoundSettingsForm } from '@/components/round-settings-form';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -12,15 +11,17 @@ import { createSession } from '@/lib/live-session';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
 import { errorMessage } from '@/lib/supabase';
 
-/** The teacher chooses the settings and gets a join code for the class. */
+/**
+ * The teacher chooses the settings and gets a join code for the class.
+ * /host is conversation practice; /host?mode=friending is speed friending.
+ */
 export default function HostRoute() {
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const friending = params.mode === 'friending';
   const [settings, setSettings] = useState<RoundSettings>({
     ...DEFAULT_ROUND_SETTINGS,
-    // Speed friending starts with every theme: each theme alone has only a few questions.
-    mode: 'friending',
-    week: null,
+    ...(friending ? { mode: 'friending', week: null } : { mode: 'conversation' }),
   });
-  const friending = settings.mode === 'friending';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,30 +40,11 @@ export default function HostRoute() {
   return (
     <Screen>
       <View style={styles.header}>
-        <ThemedText type="subtitle">Host a session</ThemedText>
+        <ThemedText type="subtitle">{friending ? 'Speed friending' : 'Host a session'}</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Choose the settings, then share the join code with your students.
-        </ThemedText>
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText type="smallBold">Type of session</ThemedText>
-        <View style={styles.chips}>
-          <Chip
-            label="Speed friending"
-            selected={friending}
-            onPress={() => setSettings({ ...settings, mode: 'friending', week: null })}
-          />
-          <Chip
-            label="Conversation practice"
-            selected={!friending}
-            onPress={() => setSettings({ ...settings, mode: 'conversation' })}
-          />
-        </View>
-        <ThemedText type="small" themeColor="textSecondary">
           {friending
-            ? 'Fun questions for getting to know each other, often using their phones (photos, music, maps). No grammar point.'
-            : "Discussion questions for the week's theme, with its grammar point on every phone."}
+            ? 'Students meet a new partner each round and ask each other fun questions. Everyone has their own question, and there is no grammar point.'
+            : "Discussion questions for the week's theme, with its grammar point on every phone. Choose the settings, then share the join code with your students."}
         </ThemedText>
       </View>
 
@@ -94,11 +76,6 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   section: {
-    gap: Spacing.two,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   centered: {
