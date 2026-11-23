@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react
 import { Button } from '@/components/button';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +15,7 @@ import { loadStudentHistory, renameStudent, type ClassStudent, type HistoryEntry
 import { errorMessage } from '@/lib/supabase';
 
 /** One student: every piece of their writing, newest first, with the score and the level per area. */
-export default function StudentRoute() {
+function StudentRouteScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [student, setStudent] = useState<ClassStudent | null | undefined>(undefined);
@@ -204,3 +205,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function StudentRoute() {
+  return (
+    <TeacherOnly>
+      <StudentRouteScreen />
+    </TeacherOnly>
+  );
+}

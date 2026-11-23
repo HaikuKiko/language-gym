@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
+import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -15,7 +16,7 @@ import { addStudents, loadClass, updateClass, type ClassStudent, type SchoolClas
 import { errorMessage } from '@/lib/supabase';
 
 /** One class: its target level, its students (with their latest score) and its writing. */
-export default function ClassRoute() {
+function ClassRouteScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [data, setData] = useState<{
@@ -223,3 +224,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+/** Teachers only (see TeacherOnly). */
+export default function ClassRoute() {
+  return (
+    <TeacherOnly>
+      <ClassRouteScreen />
+    </TeacherOnly>
+  );
+}

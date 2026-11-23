@@ -52,8 +52,12 @@ Things agreed for later: `BACKLOG.md`.
   class target: all four areas at target = 7, above climbs to 10, below falls gently; constants at the
   top). A PDF scan (pdf.js from cdnjs, web only) or photos, one page = one student, read in "sheet"
   mode and marked; area levels may be "+" levels (A2+). Tables `classes`, `class_students`,
-  `class_sets`, `class_set_pages` (+ bucket `class-set-photos`), owner-only by user: a saved account
-  (code + PIN) follows the teacher across devices.
+  `class_sets`, `class_set_pages` (+ bucket `class-set-photos`): own rows only, and **teachers only**
+  (restrictive RLS with `is_teacher()`); the screens are wrapped in `TeacherOnly`.
+- **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
+  `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
+  The first teacher account is made by the owner (only while there are none); then teachers add
+  teachers. Table `teachers`.
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
   `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
@@ -68,7 +72,7 @@ Things agreed for later: `BACKLOG.md`.
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
   enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions,
-  classes, class_students, class_sets, class_set_pages (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
+  classes, class_students, class_sets, class_set_pages, teachers (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool
@@ -89,6 +93,7 @@ Things agreed for later: `BACKLOG.md`.
   fingerprint of the request (prompt, model, inputs, `CACHE_VERSION`). The same writing/photo
   again returns the saved result with `cached: true`: no Claude call, no check used.
 - `student-account`: save with PIN, sign in, join a course.
+- `teacher-account` (index.ts, deno.json): the first teacher, and teachers adding teachers.
 - The Anthropic API key is a Supabase secret (`ANTHROPIC_API_KEY`), never in the app.
 
 ## Testing
