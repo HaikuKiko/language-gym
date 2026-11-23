@@ -35,9 +35,9 @@ import {
 /** A plain-English line under each area's name, for lower levels. */
 const CRITERION_HINTS: Record<string, string> = {
   Content: 'Did you answer the task?',
-  'Communicative achievement': 'Is it right for the reader?',
   Organisation: 'Order, paragraphs and linking words',
-  Language: 'Grammar and words',
+  Grammar: 'Correct sentences and punctuation',
+  Vocabulary: 'Words for the topic',
 };
 
 /** Students write something and get a level estimate and feedback. */

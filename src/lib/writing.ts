@@ -33,6 +33,8 @@ export type WritingRequest = {
   level: Level;
   task?: string;
   week?: number | null;
+  /** A grammar point to pay attention to when no week is given (e.g. from a class set's sheet). */
+  focusGrammar?: string;
 };
 
 export type WritingResponse = {
@@ -56,6 +58,7 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
       level: request.level,
       task: request.task?.trim() || undefined,
       week: request.week ?? undefined,
+      focus_grammar: request.focusGrammar?.trim() || undefined,
     },
   });
 

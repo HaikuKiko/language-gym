@@ -27,6 +27,9 @@
  *            -> 200 { transcript, legibility, contains_writing, guessed_words, note,
  *                     remaining_today, used_today }
  *            teacher: true uses TEACHER_PHOTO_CAP instead of PHOTO_DAILY_LIMIT.
+ *            sheet: true (one page of a class set) also returns student_name,
+ *            class_name, sheet_date, task and grammar_focus read from the sheet.
+ * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -48,9 +51,11 @@ import {
   MODEL,
   STUDENT_LEVELS,
   type StudentLevel,
+  SHEET_PROMPT,
   SYSTEM_PROMPT,
   TRANSCRIBE_PROMPT,
   transcribeImage,
+  transcribeSheet,
 } from "./assess.ts";
 import {
   assessIeltsTask2,
@@ -94,7 +99,7 @@ const TEACHER_PHOTO_TYPE = "teacher_photo";
 
 // ---- Saved results (the response_cache table) -----------------------------
 
-type CacheKind = "feedback" | "ielts" | "ielts_teacher" | "transcribe";
+type CacheKind = "feedback" | "ielts" | "ielts_teacher" | "transcribe" | "sheet";
 
 /** A fingerprint (SHA-256) of everything that decides the result. */
 async function cacheKey(kind: CacheKind, parts: unknown): Promise<string> {
@@ -250,8 +255,9 @@ Deno.serve(async (request) => {
     const photoLimit = teacher ? TEACHER_PHOTO_CAP : PHOTO_DAILY_LIMIT;
     if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
 
-    const key = await cacheKey("transcribe", {
-      prompt: TRANSCRIBE_PROMPT,
+    const sheet = body.sheet === true && pages.length === 1;
+    const key = await cacheKey(sheet ? "sheet" : "transcribe", {
+      prompt: sheet ? SHEET_PROMPT : TRANSCRIBE_PROMPT,
       pages: pages.map((p) => [p.mediaType, p.data]),
     });
     const saved = await readCache(admin, key);
@@ -274,7 +280,12 @@ Deno.serve(async (request) => {
 
     let result;
     try {
-      result = await transcribeImage(anthropic, pages);
+      if (sheet) {
+        const read = await transcribeSheet(anthropic, pages[0]);
+        result = read.ok ? { ok: true as const, transcript: read.sheet, usage: read.usage } : read;
+      } else {
+        result = await transcribeImage(anthropic, pages);
+      }
     } catch (error) {
       return claudeError(error);
     }
@@ -294,7 +305,7 @@ Deno.serve(async (request) => {
       output_tokens: result.usage.output_tokens,
     });
     if (insertError) console.error("Could not record transcription", insertError.message);
-    await writeCache(admin, key, "transcribe", result.transcript);
+    await writeCache(admin, key, sheet ? "sheet" : "transcribe", result.transcript);
 
     return reply(200, {
       ...result.transcript,
@@ -359,8 +370,12 @@ Deno.serve(async (request) => {
   const used = await usedToday(admin, userId, "feedback");
   if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
 
-  // This week's grammar point, so the feedback can pay attention to it.
-  let focusGrammar: string | undefined;
+  // This week's grammar point, so the feedback can pay attention to it, or
+  // one given with the request (e.g. printed on a class set's sheet).
+  let focusGrammar: string | undefined =
+    typeof body.focus_grammar === "string" && body.focus_grammar.trim()
+      ? body.focus_grammar.trim().slice(0, 200)
+      : undefined;
   if (week) {
     const { data: weekRow } = await admin
       .from("weeks")
