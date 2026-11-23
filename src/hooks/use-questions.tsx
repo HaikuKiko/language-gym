@@ -1,5 +1,6 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
+import { BUILT_IN_FUN_QUESTIONS, type FunQuestion } from '@/data/fun-questions';
 import { BUILT_IN_QUESTIONS, LEVELS, type Level, type Question } from '@/data/questions';
 import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
@@ -11,11 +12,17 @@ const LOAD_TIMEOUT_MS = 6000;
 type Content = {
   questions: readonly Question[];
   weeks: readonly Week[];
+  /** Speed friending's questions. */
+  funQuestions: readonly FunQuestion[];
 };
 
 const ALL_BUILT_IN_QUESTIONS: readonly Question[] = [...BUILT_IN_QUESTIONS, ...WEEK_QUESTIONS];
 
-const BUILT_IN: Content = { questions: ALL_BUILT_IN_QUESTIONS, weeks: BUILT_IN_WEEKS };
+const BUILT_IN: Content = {
+  questions: ALL_BUILT_IN_QUESTIONS,
+  weeks: BUILT_IN_WEEKS,
+  funQuestions: BUILT_IN_FUN_QUESTIONS,
+};
 
 const ContentContext = createContext<Content>(BUILT_IN);
 
@@ -27,6 +34,11 @@ export function useQuestions(): readonly Question[] {
 /** The 16-week plan for every level: from the database, or the built-in draft. */
 export function useWeeks(): readonly Week[] {
   return use(ContentContext).weeks;
+}
+
+/** Speed friending's questions: from the database, or the built-in list. */
+export function useFunQuestions(): readonly FunQuestion[] {
+  return use(ContentContext).funQuestions;
 }
 
 const isLevel = (value: unknown): value is Level => LEVELS.includes(value as Level);
@@ -121,12 +133,37 @@ async function loadWeeks(): Promise<Week[] | null> {
   return weeks.length > 0 ? weeks : null;
 }
 
+/** Speed friending's questions from the fun_questions table (null if missing or empty). */
+async function loadFunQuestions(): Promise<FunQuestion[] | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('fun_questions')
+    .select('band, week, text')
+    .eq('active', true)
+    // A fixed order, so every phone shuffles the same list the same way.
+    .order('id')
+    .limit(1000);
+  if (error || !data) return null;
+  const rows = data as unknown as Record<string, unknown>[];
+  const questions = rows.flatMap((row): FunQuestion[] =>
+    (row.band === 'easier' || row.band === 'harder') && typeof row.week === 'number' && typeof row.text === 'string'
+      ? [{ band: row.band, week: row.week, text: row.text }]
+      : [],
+  );
+  return questions.length > 0 ? questions : null;
+}
+
 async function loadContent(): Promise<Content> {
-  const [questions, weeks] = await Promise.all([
+  const [questions, weeks, funQuestions] = await Promise.all([
     loadQuestions().catch(() => null),
     loadWeeks().catch(() => null),
+    loadFunQuestions().catch(() => null),
   ]);
-  return { questions: questions ?? ALL_BUILT_IN_QUESTIONS, weeks: weeks ?? BUILT_IN_WEEKS };
+  return {
+    questions: questions ?? ALL_BUILT_IN_QUESTIONS,
+    weeks: weeks ?? BUILT_IN_WEEKS,
+    funQuestions: funQuestions ?? BUILT_IN_FUN_QUESTIONS,
+  };
 }
 
 /**

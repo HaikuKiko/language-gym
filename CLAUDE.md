@@ -39,6 +39,10 @@ Things agreed for later: `BACKLOG.md`.
   `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
   components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
   Questions table: 1,488 rows (levels × themes, 15 each); defaults: Automatic, 2 minutes, round robin.
+  Two modes (flag in `sessions.categories`): **Speed friending** (fun questions in
+  `src/data/fun-questions.ts` / table `fun_questions`, easier A1–A2 vs harder B1+, no grammar) and
+  **Conversation practice** (questions + weekly grammar). Each round: students find their partner
+  and tap "We found each other!" (one tap per pair); the question appears when every pair is found.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading).
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,

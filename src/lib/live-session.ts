@@ -3,6 +3,7 @@
  * join with that code, and every phone follows the same session row in
  * Supabase. See supabase/schema.sql for the tables.
  */
+import { findFunQuestions, type FunQuestion } from '@/data/fun-questions';
 import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
 import { groupsForRound, uniqueRoundCount, type Group, type Participant } from '@/lib/round-robin';
 import { shuffle, type RoundSettings } from '@/lib/session';
@@ -39,10 +40,16 @@ export type LiveSession = {
 };
 
 const ROUND_ROBIN = 'round-robin';
+const FRIENDING = 'speed-friending';
 
 /** True when the number of rounds is worked out from the class size at the start. */
 export function isRoundRobin(session: LiveSession): boolean {
   return session.categories?.includes(ROUND_ROBIN) ?? false;
+}
+
+/** Speed friending: fun get-to-know-you questions, with no grammar point. */
+export function isFriending(session: LiveSession): boolean {
+  return session.categories?.includes(FRIENDING) ?? false;
 }
 
 /** Rounds needed for everyone to talk to everyone once (at least 1). */
@@ -73,7 +80,10 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
   const base = {
     level: settings.level,
     // An older column, now used for flags (see isRoundRobin).
-    categories: settings.roundRobin ? [ROUND_ROBIN] : [],
+    categories: [
+      ...(settings.roundRobin ? [ROUND_ROBIN] : []),
+      ...(settings.mode === 'friending' ? [FRIENDING] : []),
+    ],
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
     auto_advance: settings.autoAdvance,
@@ -344,8 +354,11 @@ export function questionForRound(
   session: LiveSession,
   questions: readonly Question[],
   level: Level,
-): Question | null {
-  const pool = findQuestions(questions, level, session.week);
+  funQuestions: readonly FunQuestion[] = [],
+): { text: string } | null {
+  const pool: { text: string }[] = isFriending(session)
+    ? findFunQuestions(funQuestions, level, session.week)
+    : findQuestions(questions, level, session.week);
   if (pool.length === 0) return null;
 
   const ordered = shuffle(pool, session.seed + LEVELS.indexOf(level));

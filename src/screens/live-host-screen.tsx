@@ -17,13 +17,14 @@ import { WeekFocus } from '@/components/week-focus';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { findWeek } from '@/data/weeks';
-import { useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   beginDiscussion,
   endSession,
   findingStatus,
   formatCode,
+  isFriending,
   isRoundRobin,
   roundRobinRounds,
   nextRound,
@@ -59,6 +60,8 @@ export function LiveHostScreen({
 }: LiveHostScreenProps) {
   const now = useNow();
   const questions = useQuestions();
+  const funQuestions = useFunQuestions();
+  const friending = isFriending(session);
   const plan = findWeek(useWeeks(), session.level, session.week);
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
@@ -210,8 +213,9 @@ export function LiveHostScreen({
         </ThemedView>
 
         <View style={styles.pills}>
+          {friending && <Pill label="Speed friending" tone="accent" />}
           <Pill label={`Level ${session.level}`} />
-          {session.week != null && <Pill label={`Week ${session.week}`} />}
+          {session.week != null && <Pill label={friending ? (plan?.topic ?? `Theme ${session.week}`) : `Week ${session.week}`} />}
           {isRoundRobin(session) ? (
             <Pill
               label={
@@ -229,7 +233,7 @@ export function LiveHostScreen({
           <Pill label={session.auto_advance ? 'Automatic timer' : 'Manual timer'} />
         </View>
 
-        {plan && (plan.grammar || plan.help) ? (
+        {plan && !friending && (plan.grammar || plan.help) ? (
           <View style={styles.section}>
             <ThemedText type="smallBold">Pre-teach before you start</ThemedText>
             <GrammarCard week={plan} />
@@ -263,7 +267,7 @@ export function LiveHostScreen({
   const running = session.ends_at !== null && remaining > 0;
   const rosterIds = new Set(session.roster.map((p) => p.id));
   const waiting = participants.filter((p) => !rosterIds.has(p.id));
-  const question = questionForRound(session, questions, session.level);
+  const question = questionForRound(session, questions, session.level, funQuestions);
 
   return (
     <Screen>
@@ -273,7 +277,7 @@ export function LiveHostScreen({
         <ThemedText type="subtitle">
           Round {session.round + 1} of {session.round_count}
         </ThemedText>
-        <WeekFocus level={session.level} week={session.week} />
+        <WeekFocus level={session.level} week={session.week} friending={friending} />
         <View style={styles.steps}>
           {Array.from({ length: session.round_count }, (_, i) => (
             <View
@@ -363,7 +367,7 @@ export function LiveHostScreen({
         </>
       )}
 
-      {plan ? <GrammarCard week={plan} /> : null}
+      {plan && !friending ? <GrammarCard week={plan} /> : null}
 
       <View style={styles.section}>
         <Button

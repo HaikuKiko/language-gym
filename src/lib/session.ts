@@ -19,7 +19,15 @@ export type RoundSettings = {
    * short changeover and moves on when its time is up.
    */
   autoAdvance: boolean;
+  /**
+   * Phone sessions: "friending" (speed friending: fun get-to-know-you
+   * questions, no grammar) or "conversation" (questions with the week's
+   * grammar point). Missing means conversation.
+   */
+  mode?: SessionMode;
 };
+
+export type SessionMode = 'friending' | 'conversation';
 
 /** What the host chooses on the single-screen setup page. */
 export type SessionSettings = RoundSettings & {

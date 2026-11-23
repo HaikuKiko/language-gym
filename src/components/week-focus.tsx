@@ -9,20 +9,22 @@ import { useWeeks } from '@/hooks/use-questions';
 type WeekFocusProps = {
   level: Level;
   week: number | null | undefined;
+  /** Speed friending: the theme only, with no grammar. */
+  friending?: boolean;
 };
 
 /** The level, week, topic and grammar focus of a session, in two short lines. */
-export function WeekFocus({ level, week }: WeekFocusProps) {
+export function WeekFocus({ level, week, friending = false }: WeekFocusProps) {
   const plan = findWeek(useWeeks(), level, week);
 
   return (
     <View style={styles.focus}>
       <ThemedText type="smallBold" themeColor="textSecondary">
-        {level}
-        {week != null ? ` · Week ${week}` : ''}
-        {plan ? `: ${plan.topic}` : ''}
+        {friending ? `Speed friending · ${level}` : level}
+        {friending ? (plan ? ` · ${plan.topic}` : ' · Any theme') : week != null ? ` · Week ${week}` : ''}
+        {!friending && plan ? `: ${plan.topic}` : ''}
       </ThemedText>
-      {plan?.grammar ? (
+      {!friending && plan?.grammar ? (
         <ThemedText type="small" themeColor="textSecondary">
           Grammar: {plan.grammar}
         </ThemedText>
