@@ -93,6 +93,36 @@ export async function saveCalibration(input: {
   return data.id as number;
 }
 
+/** Links marks saved before sharing to the shared essay, so others see them too. */
+export async function linkCalibration(id: number, sharedCode: string): Promise<void> {
+  const { error } = await requireSupabase().from('calibration_marks').update({ shared_code: sharedCode }).eq('id', id);
+  if (error) console.error('Linking marks failed', error.message);
+}
+
+/** One teacher's marks for a shared essay. */
+export type SharedMark = { id: number; mine: boolean; teacher: Bands; overall: number };
+
+/** Every teacher's marks for a shared essay so far, oldest first. */
+export async function loadSharedMarks(sharedCode: string): Promise<SharedMark[]> {
+  const client = requireSupabase();
+  const userId = await ensureSignedIn();
+  const { data, error } = await client
+    .from('calibration_marks')
+    .select('id, user_id, teacher_tr, teacher_cc, teacher_lr, teacher_gra, teacher_overall')
+    .eq('shared_code', sharedCode)
+    .order('created_at');
+  if (error) {
+    console.error('Loading shared marks failed', error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    mine: r.user_id === userId,
+    teacher: { tr: r.teacher_tr, cc: r.teacher_cc, lr: r.teacher_lr, gra: r.teacher_gra },
+    overall: Number(r.teacher_overall),
+  }));
+}
+
 /** This device's earlier marks for a shared essay, if it was marked here before. */
 export async function findMySharedMarks(sharedCode: string): Promise<{ id: number; teacher: Bands } | null> {
   const client = requireSupabase();

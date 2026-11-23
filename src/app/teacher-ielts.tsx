@@ -14,7 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
 import { useWritingDraft } from '@/hooks/use-writing-draft';
-import { aiMarking } from '@/lib/calibration';
+import { aiMarking, linkCalibration } from '@/lib/calibration';
 import {
   IELTS_HARD_MIN_WORDS,
   IELTS_MAX_WORDS,
@@ -40,6 +40,9 @@ export default function TeacherIeltsRoute() {
   // Shown after every 5 photos or essays, so teachers can keep track.
   const [usage, setUsage] = useState<string | null>(null);
   const [result, setResult] = useSavedState<IeltsResponse | null>('teacher-ielts:result', null);
+  // The link made with "Share results", and this teacher's own saved marks.
+  const [sharedCode, setSharedCode] = useState<string | null>(null);
+  const [myMarkId, setMyMarkId] = useState<number | null>(null);
   const draft = useWritingDraft('teacher-ielts', { teacher: true, onError: setError, onRead: noteUsage });
   const text = draft.text;
   const reading = readingQuestion || draft.reading;
@@ -68,6 +71,8 @@ export default function TeacherIeltsRoute() {
         );
       }
       setResult(response);
+      setSharedCode(null);
+      setMyMarkId(null);
       draft.showMistakes(response.feedback.corrections);
     } catch (e) {
       setError(errorMessage(e));
@@ -105,12 +110,23 @@ export default function TeacherIeltsRoute() {
         onImprove={() => setResult(null)}
         extra={
           <>
-            <CalibrationCard marking={aiMarking(result.feedback)} question={question} essay={text} />
-            <ShareCalibrationCard
+            <CalibrationCard
               marking={aiMarking(result.feedback)}
               question={question}
               essay={text}
+              sharedCode={sharedCode}
+              onSaved={setMyMarkId}
+            />
+            <ShareCalibrationCard
+              feedback={result.feedback}
+              question={question}
+              essay={text}
               photos={draft.pagePhotos}
+              onShared={(code) => {
+                setSharedCode(code);
+                // Marks saved before sharing join the shared essay too.
+                if (myMarkId !== null) linkCalibration(myMarkId, code);
+              }}
             />
           </>
         }

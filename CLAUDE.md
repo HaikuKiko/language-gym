@@ -42,8 +42,8 @@ Things agreed for later: `BACKLOG.md`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading).
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
-  `calibration-card.tsx`. Sharing an essay for calibration: `share-calibration-card.tsx`,
-  `src/lib/shared-essay.ts`, `calibrate/[code].tsx` (other teachers mark blind, then compare).
+  `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
+  `calibrate/[code].tsx` (the AI's full feedback + everyone's marks so far; others add theirs).
 - **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem`: change those, not
   each screen.
 - **Accounts:** `account.tsx`, `src/lib/account.ts` (student code + PIN, self-enrol on IELTS).

@@ -5,28 +5,32 @@ import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { AiMarking } from '@/lib/calibration';
+import type { IeltsFeedback } from '@/lib/ielts';
 import type { PreparedPhoto } from '@/lib/photo';
 import { shareReport } from '@/lib/share-report';
 import { calibrateUrl, shareEssay } from '@/lib/shared-essay';
 import { errorMessage } from '@/lib/supabase';
 
 /**
- * "Ask another teacher": under a teacher's marking, makes a link to the
- * essay (with the photos of the pages) so other teachers can give their own
- * bands without seeing the AI's first. One link can go to several teachers.
+ * "Share the results": under a teacher's marking, makes a link to the
+ * results (the AI's feedback, the essay and the photos of the pages). Other
+ * teachers see everyone's marks so far and can add their own. One link can
+ * go to several teachers.
  */
 export function ShareCalibrationCard({
-  marking,
+  feedback,
   question,
   essay,
   photos,
+  onShared,
 }: {
-  marking: AiMarking;
+  feedback: IeltsFeedback;
   question: string;
   essay: string;
   /** Photos of the pages; empty if the essay was typed or the page was refreshed. */
   photos: PreparedPhoto[];
+  /** The new link's code, e.g. to link the teacher's own marks to it. */
+  onShared?: (code: string) => void;
 }) {
   const theme = useTheme();
   const [sharing, setSharing] = useState(false);
@@ -40,7 +44,9 @@ export function ShareCalibrationCard({
     setSharing(true);
     setError(null);
     try {
-      setCode(await shareEssay({ question, essay, marking, photos }));
+      const shared = await shareEssay({ question, essay, feedback, photos });
+      setCode(shared);
+      onShared?.(shared);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -50,8 +56,8 @@ export function ShareCalibrationCard({
   async function sendLink() {
     if (!url) return;
     const outcome = await shareReport(
-      'IELTS essay to mark',
-      `Could you mark this IELTS Writing Task 2 essay? You'll see the AI's bands after you give yours.\n${url}`,
+      'IELTS essay results',
+      `Here are the AI's results for an IELTS Writing Task 2 essay. Could you add your own marks?\n${url}`,
     );
     setStatus(outcome === 'copied' ? 'Link copied.' : outcome === 'failed' ? 'Could not share. Copy the link instead.' : null);
   }
@@ -69,21 +75,21 @@ export function ShareCalibrationCard({
   return (
     <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
       <ThemedText type="smallBold" style={styles.title}>
-        Ask another teacher
+        Share the results
       </ThemedText>
       {!code ? (
         <>
           <ThemedText type="small" themeColor="textSecondary">
-            Send a link. They see the question, {photos.length > 0 ? 'the photos ' : ''}and the essay, give their own
-            bands, and only then see the AI&apos;s.
+            Send a link to other teachers. They see these results, the essay{photos.length > 0 ? ' and the photos' : ''},
+            and everyone&apos;s marks so far, and can add their own.
             {photos.length === 0 ? ' (No photos: the essay was typed, or the page was refreshed.)' : ''}
           </ThemedText>
-          <Button label={sharing ? 'Making the link…' : 'Share for calibration'} disabled={sharing} onPress={share} />
+          <Button label={sharing ? 'Making the link…' : 'Share results'} disabled={sharing} onPress={share} />
         </>
       ) : (
         <>
           <ThemedText type="small" themeColor="textSecondary">
-            Link ready. You can send it to several teachers; each marks it once.
+            Link ready. You can send it to several teachers; each can add their marks once.
           </ThemedText>
           <View style={[styles.link, { borderColor: theme.accent, backgroundColor: theme.background }]}>
             <ThemedText type="small" selectable>
