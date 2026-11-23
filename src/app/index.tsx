@@ -8,19 +8,18 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CODE_LENGTH, findMyOpenSession, joinSession } from '@/lib/live-session';
+import { CODE_LENGTH, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
 import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/lib/supabase';
 
 /** Start page: students join with a code, teachers host a session. */
 export default function HomeRoute() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ code?: string }>();
-  const [code, setCode] = useState(params.code ?? '');
+  // The session code comes from the QR code or link (?code=123456).
+  const code = (params.code ?? '').replace(/\D/g, '').slice(0, CODE_LENGTH);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // The join form starts closed, unless the link (e.g. the QR code) brought a code.
-  const [joinOpen, setJoinOpen] = useState(!!params.code);
   const [open, setOpen] = useState<{ code: string; asHost: boolean } | null>(null);
 
   const configured = supabase !== null;
@@ -70,43 +69,31 @@ export default function HomeRoute() {
         </View>
       )}
 
-      {!joinOpen ? (
-        <Button label="Join a session with a code" variant="secondary" onPress={() => setJoinOpen(true)} />
-      ) : (
-      <ThemedView type="backgroundElement" style={styles.card}>
-        <ThemedText type="smallBold">Join a session</ThemedText>
-        <TextInput
-          value={code}
-          onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, CODE_LENGTH))}
-          placeholder="Join code"
-          placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Join code"
-          autoFocus={!params.code}
-          keyboardType="number-pad"
-          inputMode="numeric"
-          style={[inputStyle, styles.codeInput]}
-        />
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="Your name (optional)"
-          placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Your name"
-          maxLength={40}
-          onSubmitEditing={() => code.length === CODE_LENGTH && join()}
-          style={inputStyle}
-        />
-        <Button
-          label={busy ? 'Joining…' : 'Join'}
-          disabled={!configured || busy || code.length !== CODE_LENGTH}
-          onPress={join}
-        />
-        {error && (
-          <ThemedText type="small" themeColor="warning">
-            {error}
+      {/* Students arrive here from the QR code or link, which brings the session code. */}
+      {code.length === CODE_LENGTH && (
+        <ThemedView type="backgroundElement" style={styles.card}>
+          <ThemedText type="smallBold">Join the session</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Session {formatCode(code)}
           </ThemedText>
-        )}
-      </ThemedView>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Your name"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Your name"
+            autoFocus
+            maxLength={40}
+            onSubmitEditing={join}
+            style={[inputStyle, styles.nameInput]}
+          />
+          <Button label={busy ? 'Joining…' : 'Join'} disabled={!configured || busy} onPress={join} />
+          {error && (
+            <ThemedText type="small" themeColor="warning">
+              {error}
+            </ThemedText>
+          )}
+        </ThemedView>
       )}
 
       <View style={styles.section}>
@@ -190,9 +177,8 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     fontSize: 16,
   },
-  codeInput: {
-    fontSize: 24,
-    fontWeight: 600,
-    letterSpacing: 4,
+  nameInput: {
+    fontSize: 20,
+    minHeight: 56,
   },
 });
