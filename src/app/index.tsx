@@ -8,8 +8,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CODE_LENGTH, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
+import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
 import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/lib/supabase';
+import { signOutTeacher } from '@/lib/teachers';
 
 /** Start page: students join with a code, teachers host a session. */
 export default function HomeRoute() {
@@ -20,6 +21,8 @@ export default function HomeRoute() {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** This device is the session's host: 'teacher' when signed in to a teacher account. */
+  const [hostDevice, setHostDevice] = useState<'teacher' | 'guest' | null>(null);
   const [open, setOpen] = useState<{ code: string; asHost: boolean } | null>(null);
 
   const configured = supabase !== null;
@@ -36,13 +39,27 @@ export default function HomeRoute() {
   async function join() {
     setBusy(true);
     setError(null);
+    setHostDevice(null);
     try {
       const session = await joinSession(code, name);
       router.push({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
-      setError(errorMessage(e));
+      if (e instanceof HostDeviceError) {
+        const { data } = await supabase!.auth.getSession();
+        setHostDevice(data.session?.user.is_anonymous === false ? 'teacher' : 'guest');
+      } else {
+        setError(errorMessage(e));
+      }
     }
     setBusy(false);
+  }
+
+  /** A device signed in to the teacher account: sign out, then join as a student. */
+  async function joinAsStudent() {
+    setBusy(true);
+    await signOutTeacher();
+    setOpen(null);
+    await join();
   }
 
   return (
@@ -88,6 +105,23 @@ export default function HomeRoute() {
             style={[inputStyle, styles.nameInput]}
           />
           <Button label={busy ? 'Joining…' : 'Join'} disabled={!configured || busy} onPress={join} />
+          {hostDevice && (
+            <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
+              <ThemedText type="smallBold">This device is the teacher&apos;s</ThemedText>
+              <ThemedText type="small">
+                {hostDevice === 'teacher'
+                  ? 'It is signed in to the teacher account that is running this session, so it would show the teacher’s screen. To join as a student, sign out of the teacher account here (only on a phone that is not running the session; signing in again brings the teacher’s screen back).'
+                  : 'This device is running the session, so it shows the teacher’s screen. Join from another phone.'}
+              </ThemedText>
+              {hostDevice === 'teacher' && (
+                <Button
+                  label="Sign out of the teacher account and join"
+                  disabled={busy}
+                  onPress={joinAsStudent}
+                />
+              )}
+            </View>
+          )}
           {error && (
             <ThemedText type="small" themeColor="warning">
               {error}
