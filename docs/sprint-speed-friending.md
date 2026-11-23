@@ -49,3 +49,14 @@ from IELTS and General English writing.
 - What should generated questions be about (topic, level, age), and who chooses?
 - Keep the web version of speed friending inside Language Gym as it is, or replace it later
   with the new app?
+
+## Progress (23 Nov)
+
+- Done and live: each round starts with "Find <name>" and a "We found each other!" button; the
+  teacher's screen shows who we're waiting for; automatic mode starts the round when every pair has
+  checked in (instead of a 20-second timer).
+- Ready for review (not merged): a **Speed friending** mode in the existing web app, sharing all the
+  session code with Conversation practice, with 128 fun questions
+  (`docs/speed-friending-questions.md`). The owner reviews the questions before it goes live.
+- Later: tapping phones together (motion "bump"), only if the button isn't enough. The standalone
+  iPhone app and its own database are still open (see the recommendations above).

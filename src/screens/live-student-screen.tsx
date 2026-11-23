@@ -10,10 +10,11 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
-import { useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   findingStatus,
+  isFriending,
   markFound,
   questionForRound,
   removeParticipant,
@@ -35,6 +36,8 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   const now = useNow();
   const theme = useTheme();
   const questions = useQuestions();
+  const funQuestions = useFunQuestions();
+  const friending = isFriending(session);
   const weeks = useWeeks();
   // The teacher sets one level for everyone.
   const level = session.level;
@@ -107,7 +110,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
   const partnerNames = partners.map((p) => p.name).join(' & ');
-  const question = questionForRound(session, questions, level);
+  const question = questionForRound(session, questions, level, funQuestions);
   const plan = findWeek(weeks, level, session.week);
 
   // ---- First: find your partner (no question yet) ---------------------------
@@ -213,12 +216,12 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
       <LiveTimer session={session} now={now} compact />
 
-      {plan && <GrammarHint week={plan} />}
+      {plan && !friending && <GrammarHint week={plan} />}
 
       <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-        {level}
-        {session.week != null ? ` · Week ${session.week}` : ''}
-        {plan ? `: ${plan.topic}` : ''}
+        {friending
+          ? `Speed friending${plan ? ` · ${plan.topic}` : ''}`
+          : `${level}${session.week != null ? ` · Week ${session.week}` : ''}${plan ? `: ${plan.topic}` : ''}`}
       </ThemedText>
     </Screen>
   );

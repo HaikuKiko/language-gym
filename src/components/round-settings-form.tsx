@@ -7,7 +7,8 @@ import { Spacing } from '@/constants/theme';
 import { ThemedView } from '@/components/themed-view';
 import { LEVELS, countForWeek, findQuestions } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
-import { useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
+import { findFunQuestions, funBandFor } from '@/data/fun-questions';
 import { uniqueRoundCount } from '@/lib/round-robin';
 import { CHANGEOVER_SECONDS, type RoundSettings } from '@/lib/session';
 
@@ -35,9 +36,13 @@ export function RoundSettingsForm({
 }: RoundSettingsFormProps) {
   const { level, week, roundMinutes, roundCount, roundRobin, autoAdvance } = settings;
   const questions = useQuestions();
+  const funQuestions = useFunQuestions();
   const weeks = useWeeks();
   const plan = findWeek(weeks, level, week);
-  const available = findQuestions(questions, level, week).length;
+  const friending = settings.mode === 'friending';
+  const available = friending
+    ? findFunQuestions(funQuestions, level, week).length
+    : findQuestions(questions, level, week).length;
   const ownQuestions = week === null ? 0 : countForWeek(questions, level, week);
   const uniqueRounds = uniqueRoundCount(studentCount);
 
@@ -76,30 +81,43 @@ export function RoundSettingsForm({
           ))}
           <Chip label="Any theme" selected={week === null} onPress={() => onChange({ week: null })} />
         </View>
-        <ThemedView type="backgroundElement" style={styles.plan}>
-          {week === null ? (
-            <ThemedText type="smallBold">Any week: all {level} questions</ThemedText>
-          ) : (
-            <>
-              <ThemedText type="smallBold">
-                {level} · Week {week}
-                {plan ? `: ${plan.topic}` : ''}
-              </ThemedText>
-              {plan?.grammar ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Grammar: {plan.grammar}
+        {friending ? (
+          <ThemedView type="backgroundElement" style={styles.plan}>
+            <ThemedText type="smallBold">
+              {week === null ? 'Any theme' : (plan?.topic ?? `Theme ${week}`)} ·{' '}
+              {funBandFor(level) === 'easier' ? 'easier questions (A1–A2)' : 'questions for B1 and up'}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {available} fun {available === 1 ? 'question' : 'questions'} for getting to know each other. No grammar
+              point.
+            </ThemedText>
+          </ThemedView>
+        ) : (
+          <ThemedView type="backgroundElement" style={styles.plan}>
+            {week === null ? (
+              <ThemedText type="smallBold">Any week: all {level} questions</ThemedText>
+            ) : (
+              <>
+                <ThemedText type="smallBold">
+                  {level} · Week {week}
+                  {plan ? `: ${plan.topic}` : ''}
                 </ThemedText>
-              ) : null}
-            </>
-          )}
-          <ThemedText type="small" themeColor={available === 0 ? 'warning' : 'textSecondary'}>
-            {available === 0
-              ? `There are no ${level} questions yet.`
-              : week !== null && ownQuestions === 0
-                ? `No questions written for this week yet, so all ${available} ${level} questions will be used.`
-                : `${available} ${available === 1 ? 'question' : 'questions'} available.`}
-          </ThemedText>
-        </ThemedView>
+                {plan?.grammar ? (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Grammar: {plan.grammar}
+                  </ThemedText>
+                ) : null}
+              </>
+            )}
+            <ThemedText type="small" themeColor={available === 0 ? 'warning' : 'textSecondary'}>
+              {available === 0
+                ? `There are no ${level} questions yet.`
+                : week !== null && ownQuestions === 0
+                  ? `No questions written for this week yet, so all ${available} ${level} questions will be used.`
+                  : `${available} ${available === 1 ? 'question' : 'questions'} available.`}
+            </ThemedText>
+          </ThemedView>
+        )}
       </View>
 
       <View style={styles.section}>
