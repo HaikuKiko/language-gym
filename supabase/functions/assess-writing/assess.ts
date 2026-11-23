@@ -220,7 +220,8 @@ export const TRANSCRIBE_PROMPT = `You turn a photo of a language learner's Engli
 Copy exactly what the student wrote. This is essential: keep every spelling, grammar and punctuation mistake as written, and never correct, improve or complete anything, even obvious slips.
 
 - Keep the student's paragraph breaks; join lines that are only wrapped because the page ran out of space.
-- Leave out words that are crossed out.
+- Leave out words that the student crossed out.
+- Ignore everything a teacher added: marks in red pen (or any colour or writing that is clearly not the student's), corrections written above or beside words, ticks, crosses, underlining, circles, arrows, comments, scores and grades. Copy only what the student wrote. If a teacher crossed out or corrected a student's word, keep the student's original word exactly as they wrote it, and do not add the teacher's correction.
 - When a word is hard to read, give your best guess from the letters you can see and the words around it, put that guess in the transcript, and also list it in guessed_words exactly as you wrote it. Only write [?] when you cannot make any sensible guess at all.
 - Guessing is only for handwriting you cannot read clearly. If a word is clear but wrongly spelt or used, copy it exactly as written and do not list it: the student's own mistakes must stay.
 - Copy only the student's writing, not printed instructions, page numbers or headings that are part of the worksheet.
