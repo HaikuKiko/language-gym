@@ -39,6 +39,7 @@ export default function HostRoute() {
       </View>
 
       <RoundSettingsForm
+        phones
         settings={settings}
         onChange={(changes) => setSettings({ ...settings, ...changes })}
       />

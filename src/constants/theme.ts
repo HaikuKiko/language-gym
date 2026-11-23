@@ -32,6 +32,11 @@ export const Colors = {
     markBBg: '#D6E6FB',
     /** Highlight for words guessed from a photo of handwriting. */
     guessBg: '#FFE27A',
+    /** "We found each other!" and other done / ready states. */
+    success: '#1A8F52',
+    onSuccess: '#ffffff',
+    successSoft: '#E3F5EA',
+    successText: '#14653D',
   },
   dark: {
     text: '#ffffff',
@@ -56,6 +61,10 @@ export const Colors = {
     markB: '#93C5FD',
     markBBg: '#132F55',
     guessBg: '#6B5400',
+    success: '#2FBF71',
+    onSuccess: '#00140A',
+    successSoft: '#0F2E1E',
+    successText: '#7EE2A8',
   },
 } as const;
 
