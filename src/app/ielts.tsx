@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BusyOverlay } from '@/components/busy-overlay';
@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { formatClock, useCountdown } from '@/hooks/use-countdown';
+import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
 import { loadAccount, type Account } from '@/lib/account';
 import {
@@ -49,16 +50,16 @@ export default function IeltsRoute() {
   const theme = useTheme();
   const [account, setAccount] = useState<Account | null>(null);
   const [prompts, setPrompts] = useState<WritingPrompt[] | null>(null);
-  const [promptId, setPromptId] = useState<number | null>(null);
+  const [promptId, setPromptId] = useSavedState<number | null>('ielts:promptId', null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [text, setText] = useState('');
+  const [text, setText] = useSavedState('ielts:text', '');
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(false);
-  const [photo, setPhoto] = useState<PhotoReading | null>(null);
-  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [photo, setPhoto] = useSavedState<PhotoReading | null>('ielts:photo', null);
+  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('ielts:guesses', null);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<IeltsResponse | null>(null);
-  const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [result, setResult] = useSavedState<IeltsResponse | null>('ielts:result', null);
+  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('ielts:marks', null);
   const timer = useCountdown(TASK2_MINUTES * 60);
 
   const load = useCallback(async () => {
@@ -79,6 +80,8 @@ export default function IeltsRoute() {
     load();
   }, [load]);
 
+  const lastPromptId = useRef(promptId);
+
   // Keep a draft on this device, so a closed tab doesn't lose 40 minutes' work.
   useEffect(() => {
     if (promptId === null) return;
@@ -88,7 +91,10 @@ export default function IeltsRoute() {
         if (!cancelled) setText(saved ?? '');
       })
       .catch(() => {});
-    setMarks(null);
+    // A different question: the old underlines no longer apply. (Not after a
+    // refresh, when the same question and its feedback are restored.)
+    if (lastPromptId.current !== promptId) setMarks(null);
+    lastPromptId.current = promptId;
     return () => {
       cancelled = true;
     };

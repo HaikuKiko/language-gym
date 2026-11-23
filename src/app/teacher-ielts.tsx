@@ -12,6 +12,7 @@ import { PhotoPages } from '@/components/photo-pages';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
 import {
   IELTS_HARD_MIN_WORDS,
@@ -40,17 +41,17 @@ import {
  */
 export default function TeacherIeltsRoute() {
   const theme = useTheme();
-  const [question, setQuestion] = useState('');
-  const [text, setText] = useState('');
+  const [question, setQuestion] = useSavedState('teacher-ielts:question', '');
+  const [text, setText] = useSavedState('teacher-ielts:text', '');
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<'question' | 'essay' | null>(null);
-  const [photo, setPhoto] = useState<PhotoReading | null>(null);
-  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [photo, setPhoto] = useSavedState<PhotoReading | null>('teacher-ielts:photo', null);
+  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('teacher-ielts:guesses', null);
   const [error, setError] = useState<string | null>(null);
   // Shown after every 5 photos or essays, so teachers can keep track.
   const [usage, setUsage] = useState<string | null>(null);
-  const [result, setResult] = useState<IeltsResponse | null>(null);
-  const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [result, setResult] = useSavedState<IeltsResponse | null>('teacher-ielts:result', null);
+  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('teacher-ielts:marks', null);
 
   const words = countWords(text);
   const unreadable = text.split(UNREADABLE_MARK).length - 1;

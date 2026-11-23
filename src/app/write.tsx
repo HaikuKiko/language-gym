@@ -19,6 +19,7 @@ import { Spacing } from '@/constants/theme';
 import { LEVELS, type Level } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
+import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
 import type { PreparedPhoto } from '@/lib/photo';
 import { writingReport } from '@/lib/share-report';
@@ -50,19 +51,19 @@ const CRITERION_HINTS: Record<string, string> = {
 export default function WriteRoute() {
   const theme = useTheme();
   const weeks = useWeeks();
-  const [level, setLevel] = useState<Level>('A1');
-  const [week, setWeek] = useState<number | null>(null);
-  const [task, setTask] = useState('');
-  const [text, setText] = useState('');
+  const [level, setLevel] = useSavedState<Level>('write:level', 'A1');
+  const [week, setWeek] = useSavedState<number | null>('write:week', null);
+  const [task, setTask] = useSavedState('write:task', '');
+  const [text, setText] = useSavedState('write:text', '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<WritingResponse | null>(null);
+  const [result, setResult] = useSavedState<WritingResponse | null>('write:result', null);
   const [reading, setReading] = useState(false);
-  const [photo, setPhoto] = useState<PhotoReading | null>(null);
+  const [photo, setPhoto] = useSavedState<PhotoReading | null>('write:photo', null);
   // Mistakes from the last feedback, underlined while the student edits.
-  const [marks, setMarks] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('write:marks', null);
   // Words guessed from the last photo, highlighted until they are changed.
-  const [guesses, setGuesses] = useState<{ anchors: MistakeAnchor[]; length: number } | null>(null);
+  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('write:guesses', null);
 
   const words = countWords(text);
   const plan = findWeek(weeks, level, week);
