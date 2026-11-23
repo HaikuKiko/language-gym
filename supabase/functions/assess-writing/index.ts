@@ -6,9 +6,13 @@
  *
  * The Anthropic API key lives only here, as the ANTHROPIC_API_KEY secret
  * (Supabase dashboard -> Edge Functions -> Secrets). Each signed-in user (guest
- * students included) gets dailyLimit feedback checks and dailyLimit photo
- * readings a day. Only word counts, levels and token
- * usage are stored, never the writing or the photo.
+ * students included) gets DAILY_LIMIT feedback checks and PHOTO_DAILY_LIMIT
+ * photo readings a day (see the settings below the imports). Usage rows store
+ * only word counts, levels and tokens, never the writing or the photo.
+ *
+ * Results are saved for CACHE_DAYS in response_cache, under a fingerprint of
+ * the request: sending the same writing or photo again returns the saved
+ * result with cached: true, without calling Claude or using up a check.
  *
  * Feedback:  POST { text, level, task?, week? }            (General English)
  *            -> 200 { feedback, remaining_today }
@@ -22,7 +26,7 @@
  *            MAX_PAGES pages of one piece of writing, read together and counted as ONE reading.
  *            -> 200 { transcript, legibility, contains_writing, guessed_words, note,
  *                     remaining_today, used_today }
- *            teacher: true uses TEACHER_PHOTO_CAP instead of dailyLimit.
+ *            teacher: true uses TEACHER_PHOTO_CAP instead of PHOTO_DAILY_LIMIT.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -44,23 +48,91 @@ import {
   MODEL,
   STUDENT_LEVELS,
   type StudentLevel,
+  SYSTEM_PROMPT,
+  TRANSCRIBE_PROMPT,
   transcribeImage,
 } from "./assess.ts";
-import { assessIeltsTask2, ESSAY_TYPES, type EssayType, parseTargetBand } from "./ielts.ts";
+import {
+  assessIeltsTask2,
+  ESSAY_TYPES,
+  type EssayType,
+  IELTS_EFFORT,
+  IELTS_SYSTEM_PROMPT,
+  parseTargetBand,
+} from "./ielts.ts";
 
+// ===========================================================================
+// Limits and settings: change them here (they are not read from secrets).
+// ===========================================================================
+
+/** Students: feedback checks a day (General English and IELTS together). */
+const DAILY_LIMIT = 50;
+/** Students: photo readings a day (several pages read together count as one). */
+const PHOTO_DAILY_LIMIT = 50;
+/** Teacher marking ("Mark an IELTS essay"): essays marked a day. */
+const TEACHER_DAILY_LIMIT = 50;
+/** Teachers: photo readings a day (a safety cap). */
+const TEACHER_PHOTO_CAP = 100;
 /** IELTS essays can be longer than General English writing. */
 const IELTS_MAX_WORDS = 700;
+/**
+ * Sending exactly the same writing (or photo) again within this many days
+ * shows the saved result: no call to Claude, and no check used up.
+ */
+const CACHE_DAYS = 7;
+/**
+ * Part of every cache fingerprint. The prompts are already in it, so most
+ * changes start a fresh cache by themselves; add 1 after any other change
+ * that should give new feedback for the same writing.
+ */
+const CACHE_VERSION = 1;
 
-// ---- Daily limits (change them here; they are no longer read from secrets) ----
+// ===========================================================================
 
-/** Students: feedback checks a day, and separately photo readings a day. */
-const dailyLimit = 50;
-/** Teacher marking ("Mark an IELTS essay"): essays marked a day. */
-const teacherDailyLimit = 50;
 const TEACHER_TASK_TYPE = "task2_teacher";
-/** Teachers' photo readings a day (a safety cap). */
-const TEACHER_PHOTO_CAP = 100;
 const TEACHER_PHOTO_TYPE = "teacher_photo";
+
+// ---- Saved results (the response_cache table) -----------------------------
+
+type CacheKind = "feedback" | "ielts" | "ielts_teacher" | "transcribe";
+
+/** A fingerprint (SHA-256) of everything that decides the result. */
+async function cacheKey(kind: CacheKind, parts: unknown): Promise<string> {
+  const material = JSON.stringify({ v: CACHE_VERSION, kind, model: MODEL, parts });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(material));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function cacheCutoff(): string {
+  return new Date(Date.now() - CACHE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** The saved result for this fingerprint, or null (also if the table is missing). */
+async function readCache(admin: SupabaseClient, key: string): Promise<Record<string, unknown> | null> {
+  const { data, error } = await admin
+    .from("response_cache")
+    .select("response")
+    .eq("key", key)
+    .gte("created_at", cacheCutoff())
+    .maybeSingle();
+  if (error) {
+    console.error("Could not read the cache", error.message);
+    return null;
+  }
+  return (data?.response as Record<string, unknown> | undefined) ?? null;
+}
+
+/** Saves a result, and clears out ones older than CACHE_DAYS. Never fails the request. */
+async function writeCache(admin: SupabaseClient, key: string, kind: CacheKind, response: Record<string, unknown>) {
+  const { error } = await admin
+    .from("response_cache")
+    .upsert({ key, kind, response, created_at: new Date().toISOString() }, { onConflict: "key" });
+  if (error) {
+    console.error("Could not save to the cache", error.message);
+    return;
+  }
+  await admin.from("response_cache").delete().lt("created_at", cacheCutoff());
+}
 
 /** How many rows of this task type the user has made today (UTC). */
 async function usedTodayByTaskType(admin: SupabaseClient, userId: string, taskType: string): Promise<number | null> {
@@ -175,8 +247,23 @@ Deno.serve(async (request) => {
     const used = teacher
       ? await usedTodayByTaskType(admin, userId, TEACHER_PHOTO_TYPE)
       : await usedToday(admin, userId, "transcribe");
-    const photoLimit = teacher ? TEACHER_PHOTO_CAP : dailyLimit;
+    const photoLimit = teacher ? TEACHER_PHOTO_CAP : PHOTO_DAILY_LIMIT;
     if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
+
+    const key = await cacheKey("transcribe", {
+      prompt: TRANSCRIBE_PROMPT,
+      pages: pages.map((p) => [p.mediaType, p.data]),
+    });
+    const saved = await readCache(admin, key);
+    if (saved) {
+      return reply(200, {
+        ...saved,
+        remaining_today: Math.max(0, photoLimit - used),
+        used_today: used,
+        cached: true,
+      });
+    }
+
     if (used >= photoLimit) {
       return fail(
         429,
@@ -207,6 +294,7 @@ Deno.serve(async (request) => {
       output_tokens: result.usage.output_tokens,
     });
     if (insertError) console.error("Could not record transcription", insertError.message);
+    await writeCache(admin, key, "transcribe", result.transcript);
 
     return reply(200, {
       ...result.transcript,
@@ -270,13 +358,6 @@ Deno.serve(async (request) => {
 
   const used = await usedToday(admin, userId, "feedback");
   if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
-  if (used >= dailyLimit) {
-    return fail(
-      429,
-      "daily_limit",
-      `You have used all ${dailyLimit} feedback checks for today. Try again tomorrow.`,
-    );
-  }
 
   // This week's grammar point, so the feedback can pay attention to it.
   let focusGrammar: string | undefined;
@@ -288,6 +369,26 @@ Deno.serve(async (request) => {
       .eq("week", week)
       .maybeSingle();
     focusGrammar = weekRow?.grammar ?? undefined;
+  }
+
+  const key = await cacheKey("feedback", {
+    prompt: SYSTEM_PROMPT,
+    text: text.trim(),
+    level,
+    task: task?.trim() ?? "",
+    focusGrammar: focusGrammar ?? "",
+  });
+  const saved = await readCache(admin, key);
+  if (saved) {
+    return reply(200, { ...saved, remaining_today: Math.max(0, DAILY_LIMIT - used), cached: true });
+  }
+
+  if (used >= DAILY_LIMIT) {
+    return fail(
+      429,
+      "daily_limit",
+      `You have used all ${DAILY_LIMIT} feedback checks for today. Try again tomorrow.`,
+    );
   }
 
   let result;
@@ -320,10 +421,11 @@ Deno.serve(async (request) => {
     output_tokens: result.usage.output_tokens,
   });
   if (insertError) console.error("Could not record submission", insertError.message);
+  await writeCache(admin, key, "feedback", { feedback: result.feedback });
 
   return reply(200, {
     feedback: result.feedback,
-    remaining_today: Math.max(0, dailyLimit - used - 1),
+    remaining_today: Math.max(0, DAILY_LIMIT - used - 1),
   });
 });
 
@@ -364,17 +466,32 @@ async function ieltsFeedback(
 
   const used = await usedToday(admin, userId, "feedback");
   if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
-  if (used >= dailyLimit) {
-    return fail(
-      429,
-      "daily_limit",
-      `You have used all ${dailyLimit} feedback checks for today. Try again tomorrow.`,
-    );
-  }
 
   const essayType = ESSAY_TYPES.includes(prompt.essay_type as EssayType)
     ? (prompt.essay_type as EssayType)
     : null;
+
+  const key = await cacheKey("ielts", {
+    prompt: IELTS_SYSTEM_PROMPT,
+    effort: IELTS_EFFORT,
+    text: text.trim(),
+    question: prompt.prompt,
+    essayType,
+    minWords: prompt.min_words,
+    targetBand,
+  });
+  const saved = await readCache(admin, key);
+  if (saved) {
+    return reply(200, { ...saved, remaining_today: Math.max(0, DAILY_LIMIT - used), cached: true });
+  }
+
+  if (used >= DAILY_LIMIT) {
+    return fail(
+      429,
+      "daily_limit",
+      `You have used all ${DAILY_LIMIT} feedback checks for today. Try again tomorrow.`,
+    );
+  }
 
   let result;
   try {
@@ -414,10 +531,11 @@ async function ieltsFeedback(
     output_tokens: result.usage.output_tokens,
   });
   if (insertError) console.error("Could not record IELTS submission", insertError.message);
+  await writeCache(admin, key, "ielts", { feedback: result.feedback });
 
   return reply(200, {
     feedback: result.feedback,
-    remaining_today: Math.max(0, dailyLimit - used - 1),
+    remaining_today: Math.max(0, DAILY_LIMIT - used - 1),
   });
 }
 
@@ -448,8 +566,25 @@ async function teacherIeltsFeedback(
     .gte("created_at", since.toISOString());
   if (countError) return fail(500, "server_error", "Something went wrong. Please try again.");
   const used = count ?? 0;
-  if (used >= teacherDailyLimit) {
-    return fail(429, "daily_limit", `You have marked ${teacherDailyLimit} essays today. Try again tomorrow.`);
+
+  const key = await cacheKey("ielts_teacher", {
+    prompt: IELTS_SYSTEM_PROMPT,
+    effort: IELTS_EFFORT,
+    text: text.trim(),
+    question,
+  });
+  const saved = await readCache(admin, key);
+  if (saved) {
+    return reply(200, {
+      ...saved,
+      remaining_today: Math.max(0, TEACHER_DAILY_LIMIT - used),
+      used_today: used,
+      cached: true,
+    });
+  }
+
+  if (used >= TEACHER_DAILY_LIMIT) {
+    return fail(429, "daily_limit", `You have marked ${TEACHER_DAILY_LIMIT} essays today. Try again tomorrow.`);
   }
 
   let result;
@@ -476,10 +611,11 @@ async function teacherIeltsFeedback(
     output_tokens: result.usage.output_tokens,
   });
   if (insertError) console.error("Could not record teacher marking", insertError.message);
+  await writeCache(admin, key, "ielts_teacher", { feedback: result.feedback });
 
   return reply(200, {
     feedback: result.feedback,
-    remaining_today: Math.max(0, teacherDailyLimit - used - 1),
+    remaining_today: Math.max(0, TEACHER_DAILY_LIMIT - used - 1),
     used_today: used + 1,
   });
 }

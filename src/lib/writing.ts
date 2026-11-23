@@ -35,7 +35,12 @@ export type WritingRequest = {
   week?: number | null;
 };
 
-export type WritingResponse = { feedback: WritingFeedback; remainingToday: number };
+export type WritingResponse = {
+  feedback: WritingFeedback;
+  remainingToday: number;
+  /** True when this exact writing was sent before and the saved feedback was shown (no check used). */
+  cached?: boolean;
+};
 
 export function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -63,7 +68,11 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
     throw new Error('Feedback is not available right now. Please try again later.');
   }
 
-  return { feedback: data.feedback as WritingFeedback, remainingToday: data.remaining_today };
+  return {
+    feedback: data.feedback as WritingFeedback,
+    remainingToday: data.remaining_today,
+    cached: data.cached === true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +89,7 @@ export type PhotoReading = {
   remainingToday: number;
   /** How many photos this person has had read today, including this one. */
   usedToday?: number;
-  /** True when the same photo was read before on this device and the earlier reading was reused. */
+  /** True when the same photo was read before and the earlier reading was reused (no reading used). */
   fromCache?: boolean;
   /** How many pages (photos) were read together. */
   pages: number;
@@ -169,6 +178,7 @@ export async function readPhoto(
     note: data.note,
     remainingToday: data.remaining_today,
     usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
+    fromCache: data.cached === true,
     pages: images.length,
   };
   if (key && reading.containsWriting) saveLastPhoto(key, reading);
