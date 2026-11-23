@@ -46,11 +46,14 @@ Things agreed for later: `BACKLOG.md`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
-- **Class sets** (teachers): `class-sets/` routes, `src/lib/class-sets.ts`. A PDF scan (pdf.js from
-  cdnjs, web only) or photos, one page = one student; each page is read in "sheet" mode (name, class,
-  task, grammar focus) and marked; saved in `class_sets` / `class_set_pages` (+ bucket
-  `class-set-photos`) under `student_key` (the name in lower case) for progress charts later.
-  Owner-only by device (anonymous user) until teachers have accounts.
+- **Class writing** (teachers): `class-sets/` (writing marked from a scan), `classes/[id]` (a class:
+  target level, students), `students/[id]` (a student's history); `src/lib/class-sets.ts`,
+  `classes.ts` (classes, students, matching misread names), `class-scores.ts` (score out of 10 vs the
+  class target: all four areas at target = 7, above climbs to 10, below falls gently; constants at the
+  top). A PDF scan (pdf.js from cdnjs, web only) or photos, one page = one student, read in "sheet"
+  mode and marked; area levels may be "+" levels (A2+). Tables `classes`, `class_students`,
+  `class_sets`, `class_set_pages` (+ bucket `class-set-photos`), owner-only by user: a saved account
+  (code + PIN) follows the teacher across devices.
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
   `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
@@ -65,7 +68,7 @@ Things agreed for later: `BACKLOG.md`.
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
   enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions,
-  class_sets, class_set_pages (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
+  classes, class_students, class_sets, class_set_pages (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool

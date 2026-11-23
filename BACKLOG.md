@@ -4,13 +4,15 @@ Things agreed for later. Newest first.
 
 (Done: calibration table created and sharing essays for calibration built, 23 Nov; one question per round for the whole class; round robin button; bigger partner and question on phones; full grammar on the teacher's screen.)
 
-## Class sets
+## Class writing
 
 - **Progress charts (step 2, agreed 23 Nov).** Per student (by `student_key`): a line per area
   (Content, Organisation, Grammar, Vocabulary) and the overall level across class sets; tap a point
   to open that writing. The data is saved from the first class set on.
-- **Teacher sign-in**, so class sets follow the teacher across devices (today they stay on the
-  device, i.e. the anonymous user, that made them).
+- **Two students with the same name** in a class: decide how to tell them apart when it happens
+  (e.g. add the surname or an initial).
+- **Check the scoring** with real classes (the owner is sending better data); the numbers are in
+  `src/lib/class-scores.ts`.
 - **Share all reports** of a class set at once (each student's report can be shared already).
 - Class sets use the device's 50 feedback checks a day: raise it for teachers if a day's marking
   goes over.
