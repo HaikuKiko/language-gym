@@ -18,7 +18,7 @@ Things agreed for later: `BACKLOG.md`.
 - **"Don't interrupt"**: they queue new requests while you work. Finish the current task, then do
   the next one.
 - **Tell them when a change is live** (see "Checking the live site").
-- Give them SQL to paste instead of running schema changes yourself (see "Database").
+- Run database (schema) changes yourself with the Supabase tool (see "Database").
 - No model names in commits, PRs or code comments.
 - **Limits and settings** (daily limits, word limits, how long things are kept, …) go in code as
   named constants (`UPPER_CASE`) in one block at the top of the file, never as secrets or numbers
@@ -50,12 +50,12 @@ Things agreed for later: `BACKLOG.md`.
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
-  enrolments, writing_prompts, calibration_marks (once created). Anonymous sign-in; RLS on.
-- **Schema changes:** the Supabase tool's approval prompt never reaches the owner and times out.
-  Write the SQL to `supabase/updates/<date>-<name>.sql`, append it to `supabase/schema.sql`, and
-  give the owner the SQL in a code block plus
-  https://supabase.com/dashboard/project/pzvjttzapbzoozpxndbd/sql/new . Plain selects/inserts
-  through the tool work.
+  enrolments, writing_prompts, response_cache, calibration_marks (once created). Anonymous sign-in; RLS on.
+- **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
+  `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
+  `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool
+  fails, give the owner the SQL in a code block plus
+  https://supabase.com/dashboard/project/pzvjttzapbzoozpxndbd/sql/new .
 - Publishable key (safe in the app): `sb_publishable_kVWg8im2CG_jzSfWeIe6gA_VZehq7HU`.
 
 ## Edge functions
