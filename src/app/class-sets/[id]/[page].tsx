@@ -11,6 +11,15 @@ import { ThemedText } from '@/components/themed-text';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatScore, levelStep, scoreFor } from '@/lib/class-scores';
+import {
+  addStudents,
+  assignPage,
+  loadClass,
+  suggestStudents,
+  type ClassStudent,
+  type SchoolClass,
+} from '@/lib/classes';
 import {
   AREAS,
   knownStudentNames,
@@ -41,6 +50,8 @@ export default function ClassSetPageRoute() {
   const { id, page: pageParam } = useLocalSearchParams<{ id: string; page: string }>();
   const pageNumber = Number(pageParam);
   const [set, setSet] = useState<ClassSet | null>(null);
+  const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
+  const [students, setStudents] = useState<ClassStudent[]>([]);
   const [page, setPage] = useState<ClassSetPage | null | undefined>(undefined);
   const [photo, setPhoto] = useState<string | null>(null);
   const [bigPhoto, setBigPhoto] = useState(false);
@@ -52,6 +63,11 @@ export default function ClassSetPageRoute() {
       const found = loaded?.pages.find((p) => p.page_number === pageNumber) ?? null;
       setSet(loaded?.set ?? null);
       setPage(found);
+      if (loaded?.set.class_id) {
+        const classData = await loadClass(loaded.set.class_id);
+        setSchoolClass(classData?.schoolClass ?? null);
+        setStudents(classData?.students ?? []);
+      }
       if (found) pagePhotoUrls([found]).then((urls) => setPhoto(urls[found.page_number] ?? null));
     } catch (e) {
       setError(errorMessage(e));
@@ -98,9 +114,20 @@ export default function ClassSetPageRoute() {
   const header = (
     <>
       <ThemedText type="smallBold" style={{ color: theme.accent }}>
-        {['CLASS SET', set.title, set.class_name].filter(Boolean).join(' · ')}
+        {['CLASS WRITING', schoolClass?.name ?? set.class_name, set.title].filter(Boolean).join(' · ')}
       </ThemedText>
-      <NameEditor page={page} onRenamed={setPage} />
+      {schoolClass ? (
+        <StudentPicker
+          page={page}
+          students={students}
+          onChange={setPage}
+          onStudentsChange={setStudents}
+          classId={schoolClass.id}
+        />
+      ) : (
+        <NameEditor page={page} onRenamed={setPage} />
+      )}
+      {schoolClass && page.area_levels && <ScoreCard page={page} target={schoolClass.target_level} />}
       <View style={styles.photoRow}>
         {photo && (
           <Pressable
@@ -111,7 +138,7 @@ export default function ClassSetPageRoute() {
             <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
           </Pressable>
         )}
-        {page.area_levels && (
+        {page.area_levels && !schoolClass && (
           <View style={[styles.areas, { backgroundColor: theme.backgroundElement }]}>
             {AREAS.map((area) => (
               <View key={area} style={styles.areaRow}>
@@ -164,6 +191,148 @@ export default function ClassSetPageRoute() {
       showUsage={false}
       reportTitle={`Writing feedback: ${pageTitle(page)}`}
     />
+  );
+}
+
+/** The score out of 10, and each area's level against the class's target. */
+function ScoreCard({ page, target }: { page: ClassSetPage; target: SchoolClass['target_level'] }) {
+  const theme = useTheme();
+  const score = scoreFor(page.area_levels, target);
+  const targetStep = levelStep(target) ?? 0;
+  return (
+    <View style={[styles.scoreCard, { backgroundColor: theme.hero }]}>
+      <View style={styles.scoreHalf}>
+        <ThemedText type="smallBold" style={{ color: theme.onHeroMuted }}>
+          SCORE
+        </ThemedText>
+        <ThemedText style={[styles.bigScore, { color: theme.onHero }]}>
+          {score !== null ? formatScore(score) : '–'}
+          <ThemedText style={{ color: theme.onHeroMuted }}> / 10</ThemedText>
+        </ThemedText>
+        <ThemedText type="small" style={{ color: theme.onHeroMuted }}>
+          Target {target}
+        </ThemedText>
+      </View>
+      <View style={styles.scoreAreas}>
+        {AREAS.map((a) => {
+          const level = page.area_levels?.[a];
+          const step = levelStep(level);
+          const below = step !== null && step < targetStep;
+          return (
+            <View key={a} style={styles.areaRow}>
+              <ThemedText type="small" style={{ color: theme.onHeroMuted }}>
+                {a}
+              </ThemedText>
+              <ThemedText type="smallBold" style={{ color: below ? theme.markABg : theme.onHero }}>
+                {level ?? '–'}
+                {below ? ' ↓' : ''}
+              </ThemedText>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Who wrote this page: the student matched from the class list, or a choice
+ * of the closest names (a misread name still finds the right student), or a
+ * new student added to the class.
+ */
+function StudentPicker({
+  page,
+  students,
+  classId,
+  onChange,
+  onStudentsChange,
+}: {
+  page: ClassSetPage;
+  students: ClassStudent[];
+  classId: string;
+  onChange: (page: ClassSetPage) => void;
+  onStudentsChange: (students: ClassStudent[]) => void;
+}) {
+  const theme = useTheme();
+  const current = students.find((s) => s.id === page.student_id) ?? null;
+  const written = page.sheet?.student_name ?? '';
+  const [choosing, setChoosing] = useState(!page.student_id);
+  const [newName, setNewName] = useState(written || page.student_name);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(student: ClassStudent) {
+    setError(null);
+    try {
+      onChange(await assignPage(page, student));
+      setChoosing(false);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  async function addNew() {
+    setError(null);
+    try {
+      const [added] = await addStudents(classId, [newName]);
+      const student = added ?? students.find((s) => s.student_key === studentKey(newName));
+      if (!student) return;
+      if (added) onStudentsChange([...students, added].sort((a, b) => a.name.localeCompare(b.name)));
+      await choose(student);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  if (!choosing && current) {
+    return (
+      <View style={styles.nameRow}>
+        <View style={styles.flex}>
+          <ThemedText type="subtitle">{current.name}</ThemedText>
+          {written && studentKey(written) !== current.student_key ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              The sheet says &quot;{written}&quot;
+            </ThemedText>
+          ) : null}
+        </View>
+        <Button label="Change" variant="secondary" onPress={() => setChoosing(true)} />
+      </View>
+    );
+  }
+
+  const suggestions = suggestStudents(written || page.student_name, students);
+  return (
+    <View style={[styles.nameBox, { backgroundColor: theme.markABg }]}>
+      <ThemedText type="smallBold">Page {page.page_number}: who wrote this?</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        {written ? `The sheet says "${written}".` : 'There is no name on the sheet.'}
+        {suggestions.length > 0 ? ' Closest names in the class first:' : ''}
+      </ThemedText>
+      {suggestions.length > 0 && (
+        <View style={styles.chips}>
+          {suggestions.map((s) => (
+            <Chip key={s.id} label={s.name} selected={s.id === page.student_id} onPress={() => choose(s)} />
+          ))}
+        </View>
+      )}
+      <ThemedText type="smallBold">Or a new student in this class</ThemedText>
+      <TextInput
+        value={newName}
+        onChangeText={setNewName}
+        placeholder="The student's name"
+        placeholderTextColor={theme.textSecondary}
+        accessibilityLabel="New student's name"
+        style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+      />
+      <View style={styles.chips}>
+        <Button label="Add as a new student" variant="secondary" disabled={!newName.trim()} onPress={addNew} />
+        {current && <Button label="Cancel" variant="secondary" onPress={() => setChoosing(false)} />}
+      </View>
+      {error && (
+        <ThemedText type="small" themeColor="warning">
+          {error}
+        </ThemedText>
+      )}
+    </View>
   );
 }
 
@@ -243,6 +412,30 @@ function NameEditor({ page, onRenamed }: { page: ClassSetPage; onRenamed: (page:
 }
 
 const styles = StyleSheet.create({
+  scoreCard: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+    padding: Spacing.four,
+    borderRadius: 24,
+  },
+  scoreHalf: {
+    flexGrow: 1,
+    flexBasis: 120,
+    alignItems: 'center',
+    gap: Spacing.half,
+  },
+  bigScore: {
+    fontSize: 48,
+    lineHeight: 56,
+    fontWeight: 800,
+  },
+  scoreAreas: {
+    flexGrow: 1,
+    flexBasis: 160,
+    justifyContent: 'center',
+    gap: Spacing.half,
+  },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',

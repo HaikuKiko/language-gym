@@ -140,7 +140,7 @@ export default function HomeRoute() {
           onPress={() => router.push('/teacher-ielts')}
         />
         <Button
-          label="Mark a class set"
+          label="Class writing"
           variant="secondary"
           disabled={!configured}
           onPress={() => router.push('/class-sets')}

@@ -1,26 +1,38 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { Chip } from '@/components/chip';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { loadAccount } from '@/lib/account';
+import { TARGET_LEVELS, type TargetLevel } from '@/lib/class-scores';
 import { loadClassSets, type ClassSet } from '@/lib/class-sets';
+import { createClass, loadClasses, type SchoolClass } from '@/lib/classes';
 import { errorMessage } from '@/lib/supabase';
 
-/** The teacher's class sets, newest first, and a way to mark a new one. */
-export default function ClassSetsRoute() {
+/** Class writing: the teacher's classes, and each class's marked writing. */
+export default function ClassWritingRoute() {
   const theme = useTheme();
-  const [sets, setSets] = useState<ClassSet[] | null>(null);
+  const [classes, setClasses] = useState<(SchoolClass & { studentCount: number })[] | null>(null);
+  const [sets, setSets] = useState<ClassSet[]>([]);
+  const [guest, setGuest] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [target, setTarget] = useState<TargetLevel>('A2+');
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setSets(await loadClassSets());
+      const [loadedClasses, loadedSets, account] = await Promise.all([loadClasses(), loadClassSets(), loadAccount()]);
+      setClasses(loadedClasses);
+      setSets(loadedSets);
+      setGuest(account.isGuest);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -30,52 +42,120 @@ export default function ClassSetsRoute() {
     load();
   }, [load]);
 
+  async function add() {
+    setError(null);
+    try {
+      await createClass(name, target);
+      setName('');
+      setAdding(false);
+      load();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  const className = (id: string | null) => classes?.find((c) => c.id === id)?.name;
+
   return (
     <Screen>
       <View style={styles.header}>
         <ThemedText type="smallBold" style={{ color: theme.accent }}>
           TEACHERS
         </ThemedText>
-        <ThemedText type="subtitle">Class sets</ThemedText>
+        <ThemedText type="subtitle">Class writing</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Upload a scan of a class&apos;s writing: one page per student. Each page is read and marked, and saved under
-          the student&apos;s name.
+          Your classes and their writing. Upload a scan for a class: each page is read, marked against the
+          class&apos;s target level, scored out of 10, and saved under the student.
         </ThemedText>
       </View>
 
-      <Button label="Mark a new class set" onPress={() => router.push('/class-sets/new')} />
+      {guest && (
+        <View style={[styles.note, { backgroundColor: theme.markABg }]}>
+          <ThemedText type="small">
+            These are kept on this device only. Save your account (My account) and sign in with it on your other
+            devices to see your classes everywhere.
+          </ThemedText>
+          <Button label="My account" variant="secondary" onPress={() => router.push('/account')} />
+        </View>
+      )}
 
-      {error && (
-        <>
-          <ThemedText themeColor="warning">{error}</ThemedText>
-          <Button label="Try again" variant="secondary" onPress={load} />
-        </>
-      )}
-      {sets === null && !error && <ActivityIndicator color={theme.accent} />}
-      {sets !== null && sets.length === 0 && (
-        <ThemedText themeColor="textSecondary">No class sets yet on this device.</ThemedText>
-      )}
-      {sets?.map((s) => (
-        <Pressable
-          key={s.id}
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: '/class-sets/[id]', params: { id: s.id } })}
-          style={({ pressed }) => [styles.row, { backgroundColor: theme.backgroundElement }, pressed && styles.pressed]}>
-          <View style={styles.rowText}>
-            <ThemedText type="smallBold">{s.title || 'Class set'}</ThemedText>
+      {error && <ThemedText themeColor="warning">{error}</ThemedText>}
+      {classes === null && !error && <ActivityIndicator color={theme.accent} />}
+
+      <View style={styles.section}>
+        <ThemedText type="smallBold">Your classes</ThemedText>
+        {classes?.length === 0 && (
+          <ThemedText themeColor="textSecondary">No classes yet. Add your first class below.</ThemedText>
+        )}
+        {classes?.map((c) => (
+          <Pressable
+            key={c.id}
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/classes/[id]', params: { id: c.id } })}
+            style={({ pressed }) => [styles.row, { backgroundColor: theme.backgroundElement }, pressed && styles.pressed]}>
+            <View style={styles.rowText}>
+              <ThemedText type="smallBold">{c.name}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {c.studentCount} {c.studentCount === 1 ? 'student' : 'students'}
+              </ThemedText>
+            </View>
+            <Pill label={`Target ${c.target_level}`} tone="accent" />
+          </Pressable>
+        ))}
+
+        {adding ? (
+          <View style={[styles.addBox, { backgroundColor: theme.accentSoft }]}>
+            <ThemedText type="smallBold">New class</ThemedText>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Class name, e.g. 3A"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Class name"
+              autoFocus
+              style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+            />
+            <ThemedText type="smallBold">Target level</ThemedText>
+            <View style={styles.chips}>
+              {TARGET_LEVELS.map((l) => (
+                <Chip key={l} label={l} selected={l === target} onPress={() => setTarget(l)} />
+              ))}
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
-              {[s.class_name, new Date(s.created_at).toLocaleDateString(), `${s.page_count} pages`]
-                .filter(Boolean)
-                .join(' · ')}
+              The level the class is working towards. Writing at this level in all four areas scores 7 out of 10.
             </ThemedText>
+            <View style={styles.chips}>
+              <Button label="Save the class" disabled={!name.trim()} onPress={add} />
+              <Button label="Cancel" variant="secondary" onPress={() => setAdding(false)} />
+            </View>
           </View>
-          <Pill label={s.level} tone="accent" />
-        </Pressable>
-      ))}
+        ) : (
+          <Button label="Add a class" variant="secondary" onPress={() => setAdding(true)} />
+        )}
+      </View>
 
-      <ThemedText type="small" themeColor="textSecondary">
-        Class sets are kept on the device that made them (teachers don&apos;t have accounts yet).
-      </ThemedText>
+      {sets.length > 0 && (
+        <View style={styles.section}>
+          <ThemedText type="smallBold">Recent writing</ThemedText>
+          {sets.slice(0, 10).map((s) => (
+            <Pressable
+              key={s.id}
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/class-sets/[id]', params: { id: s.id } })}
+              style={({ pressed }) => [styles.row, { backgroundColor: theme.backgroundElement }, pressed && styles.pressed]}>
+              <View style={styles.rowText}>
+                <ThemedText type="smallBold">{s.title || 'Class writing'}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {[className(s.class_id) ?? s.class_name, new Date(s.created_at).toLocaleDateString(), `${s.page_count} pages`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </ThemedText>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
     </Screen>
   );
@@ -84,6 +164,14 @@ export default function ClassSetsRoute() {
 const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
+  },
+  section: {
+    gap: Spacing.two,
+  },
+  note: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
   },
   row: {
     flexDirection: 'row',
@@ -95,6 +183,23 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     gap: 2,
+  },
+  addBox: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
+  },
+  input: {
+    minHeight: 48,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: Spacing.three,
+    fontSize: 16,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
   },
   pressed: {
     opacity: 0.7,

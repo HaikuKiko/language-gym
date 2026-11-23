@@ -12,6 +12,8 @@ export const MIN_WORDS = 20;
 export const MAX_WORDS = 600;
 
 export type CefrLevel = 'Pre-A1' | Level;
+/** An area's level can also be a "+" level. */
+export type AreaLevel = CefrLevel | 'A1+' | 'A2+' | 'B1+' | 'B2+';
 
 /** Matches FeedbackSchema in supabase/functions/assess-writing/assess.ts. */
 export type WritingFeedback = {
@@ -20,7 +22,7 @@ export type WritingFeedback = {
   level_explanation: string;
   summary: string;
   strengths: string[];
-  criteria: { criterion: string; level: CefrLevel; comment: string }[];
+  criteria: { criterion: string; level: AreaLevel; comment: string }[];
   corrections: { original: string; corrected: string; explanation: string; type: string }[];
   focus_grammar: { used_well: string[]; to_improve: string[]; comment: string } | null;
   /** Missing from feedback made before paragraph advice was added. */

@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BusyOverlay } from '@/components/busy-overlay';
@@ -8,26 +8,38 @@ import { Chip } from '@/components/chip';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { LEVELS, type Level } from '@/data/questions';
 import { useTheme } from '@/hooks/use-theme';
+import { feedbackLevel } from '@/lib/class-scores';
 import { CAN_READ_PDF, MAX_CLASS_SET_PAGES, choosePdfPages, createClassSet } from '@/lib/class-sets';
+import { loadClasses, type SchoolClass } from '@/lib/classes';
 import { pickPhotos, type PreparedPhoto } from '@/lib/photo';
 import { errorMessage } from '@/lib/supabase';
 
-/** Upload a scan (or photos) of a class's writing and choose the level for the feedback. */
+/** Upload a scan (or photos) of a class's writing for one of the teacher's classes. */
 export default function NewClassSetRoute() {
   const theme = useTheme();
+  const params = useLocalSearchParams<{ class?: string }>();
+  const [classes, setClasses] = useState<SchoolClass[] | null>(null);
+  const [classId, setClassId] = useState<string | null>(params.class ?? null);
   const [pages, setPages] = useState<PreparedPhoto[]>([]);
   const [fileName, setFileName] = useState('');
   const [title, setTitle] = useState('');
-  const [className, setClassName] = useState('');
-  const [level, setLevel] = useState<Level>('A2');
   const [task, setTask] = useState('');
   const [grammarFocus, setGrammarFocus] = useState('');
   const [preparing, setPreparing] = useState(false);
   const [uploaded, setUploaded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
+  const chosenClass = classes?.find((c) => c.id === classId) ?? null;
+
+  useEffect(() => {
+    loadClasses()
+      .then((loaded) => {
+        setClasses(loaded);
+        if (loaded.length === 1) setClassId((current) => current ?? loaded[0].id);
+      })
+      .catch((e) => setError(errorMessage(e)));
+  }, []);
 
   async function choosePdf() {
     setError(null);
@@ -61,11 +73,20 @@ export default function NewClassSetRoute() {
   }
 
   async function start() {
+    if (!chosenClass) return;
     setError(null);
     setUploaded(0);
     try {
       const id = await createClassSet(
-        { title, className, level, task, grammarFocus, fileName },
+        {
+          classId: chosenClass.id,
+          title,
+          className: chosenClass.name,
+          level: feedbackLevel(chosenClass.target_level),
+          task,
+          grammarFocus,
+          fileName,
+        },
         pages,
         setUploaded,
       );
@@ -130,26 +151,25 @@ export default function NewClassSetRoute() {
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Class</ThemedText>
-        <TextInput
-          value={className}
-          onChangeText={setClassName}
-          placeholder="For example: 3A"
-          placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Class"
-          style={inputStyle}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <ThemedText type="smallBold">Level for the feedback</ThemedText>
         <View style={styles.chips}>
-          {LEVELS.map((l) => (
-            <Chip key={l} label={l} selected={l === level} onPress={() => setLevel(l)} />
+          {classes?.map((c) => (
+            <Chip key={c.id} label={c.name} selected={c.id === classId} onPress={() => setClassId(c.id)} />
           ))}
         </View>
-        <ThemedText type="small" themeColor="textSecondary">
-          The feedback is written so students at this level can read it.
-        </ThemedText>
+        {classes?.length === 0 ? (
+          <ThemedText type="small" themeColor="warning">
+            Add your classes first (Class writing → Add a class).
+          </ThemedText>
+        ) : chosenClass ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            Target {chosenClass.target_level}: scores are worked out against it, and the feedback is written for{' '}
+            {feedbackLevel(chosenClass.target_level)} students.
+          </ThemedText>
+        ) : (
+          <ThemedText type="small" style={{ color: theme.markA }}>
+            Choose the class.
+          </ThemedText>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -177,7 +197,7 @@ export default function NewClassSetRoute() {
       <View style={styles.section}>
         <Button
           label={pages.length > 0 ? `Read and mark ${pages.length} ${pages.length === 1 ? 'page' : 'pages'}` : 'Read and mark'}
-          disabled={pages.length === 0 || uploaded !== null}
+          disabled={pages.length === 0 || !chosenClass || uploaded !== null}
           onPress={start}
         />
         {pages.length > 0 && (

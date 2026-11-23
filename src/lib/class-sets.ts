@@ -12,12 +12,14 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import type { Level } from '@/data/questions';
+import { matchStudent, type ClassStudent } from '@/lib/classes';
 import type { PreparedPhoto } from '@/lib/photo';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 import {
   MIN_WORDS,
   countWords,
   requestFeedback,
+  type AreaLevel,
   type CefrLevel,
   type WritingFeedback,
 } from '@/lib/writing';
@@ -49,6 +51,8 @@ export type Area = (typeof AREAS)[number];
 export type ClassSet = {
   id: string;
   created_at: string;
+  /** The class it belongs to (missing only on the first sets, made before classes). */
+  class_id: string | null;
   title: string;
   class_name: string;
   level: Level;
@@ -77,6 +81,8 @@ export type ClassSetPage = {
   page_number: number;
   student_name: string;
   student_key: string;
+  /** The student in the class (null until matched or chosen). */
+  student_id: string | null;
   photo_path: string;
   status: PageStatus;
   error: string | null;
@@ -84,7 +90,7 @@ export type ClassSetPage = {
   sheet: SheetDetails | null;
   feedback: WritingFeedback | null;
   cefr_level: CefrLevel | null;
-  area_levels: Partial<Record<Area, CefrLevel>> | null;
+  area_levels: Partial<Record<Area, AreaLevel>> | null;
 };
 
 /** The key a student's work is saved under: the name in lower case, single spaces. */
@@ -201,7 +207,15 @@ async function blobToBase64(blob: Blob): Promise<string> {
 
 /** Saves a new class set and its page photos; returns the set's id. */
 export async function createClassSet(
-  input: { title: string; className: string; level: Level; task: string; grammarFocus: string; fileName: string },
+  input: {
+    classId: string;
+    title: string;
+    className: string;
+    level: Level;
+    task: string;
+    grammarFocus: string;
+    fileName: string;
+  },
   pages: PreparedPhoto[],
   onProgress?: (uploaded: number) => void,
 ): Promise<string> {
@@ -215,6 +229,7 @@ export async function createClassSet(
   const { data: set, error } = await client
     .from('class_sets')
     .insert({
+      class_id: input.classId,
       title: input.title.trim(),
       class_name: input.className.trim(),
       level: input.level,
@@ -366,6 +381,7 @@ export async function processPage(
   set: ClassSet,
   page: ClassSetPage,
   onChange: (page: ClassSetPage) => void,
+  students: ClassStudent[] = [],
 ): Promise<ClassSetPage> {
   let current = page;
   const update = async (changes: Partial<ClassSetPage>) => {
@@ -380,11 +396,17 @@ export async function processPage(
       await update({ status: 'reading', error: null });
       const sheet = await readSheet(await pageImage(current));
       const { transcript, contains_writing: _hasWriting, ...details } = sheet;
+      // The student: matched to the class list (allowing for misread letters),
+      // unless the teacher has already chosen one.
+      const match = current.student_id ? null : matchStudent(details.student_name, students);
       await update({
         transcript,
         sheet: details,
-        // Keep a name the teacher already typed.
-        ...(current.student_name ? {} : { student_name: details.student_name, student_key: studentKey(details.student_name) }),
+        ...(current.student_id
+          ? {}
+          : match
+            ? { student_id: match.id, student_name: match.name, student_key: match.student_key }
+            : { student_name: details.student_name, student_key: studentKey(details.student_name) }),
       });
       if (!sheet.contains_writing || !transcript) {
         await update({ status: 'error', error: 'No writing found on this page.' });
@@ -406,7 +428,7 @@ export async function processPage(
       focusGrammar: current.sheet?.grammar_focus || set.grammar_focus,
     });
     const f = response.feedback;
-    const area_levels: Partial<Record<Area, CefrLevel>> = {};
+    const area_levels: Partial<Record<Area, AreaLevel>> = {};
     for (const c of f.criteria) if ((AREAS as readonly string[]).includes(c.criterion)) area_levels[c.criterion as Area] = c.level;
     await update({ status: 'done', feedback: f, cefr_level: f.cefr_level, area_levels });
   } catch (e) {
@@ -423,11 +445,13 @@ export async function processClassSet(
   set: ClassSet,
   pages: ClassSetPage[],
   onChange: (page: ClassSetPage) => void,
-  options: { retryErrors?: boolean } = {},
+  options: { retryErrors?: boolean; students?: ClassStudent[] } = {},
 ): Promise<void> {
   const queue = pages.filter((p) => p.status !== 'done' && (options.retryErrors || p.status !== 'error'));
   const workers = Array.from({ length: Math.min(PAGES_AT_ONCE, queue.length) }, async () => {
-    for (let page = queue.shift(); page; page = queue.shift()) await processPage(set, page, onChange);
+    for (let page = queue.shift(); page; page = queue.shift()) {
+      await processPage(set, page, onChange, options.students ?? []);
+    }
   });
   await Promise.all(workers);
 }
