@@ -173,6 +173,13 @@ export async function findMyOpenSession(): Promise<{ code: string; asHost: boole
   return null;
 }
 
+/** Joining with the same login that is running the session as the teacher. */
+export class HostDeviceError extends Error {
+  constructor() {
+    super('This device is logged in as the teacher running this session, so it would show the teacher’s screen.');
+  }
+}
+
 export async function joinSession(code: string, name: string): Promise<LiveSession> {
   const client = requireSupabase();
   const userId = await ensureSignedIn();
@@ -180,6 +187,8 @@ export async function joinSession(code: string, name: string): Promise<LiveSessi
   const session = await fetchSessionByCode(code);
   if (!session) throw new Error('No session found with that code.');
   if (session.status === 'finished') throw new Error('That session has already finished.');
+  // The host's own login would get the teacher's screen, not a student's.
+  if (session.host_id === userId) throw new HostDeviceError();
 
   let finalName = name.trim();
   if (!finalName) {
