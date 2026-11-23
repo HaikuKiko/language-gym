@@ -6,14 +6,13 @@ import { BusyOverlay } from '@/components/busy-overlay';
 import { CalibrationCard } from '@/components/calibration-card';
 import { Button } from '@/components/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
-import { MarkedTextInput } from '@/components/marked-text-input';
-import { PhotoNote } from '@/components/photo-note';
-import { PhotoPages } from '@/components/photo-pages';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
+import { WritingBox } from '@/components/writing-box';
 import { Spacing } from '@/constants/theme';
 import { useSavedState } from '@/hooks/use-saved-state';
 import { useTheme } from '@/hooks/use-theme';
+import { useWritingDraft } from '@/hooks/use-writing-draft';
 import {
   IELTS_HARD_MIN_WORDS,
   IELTS_MAX_WORDS,
@@ -21,18 +20,9 @@ import {
   requestTeacherIeltsFeedback,
   type IeltsResponse,
 } from '@/lib/ielts';
-import { pickPhoto, type PreparedPhoto } from '@/lib/photo';
+import { pickPhoto } from '@/lib/photo';
 import { errorMessage, supabase } from '@/lib/supabase';
-import {
-  UNREADABLE_MARK,
-  anchorsFrom,
-  guessAnchorsFrom,
-  countWords,
-  markCorrections,
-  readPhoto,
-  type MistakeAnchor,
-  type PhotoReading,
-} from '@/lib/writing';
+import { countWords, readPhoto, writingProblem, type PhotoReading } from '@/lib/writing';
 
 /**
  * Teachers mark any IELTS Writing Task 2 essay: type or paste the question
@@ -42,29 +32,28 @@ import {
 export default function TeacherIeltsRoute() {
   const theme = useTheme();
   const [question, setQuestion] = useSavedState('teacher-ielts:question', '');
-  const [text, setText] = useSavedState('teacher-ielts:text', '');
   const [busy, setBusy] = useState(false);
-  const [reading, setReading] = useState<'question' | 'essay' | null>(null);
-  const [photo, setPhoto] = useSavedState<PhotoReading | null>('teacher-ielts:photo', null);
-  const [guesses, setGuesses] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('teacher-ielts:guesses', null);
+  const [readingQuestion, setReadingQuestion] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Shown after every 5 photos or essays, so teachers can keep track.
   const [usage, setUsage] = useState<string | null>(null);
   const [result, setResult] = useSavedState<IeltsResponse | null>('teacher-ielts:result', null);
-  const [marks, setMarks] = useSavedState<{ anchors: MistakeAnchor[]; length: number } | null>('teacher-ielts:marks', null);
+  const draft = useWritingDraft('teacher-ielts', { teacher: true, onError: setError, onRead: noteUsage });
+  const text = draft.text;
+  const reading = readingQuestion || draft.reading;
 
   const words = countWords(text);
-  const unreadable = text.split(UNREADABLE_MARK).length - 1;
   const problem =
     supabase === null
       ? 'Marking is not set up yet.'
-      : unreadable > 0
-        ? `Replace the ${unreadable === 1 ? '[?] mark' : `${unreadable} [?] marks`} with the words on the paper.`
-        : words < IELTS_HARD_MIN_WORDS
-          ? `Add the essay (at least ${IELTS_HARD_MIN_WORDS} words).`
-          : words > IELTS_MAX_WORDS
-            ? `The essay is too long: ${IELTS_MAX_WORDS} words at most (${words} now).`
-            : null;
+      : writingProblem(text, { minWords: IELTS_HARD_MIN_WORDS, maxWords: IELTS_MAX_WORDS, teacher: true });
+
+  /** Every 5 photos, a reminder of how many have been read today. */
+  function noteUsage(read: PhotoReading) {
+    if (!read.fromCache && read.usedToday && read.usedToday % 5 === 0) {
+      setUsage(`You have read ${read.usedToday} photos today.`);
+    }
+  }
 
   async function submit() {
     setBusy(true);
@@ -77,59 +66,31 @@ export default function TeacherIeltsRoute() {
         );
       }
       setResult(response);
-      setMarks({
-        anchors: anchorsFrom(markCorrections(text, response.feedback.corrections)),
-        length: text.length,
-      });
+      draft.showMistakes(response.feedback.corrections);
     } catch (e) {
       setError(errorMessage(e));
     }
     setBusy(false);
   }
 
+  /** Reads a photo of the question into the question box. */
   async function scanQuestion() {
     setError(null);
     try {
       const image = await pickPhoto('library');
-      if (image) await readPages('question', [image]);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }
-
-  async function readPages(target: 'question' | 'essay', pages: PreparedPhoto[]): Promise<boolean> {
-    setError(null);
-    setReading(target);
-    let ok = false;
-    try {
-      const read = await readPhoto(pages, { teacher: true });
-      if (!read.fromCache && read.usedToday && read.usedToday % 5 === 0) {
-        setUsage(`You have read ${read.usedToday} photos today.`);
-      }
+      if (!image) return;
+      setReadingQuestion(true);
+      const read = await readPhoto([image], { teacher: true });
+      noteUsage(read);
       if (!read.containsWriting || !read.transcript.trim()) {
-        setError(
-          pages.length > 1
-            ? 'We could not find any writing in those photos. Please try other ones.'
-            : 'We could not find any writing in that photo. Please try another one.',
-        );
-      } else if (target === 'question') {
-        setQuestion(read.transcript);
-        ok = true;
+        setError('We could not find any writing in that photo. Please try another one.');
       } else {
-        setText(read.transcript);
-        setPhoto(read);
-        setGuesses({
-          anchors: guessAnchorsFrom(read.transcript, read.guessedWords),
-          length: read.transcript.length,
-        });
-        setMarks(null);
-        ok = true;
+        setQuestion(read.transcript);
       }
     } catch (e) {
       setError(errorMessage(e));
     }
-    setReading(null);
-    return ok;
+    setReadingQuestion(false);
   }
 
   if (result) {
@@ -180,9 +141,9 @@ export default function TeacherIeltsRoute() {
           style={[styles.question, inputStyle]}
         />
         <Button
-          label={reading === 'question' ? 'Reading the question…' : 'Scan the question'}
+          label={readingQuestion ? 'Reading the question…' : 'Scan the question'}
           variant="secondary"
-          disabled={reading !== null || busy}
+          disabled={reading || busy}
           onPress={scanQuestion}
         />
       </View>
@@ -194,21 +155,11 @@ export default function TeacherIeltsRoute() {
             {words} words{words > 0 && words < IELTS_MIN_WORDS ? ` (under ${IELTS_MIN_WORDS})` : ''}
           </ThemedText>
         </View>
-        <PhotoPages
-          disabled={busy || reading === 'question'}
-          reading={reading === 'essay'}
-          onRead={(pages) => readPages('essay', pages)}
-          onError={setError}
-        />
-        {photo && <PhotoNote photo={photo} />}
-        <MarkedTextInput
-          value={text}
-          onChangeText={setText}
+        <WritingBox
+          draft={draft}
+          disabled={busy || readingQuestion}
           placeholder="Type or paste the essay, or scan the handwriting…"
-          accessibilityLabel="The essay"
-          anchors={marks?.anchors ?? []}
-          originalLength={marks?.length ?? text.length}
-          guesses={guesses}
+          label="The essay"
         />
       </View>
 
@@ -235,8 +186,8 @@ export default function TeacherIeltsRoute() {
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
       <BusyOverlay
-        visible={reading !== null}
-        title={reading === 'question' ? 'Reading the question…' : 'Reading the handwriting…'}
+        visible={reading}
+        title={readingQuestion ? 'Reading the question…' : 'Reading the handwriting…'}
         detail="This usually takes 10 to 20 seconds."
       />
       <BusyOverlay visible={busy} title="Marking the essay…" detail="This usually takes 20 to 40 seconds." />
