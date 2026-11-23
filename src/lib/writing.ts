@@ -82,6 +82,8 @@ export type PhotoReading = {
   usedToday?: number;
   /** True when the same photo was read before on this device and the earlier reading was reused. */
   fromCache?: boolean;
+  /** How many pages (photos) were read together. */
+  pages: number;
 };
 
 // The last photo a teacher had read on this device, so uploading the same
@@ -123,11 +125,16 @@ function saveLastPhoto(key: string, reading: PhotoReading) {
 /** Marks Claude leaves where it could not read a word. */
 export const UNREADABLE_MARK = '[?]';
 
+/**
+ * Reads one or more photos (the pages of one piece of writing, in order) into
+ * a single transcript. All the pages together count as one photo reading.
+ */
 export async function readPhoto(
-  image: { base64: string; mediaType: string },
+  images: { base64: string; mediaType: string }[],
   options: { teacher?: boolean } = {},
 ): Promise<PhotoReading> {
-  const key = options.teacher ? await photoKey(image.base64) : null;
+  if (images.length === 0) throw new Error('Please choose a photo.');
+  const key = options.teacher ? await photoKey(images.map((i) => i.base64).join('|')) : null;
   if (key) {
     const last = loadLastPhoto();
     if (last && last.key === key) return { ...last.reading, usedToday: undefined, fromCache: true };
@@ -139,8 +146,9 @@ export async function readPhoto(
   const { data, error } = await client.functions.invoke('assess-writing', {
     body: {
       mode: 'transcribe',
-      image: image.base64,
-      media_type: image.mediaType,
+      ...(images.length === 1
+        ? { image: images[0].base64, media_type: images[0].mediaType }
+        : { images: images.map((i) => ({ image: i.base64, media_type: i.mediaType })) }),
       ...(options.teacher ? { teacher: true } : {}),
     },
   });
@@ -161,6 +169,7 @@ export async function readPhoto(
     note: data.note,
     remainingToday: data.remaining_today,
     usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
+    pages: images.length,
   };
   if (key && reading.containsWriting) saveLastPhoto(key, reading);
   return reading;

@@ -18,6 +18,8 @@
  *            Marks any Task 2 essay against any question (or works the
  *            question out), with no enrolment; its own daily limit.
  * Photo:     POST { mode: "transcribe", image, media_type, teacher? }   (image is base64)
+ *            or { mode: "transcribe", images: [{ image, media_type }, …], teacher? }: up to
+ *            MAX_PAGES pages of one piece of writing, read together and counted as ONE reading.
  *            -> 200 { transcript, legibility, contains_writing, guessed_words, note,
  *                     remaining_today, used_today }
  *            teacher: true skips the 5-a-day limit (safety cap TEACHER_PHOTO_CAP).
@@ -36,6 +38,7 @@ import {
   IMAGE_MEDIA_TYPES,
   type ImageMediaType,
   MAX_IMAGE_BASE64_LENGTH,
+  MAX_PAGES,
   MAX_WORDS,
   MIN_WORDS,
   MODEL,
@@ -151,13 +154,24 @@ Deno.serve(async (request) => {
 
   // ---- Reading a photo of handwriting ------------------------------------
   if (body.mode === "transcribe") {
-    const image = typeof body.image === "string" ? body.image : "";
-    const mediaType = IMAGE_MEDIA_TYPES.includes(body.media_type as ImageMediaType)
-      ? (body.media_type as ImageMediaType)
-      : null;
-    if (!image || !mediaType) return fail(400, "bad_request", "Please choose a photo.");
-    if (image.length > MAX_IMAGE_BASE64_LENGTH) {
-      return fail(400, "too_large", "That photo is too large. Please try again.");
+    // Several pages: { images: [{ image, media_type }, …] }; one page: { image, media_type }.
+    const rawPages = Array.isArray(body.images) ? body.images : [{ image: body.image, media_type: body.media_type }];
+    if (rawPages.length === 0) return fail(400, "bad_request", "Please choose a photo.");
+    if (rawPages.length > MAX_PAGES) {
+      return fail(400, "too_many", `Please choose ${MAX_PAGES} photos or fewer.`);
+    }
+    const pages: { data: string; mediaType: ImageMediaType }[] = [];
+    for (const raw of rawPages) {
+      const page = (raw ?? {}) as Record<string, unknown>;
+      const data = typeof page.image === "string" ? page.image : "";
+      const mediaType = IMAGE_MEDIA_TYPES.includes(page.media_type as ImageMediaType)
+        ? (page.media_type as ImageMediaType)
+        : null;
+      if (!data || !mediaType) return fail(400, "bad_request", "Please choose a photo.");
+      if (data.length > MAX_IMAGE_BASE64_LENGTH) {
+        return fail(400, "too_large", "That photo is too large. Please try again.");
+      }
+      pages.push({ data, mediaType });
     }
 
     const teacher = body.teacher === true;
@@ -176,7 +190,7 @@ Deno.serve(async (request) => {
 
     let result;
     try {
-      result = await transcribeImage(anthropic, { data: image, mediaType });
+      result = await transcribeImage(anthropic, pages);
     } catch (error) {
       return claudeError(error);
     }

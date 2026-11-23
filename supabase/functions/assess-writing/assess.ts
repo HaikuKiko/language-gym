@@ -201,6 +201,9 @@ export type ImageMediaType = (typeof IMAGE_MEDIA_TYPES)[number];
 /** The API accepts images up to 5 MB; base64 is a third larger than that. */
 export const MAX_IMAGE_BASE64_LENGTH = Math.floor((5 * 1024 * 1024 * 4) / 3);
 
+/** Most pages (photos) read together as one piece of writing. */
+export const MAX_PAGES = 4;
+
 export const TranscriptSchema = z.object({
   transcript: z.string(),
   legibility: z.enum(["good", "partial", "poor"]),
@@ -224,26 +227,42 @@ Copy exactly what the student wrote. This is essential: keep every spelling, gra
 - legibility: "good" if you could read everything, "partial" if some words were unclear or guessed, "poor" if much of it was unreadable.
 - guessed_words: every word you guessed, in the order they appear (empty if none).
 - contains_writing: false if the photo has no student writing in it; then leave transcript empty.
+- When there are several photos, they are the pages of ONE piece of writing, in order: give one transcript with page 1 first. If a sentence or paragraph runs on from one page to the next, join it up; do not add a paragraph break just because a new page starts. If a page has no student writing, skip it.
 - note: one short sentence for the student, for example "Two words were hard to read, so we guessed them: please check." or "All clear." Use simple English.`;
 
 export async function transcribeImage(
   client: Anthropic,
-  image: { data: string; mediaType: ImageMediaType },
+  images: { data: string; mediaType: ImageMediaType }[],
 ): Promise<
   | { ok: true; transcript: Transcript; usage: { input_tokens: number; output_tokens: number } }
   | { ok: false; reason: "refused" | "too_long" | "unreadable"; detail?: string }
 > {
   const response = await client.messages.parse({
     model: MODEL,
-    max_tokens: 6000,
+    max_tokens: 4000 + 2000 * images.length,
     system: TRANSCRIBE_PROMPT,
     messages: [
       {
         role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
-          { type: "text", text: "Transcribe the student's writing in this photo." },
-        ],
+        content:
+          images.length === 1
+            ? [
+              { type: "image", source: { type: "base64", media_type: images[0].mediaType, data: images[0].data } },
+              { type: "text", text: "Transcribe the student's writing in this photo." },
+            ]
+            : [
+              ...images.flatMap((image, i) => [
+                { type: "text" as const, text: `Page ${i + 1}:` },
+                {
+                  type: "image" as const,
+                  source: { type: "base64" as const, media_type: image.mediaType, data: image.data },
+                },
+              ]),
+              {
+                type: "text",
+                text: `These ${images.length} photos are the pages of one piece of writing, in order. Transcribe it as one text.`,
+              },
+            ],
       },
     ],
     output_config: {
