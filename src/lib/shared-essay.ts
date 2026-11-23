@@ -1,12 +1,14 @@
 /**
- * Sharing a marked IELTS essay with other teachers for calibration: the
- * essay, the question, the AI's bands and the photos of the pages are saved
- * under a short code, and /calibrate/<code> lets another teacher give their
- * own bands before seeing the AI's. Rows live in the shared_essays table,
- * photos in the shared-essay-photos storage bucket. Nothing expires.
+ * Sharing a marked IELTS essay's results with other teachers: the essay, the
+ * question, the AI's full feedback and the photos of the pages are saved
+ * under a short code. /calibrate/<code> shows the results and everyone's
+ * marks so far, and lets another teacher add theirs. Rows live in the
+ * shared_essays table, photos in the shared-essay-photos storage bucket.
+ * Nothing expires.
  */
 import { getAppAddress } from '@/components/join-qr-code';
-import type { AiMarking } from '@/lib/calibration';
+import { aiMarking, type AiMarking } from '@/lib/calibration';
+import type { IeltsFeedback } from '@/lib/ielts';
 import type { PreparedPhoto } from '@/lib/photo';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 
@@ -32,6 +34,8 @@ export type SharedEssay = {
   question: string;
   essay: string;
   marking: AiMarking;
+  /** The AI's full feedback (missing on the first few shared before 23 Nov). */
+  feedback: IeltsFeedback | null;
   /** Links to the photos of the pages, page 1 first (may be empty). */
   photoUrls: string[];
 };
@@ -60,7 +64,7 @@ export function calibrateUrl(code: string): string | null {
 export async function shareEssay(input: {
   question: string;
   essay: string;
-  marking: AiMarking;
+  feedback: IeltsFeedback;
   photos: PreparedPhoto[];
 }): Promise<string> {
   const client = requireSupabase();
@@ -80,7 +84,7 @@ export async function shareEssay(input: {
     photoPaths.push(path);
   }
 
-  const { ai, aiOverall, wordCount } = input.marking;
+  const { ai, aiOverall, wordCount } = aiMarking(input.feedback);
   const { error } = await client.from('shared_essays').insert({
     code,
     question: input.question.trim(),
@@ -93,6 +97,7 @@ export async function shareEssay(input: {
     ai_gra: ai.gra,
     ai_overall: aiOverall,
     photo_paths: photoPaths,
+    feedback: input.feedback,
   });
   if (error) {
     console.error('Sharing failed', error.message);
@@ -128,6 +133,7 @@ export async function loadSharedEssay(code: string): Promise<SharedEssay | null>
       aiOverall: Number(data.ai_overall),
       wordCount: data.word_count,
     },
+    feedback: (data.feedback as IeltsFeedback | null) ?? null,
     photoUrls,
   };
 }

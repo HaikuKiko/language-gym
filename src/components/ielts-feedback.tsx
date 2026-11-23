@@ -30,15 +30,24 @@ export function IeltsFeedbackView({
   onImprove,
   improveLabel = 'Improve this essay',
   extra,
+  header,
+  essayTitle = 'Your essay',
+  showUsage = true,
 }: {
   response: IeltsResponse;
   text: string;
   /** Shown under the band card, e.g. "Opinion essay · Technology". */
   subtitle?: string;
-  onImprove: () => void;
+  /** Without it there is no "improve" button (e.g. a shared essay). */
+  onImprove?: () => void;
   improveLabel?: string;
   /** Shown above the buttons, e.g. the teacher's own marks. */
   extra?: ReactNode;
+  /** Shown above the band card, e.g. the question and photos of a shared essay. */
+  header?: ReactNode;
+  essayTitle?: string;
+  /** The "N feedback checks left today" line. */
+  showUsage?: boolean;
 }) {
   const theme = useTheme();
   const f = response.feedback;
@@ -49,6 +58,7 @@ export function IeltsFeedbackView({
 
   return (
     <Screen>
+      {header}
       <View style={[styles.bandCard, { backgroundColor: theme.hero }]}>
         <View style={styles.bandHalf}>
           <ThemedText type="smallBold" style={[styles.bandLabel, { color: theme.onHeroMuted }]}>
@@ -153,14 +163,14 @@ export function IeltsFeedbackView({
         </Section>
       )}
 
-      <MarkedWriting marked={marked} title="Your essay" />
+      <MarkedWriting marked={marked} title={essayTitle} />
       <CorrectionNotes marked={marked} />
       {f.paragraphing.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
       {extra}
 
       <View style={styles.section}>
-        <Button label={improveLabel} onPress={onImprove} />
+        {onImprove && <Button label={improveLabel} onPress={onImprove} />}
         <ShareReportButton
           title="IELTS Writing feedback"
           report={() => ieltsReport(f, text, subtitle)}
@@ -170,8 +180,10 @@ export function IeltsFeedbackView({
         <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           AI band scores are a guide, not an official IELTS result.{' '}
-          {response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
-          {response.remainingToday === 1
+          {showUsage && response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
+          {!showUsage
+            ? ''
+            : response.remainingToday === 1
             ? '1 feedback check left today.'
             : `${response.remainingToday} feedback checks left today.`}
         </ThemedText>

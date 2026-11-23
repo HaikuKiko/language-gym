@@ -1,27 +1,38 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { CalibrationCard } from '@/components/calibration-card';
+import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { findMySharedMarks, type Bands } from '@/lib/calibration';
+import {
+  CODE_NAMES,
+  CODES,
+  findMySharedMarks,
+  formatBand,
+  loadSharedMarks,
+  type Bands,
+  type SharedMark,
+} from '@/lib/calibration';
 import { loadSharedEssay, type SharedEssay } from '@/lib/shared-essay';
 import { errorMessage } from '@/lib/supabase';
 
 /**
- * A colleague's link (/calibrate/<code>): mark a shared IELTS essay without
- * seeing the AI's bands, then compare. The marks join the calibration.
+ * A colleague's shared results (/calibrate/<code>): the question, the photos,
+ * the AI's feedback, everyone's marks so far, and a place to add yours. The
+ * marks join the calibration.
  */
-export default function CalibrateRoute() {
+export default function SharedResultsRoute() {
   const theme = useTheme();
   const { code } = useLocalSearchParams<{ code: string }>();
   const [shared, setShared] = useState<SharedEssay | null | undefined>(undefined);
   const [earlier, setEarlier] = useState<{ id: number; teacher: Bands } | null>(null);
+  const [marks, setMarks] = useState<SharedMark[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [bigPhoto, setBigPhoto] = useState<string | null>(null);
 
@@ -29,7 +40,11 @@ export default function CalibrateRoute() {
     setError(null);
     try {
       const essay = await loadSharedEssay(String(code ?? ''));
-      setEarlier(essay ? await findMySharedMarks(essay.code) : null);
+      if (essay) {
+        const [mine, all] = await Promise.all([findMySharedMarks(essay.code), loadSharedMarks(essay.code)]);
+        setEarlier(mine);
+        setMarks(all);
+      }
       setShared(essay);
     } catch (e) {
       setError(errorMessage(e));
@@ -45,7 +60,7 @@ export default function CalibrateRoute() {
   if (error || shared === undefined) {
     return (
       <Screen>
-        <ThemedText type="subtitle">Mark this essay</ThemedText>
+        <ThemedText type="subtitle">Shared results</ThemedText>
         {error ? (
           <>
             <ThemedText themeColor="warning">{error}</ThemedText>
@@ -62,7 +77,7 @@ export default function CalibrateRoute() {
   if (shared === null) {
     return (
       <Screen>
-        <ThemedText type="subtitle">Mark this essay</ThemedText>
+        <ThemedText type="subtitle">Shared results</ThemedText>
         <ThemedText themeColor="textSecondary">
           There is no essay with the code {String(code ?? '').toUpperCase()}. Check the link you were sent.
         </ThemedText>
@@ -71,24 +86,22 @@ export default function CalibrateRoute() {
     );
   }
 
-  return (
-    <Screen>
+  const header = (
+    <>
       <View style={styles.header}>
         <ThemedText type="smallBold" style={{ color: theme.accent }}>
-          CALIBRATION
+          SHARED RESULTS
         </ThemedText>
-        <ThemedText type="subtitle">Mark this essay</ThemedText>
+        <ThemedText type="subtitle">IELTS Writing Task 2</ThemedText>
         <ThemedText themeColor="textSecondary">
-          A colleague asked you to mark this IELTS Writing Task 2 essay. The AI&apos;s bands stay hidden until you save
-          yours.
+          A colleague shared the AI&apos;s marking of this essay. Add your own marks at the bottom: they join the
+          calibration.
         </ThemedText>
       </View>
-
       <View style={[styles.box, { backgroundColor: theme.backgroundElement }]}>
         <ThemedText type="smallBold">The question</ThemedText>
         <ThemedText>{shared.question || '(Not given: the AI worked it out from the essay.)'}</ThemedText>
       </View>
-
       {shared.photoUrls.length > 0 && (
         <View style={styles.section}>
           <ThemedText type="smallBold">The pages (tap to enlarge)</ThemedText>
@@ -106,36 +119,124 @@ export default function CalibrateRoute() {
           </View>
         </View>
       )}
+    </>
+  );
 
-      <View style={[styles.box, { backgroundColor: theme.backgroundElement }]}>
-        <ThemedText type="smallBold">
-          The essay{shared.photoUrls.length > 0 ? ' (typed from the photos)' : ''} · {shared.marking.wordCount} words
-        </ThemedText>
-        <ThemedText selectable>{shared.essay}</ThemedText>
-      </View>
-
+  const marking = (
+    <>
+      <MarksSoFar ai={shared.marking.ai} aiOverall={shared.marking.aiOverall} marks={marks} />
       <CalibrationCard
         marking={shared.marking}
         question={shared.question}
         essay={shared.essay}
-        blind
         sharedCode={shared.code}
         earlier={earlier}
+        optional={false}
+        onSaved={() => {
+          loadSharedMarks(shared.code).then(setMarks);
+        }}
       />
+    </>
+  );
 
+  const photoModal = (
+    <Modal visible={bigPhoto !== null} transparent animationType="fade" onRequestClose={() => setBigPhoto(null)}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close the photo"
+        onPress={() => setBigPhoto(null)}
+        style={styles.overlay}>
+        {bigPhoto && <Image source={{ uri: bigPhoto }} style={styles.big} contentFit="contain" />}
+        <ThemedText style={styles.closeHint}>Tap to close</ThemedText>
+      </Pressable>
+    </Modal>
+  );
+
+  // The AI's full feedback, with everyone's marks underneath.
+  if (shared.feedback) {
+    return (
+      <>
+        <IeltsFeedbackView
+          response={{ feedback: shared.feedback, remainingToday: 0 }}
+          text={shared.essay}
+          subtitle="Shared by a colleague"
+          header={header}
+          essayTitle="The essay"
+          showUsage={false}
+          extra={marking}
+        />
+        {photoModal}
+      </>
+    );
+  }
+
+  // Shared before the full feedback was kept: the essay and the bands only.
+  return (
+    <Screen>
+      {header}
+      <View style={[styles.box, { backgroundColor: theme.backgroundElement }]}>
+        <ThemedText type="smallBold">The essay · {shared.marking.wordCount} words</ThemedText>
+        <ThemedText selectable>{shared.essay}</ThemedText>
+      </View>
+      {marking}
       {home}
-
-      <Modal visible={bigPhoto !== null} transparent animationType="fade" onRequestClose={() => setBigPhoto(null)}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close the photo"
-          onPress={() => setBigPhoto(null)}
-          style={styles.overlay}>
-          {bigPhoto && <Image source={{ uri: bigPhoto }} style={styles.big} contentFit="contain" />}
-          <ThemedText style={styles.closeHint}>Tap to close</ThemedText>
-        </Pressable>
-      </Modal>
+      {photoModal}
     </Screen>
+  );
+}
+
+/** The AI's bands and every teacher's so far, one row each. */
+function MarksSoFar({ ai, aiOverall, marks }: { ai: Bands; aiOverall: number; marks: SharedMark[] }) {
+  const theme = useTheme();
+  let others = 0;
+  const rows: { name: string; bands: Bands; overall: number; mine?: boolean }[] = [
+    { name: 'AI', bands: ai, overall: aiOverall },
+    ...marks.map((m) => ({ name: m.mine ? 'You' : `Teacher ${++others}`, bands: m.teacher, overall: m.overall, mine: m.mine })),
+  ];
+  const cell = (text: ReactNode, bold = false, color?: string) => (
+    <ThemedText type={bold ? 'smallBold' : 'small'} style={[styles.cell, color ? { color } : null]}>
+      {text}
+    </ThemedText>
+  );
+
+  return (
+    <View style={[styles.box, { backgroundColor: theme.backgroundElement }]}>
+      <ThemedText type="smallBold" style={styles.title}>
+        Everyone&apos;s marks so far
+      </ThemedText>
+      <View style={styles.tableRow}>
+        <ThemedText type="small" style={styles.nameCell}>
+          {' '}
+        </ThemedText>
+        {CODES.map((c) => (
+          <View key={c} style={styles.cellWrap}>
+            {cell(c.toUpperCase(), true, theme.textSecondary)}
+          </View>
+        ))}
+        <View style={styles.cellWrap}>{cell('All', true, theme.textSecondary)}</View>
+      </View>
+      {rows.map((r, i) => (
+        <View key={i} style={[styles.tableRow, styles.line, { borderTopColor: theme.border }]}>
+          <ThemedText type={r.mine || i === 0 ? 'smallBold' : 'small'} style={styles.nameCell}>
+            {r.name}
+          </ThemedText>
+          {CODES.map((c) => (
+            <View key={c} style={styles.cellWrap}>
+              {cell(r.bands[c], r.mine, i > 0 && r.bands[c] !== ai[c] ? theme.warning : undefined)}
+            </View>
+          ))}
+          <View style={styles.cellWrap}>{cell(formatBand(r.overall), true)}</View>
+        </View>
+      ))}
+      {marks.length === 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          No teacher has added marks yet. Be the first!
+        </ThemedText>
+      )}
+      <ThemedText type="small" themeColor="textSecondary">
+        {CODES.map((c) => `${c.toUpperCase()} = ${CODE_NAMES[c]}`).join(' · ')}. Orange: different from the AI.
+      </ThemedText>
+    </View>
   );
 }
 
@@ -150,6 +251,28 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.one,
+  },
+  title: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  line: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  nameCell: {
+    flex: 1,
+  },
+  cellWrap: {
+    width: 44,
+    alignItems: 'center',
+  },
+  cell: {
+    textAlign: 'center',
   },
   pages: {
     flexDirection: 'row',
