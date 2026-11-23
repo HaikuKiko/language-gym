@@ -57,7 +57,7 @@ Things agreed for later: `BACKLOG.md`.
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
-  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays
+  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions
   (+ storage bucket `shared-essay-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
