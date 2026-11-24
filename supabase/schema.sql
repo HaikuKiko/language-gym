@@ -2476,3 +2476,9 @@ insert into public.friending_questions (level, week, text) values
   ('C2', 16, 'Which city would you most like to have lived in at a different moment in history?'),
   ('C2', 16, 'What place do you return to in your mind when you need to calm down?'),
   ('C2', 16, 'If you had to describe your hometown using only three sounds, what would they be?');
+
+-- Deleting a class set: its pages go with it (on delete cascade); teachers may
+-- also delete their own scanned page photos.
+create policy "Teachers delete their own class set photos"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'class-set-photos' and (storage.foldername(name))[1] = (select auth.uid())::text);

@@ -315,6 +315,19 @@ async function savePage(id: string, changes: Partial<ClassSetPage>): Promise<voi
 }
 
 /** Changes the student's name on a page (and so the key their work is saved under). */
+/**
+ * Deletes a class set: its pages (and so their scores in students' history)
+ * go with it, and so do the scanned page photos.
+ */
+export async function deleteClassSet(set: ClassSet, pages: ClassSetPage[]): Promise<void> {
+  const client = requireSupabase();
+  const paths = pages.map((p) => p.photo_path).filter((path): path is string => !!path);
+  const { error } = await client.from('class_sets').delete().eq('id', set.id);
+  if (error) throw new Error('The class set could not be deleted. Please try again.');
+  // The photos are no use without the set; a photo that stays behind does no harm.
+  if (paths.length > 0) await client.storage.from(PHOTO_BUCKET).remove(paths).catch(() => undefined);
+}
+
 export async function renamePage(page: ClassSetPage, name: string): Promise<ClassSetPage> {
   const changes = { student_name: name.trim().replace(/\s+/g, ' '), student_key: studentKey(name) };
   await savePage(page.id, changes);

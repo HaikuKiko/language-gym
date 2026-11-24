@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatScore, scoreFor } from '@/lib/class-scores';
 import { loadClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import {
+  deleteClassSet,
   loadClassSet,
   pagePhotoUrls,
   pageTitle,
@@ -204,6 +205,16 @@ function ClassSetRouteScreen() {
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Tap a page to see that student&apos;s feedback or change the name. Marked by an AI (Claude) as a guide.
         </ThemedText>
+        <DeleteClassSet
+          set={set}
+          pages={pages}
+          disabled={working}
+          onDeleted={() =>
+            schoolClass
+              ? router.replace({ pathname: '/classes/[id]', params: { id: schoolClass.id } })
+              : router.replace('/class-sets')
+          }
+        />
         {schoolClass ? (
           <Button
             label={`Back to ${schoolClass.name}`}
@@ -218,7 +229,63 @@ function ClassSetRouteScreen() {
   );
 }
 
+/** "Delete this class set", with an "Are you sure?" step. */
+function DeleteClassSet({
+  set,
+  pages,
+  disabled,
+  onDeleted,
+}: {
+  set: ClassSet;
+  pages: ClassSetPage[];
+  disabled: boolean;
+  onDeleted: () => void;
+}) {
+  const theme = useTheme();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteClassSet(set, pages);
+      onDeleted();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  if (!asking) {
+    return <Button label="Delete this class set" variant="secondary" disabled={disabled} onPress={() => setAsking(true)} />;
+  }
+  return (
+    <View style={[styles.deleteBox, { borderColor: theme.warning }]}>
+      <ThemedText type="smallBold">Delete “{set.title}”?</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        This removes all {pages.length} {pages.length === 1 ? 'page' : 'pages'}, their feedback and their scores in each
+        student&apos;s history. It can&apos;t be undone. The class and its students stay.
+      </ThemedText>
+      <Button label={busy ? 'Deleting…' : 'Yes, delete it'} disabled={busy} onPress={remove} />
+      <Button label="No, keep it" variant="secondary" disabled={busy} onPress={() => setAsking(false)} />
+      {error && (
+        <ThemedText type="small" themeColor="warning">
+          {error}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  deleteBox: {
+    borderWidth: 2,
+    borderRadius: Spacing.three,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
   header: {
     gap: Spacing.one,
   },
