@@ -94,7 +94,8 @@ export async function loadClass(
     schoolClass: schoolClass as SchoolClass,
     students: (students ?? []) as ClassStudent[],
     sets: (sets ?? []) as ClassSet[],
-    pages: (pages ?? []) as ClassSetPage[],
+    // A student's later pages have no feedback of their own.
+    pages: ((pages ?? []) as ClassSetPage[]).filter((p) => p.continues_page == null),
   };
 }
 

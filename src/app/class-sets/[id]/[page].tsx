@@ -24,7 +24,9 @@ import {
 import {
   AREAS,
   knownStudentNames,
+  fullTranscript,
   loadClassSet,
+  pagesOf,
   pagePhotoUrls,
   pageTitle,
   renamePage,
@@ -54,8 +56,10 @@ function ClassSetPageRouteScreen() {
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
   const [students, setStudents] = useState<ClassStudent[]>([]);
   const [page, setPage] = useState<ClassSetPage | null | undefined>(undefined);
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [bigPhoto, setBigPhoto] = useState(false);
+  /** The student's pages (the first and any that continue it), and their photos. */
+  const [parts, setParts] = useState<ClassSetPage[]>([]);
+  const [photos, setPhotos] = useState<Record<number, string>>({});
+  const [bigPhoto, setBigPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -64,12 +68,14 @@ function ClassSetPageRouteScreen() {
       const found = loaded?.pages.find((p) => p.page_number === pageNumber) ?? null;
       setSet(loaded?.set ?? null);
       setPage(found);
+      const all = found && loaded ? pagesOf(found, loaded.pages) : [];
+      setParts(all);
       if (loaded?.set.class_id) {
         const classData = await loadClass(loaded.set.class_id);
         setSchoolClass(classData?.schoolClass ?? null);
         setStudents(classData?.students ?? []);
       }
-      if (found) pagePhotoUrls([found]).then((urls) => setPhoto(urls[found.page_number] ?? null));
+      if (all.length > 0) pagePhotoUrls(all).then(setPhotos);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -112,6 +118,9 @@ function ClassSetPageRouteScreen() {
     );
   }
 
+  // The student's whole writing, over all their pages.
+  const text = fullTranscript(page, parts.length > 0 ? parts : [page]);
+
   const header = (
     <>
       <ThemedText type="smallBold" style={{ color: theme.accent }}>
@@ -130,14 +139,17 @@ function ClassSetPageRouteScreen() {
       )}
       {schoolClass && page.area_levels && <ScoreCard page={page} target={schoolClass.target_level} />}
       <View style={styles.photoRow}>
-        {photo && (
-          <Pressable
-            accessibilityRole="imagebutton"
-            accessibilityLabel="The page, tap to enlarge"
-            onPress={() => setBigPhoto(true)}
-            style={[styles.thumb, { borderColor: theme.border }]}>
-            <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
-          </Pressable>
+        {parts.map((part) =>
+          photos[part.page_number] ? (
+            <Pressable
+              key={part.id}
+              accessibilityRole="imagebutton"
+              accessibilityLabel={`Page ${part.page_number}, tap to enlarge`}
+              onPress={() => setBigPhoto(photos[part.page_number])}
+              style={[styles.thumb, { borderColor: theme.border }]}>
+              <Image source={{ uri: photos[part.page_number] }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            </Pressable>
+          ) : null,
         )}
         {page.area_levels && !schoolClass && (
           <View style={[styles.areas, { backgroundColor: theme.backgroundElement }]}>
@@ -150,9 +162,9 @@ function ClassSetPageRouteScreen() {
           </View>
         )}
       </View>
-      <Modal visible={bigPhoto} transparent animationType="fade" onRequestClose={() => setBigPhoto(false)}>
-        <Pressable accessibilityRole="button" onPress={() => setBigPhoto(false)} style={styles.overlay}>
-          {photo && <Image source={{ uri: photo }} style={styles.big} contentFit="contain" />}
+      <Modal visible={!!bigPhoto} transparent animationType="fade" onRequestClose={() => setBigPhoto(null)}>
+        <Pressable accessibilityRole="button" onPress={() => setBigPhoto(null)} style={styles.overlay}>
+          {bigPhoto && <Image source={{ uri: bigPhoto }} style={styles.big} contentFit="contain" />}
           <ThemedText style={styles.closeHint}>Tap to close</ThemedText>
         </Pressable>
       </Modal>
@@ -172,10 +184,10 @@ function ClassSetPageRouteScreen() {
                 ? 'Reading the page…'
                 : 'Marking…'}
         </ThemedText>
-        {page.transcript ? (
+        {text ? (
           <View style={[styles.areas, { backgroundColor: theme.backgroundElement }]}>
             <ThemedText type="smallBold">The writing</ThemedText>
-            <ThemedText selectable>{page.transcript}</ThemedText>
+            <ThemedText selectable>{text}</ThemedText>
           </View>
         ) : null}
         {back}
@@ -186,7 +198,7 @@ function ClassSetPageRouteScreen() {
   return (
     <WritingFeedbackView
       response={{ feedback: page.feedback, remainingToday: 0 }}
-      text={page.transcript ?? ''}
+      text={text}
       header={header}
       footer={back}
       showUsage={false}

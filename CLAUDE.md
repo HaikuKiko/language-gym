@@ -58,6 +58,10 @@ Things agreed for later: `BACKLOG.md`.
   `class_sets`, `class_set_pages` (+ bucket `class-set-photos`): own rows only, and **teachers only**
   (restrictive RLS with `is_teacher()`); the screens are wrapped in `TeacherOnly`.
   "Delete this class set" (with an "Are you sure?" step) removes the set, its pages (cascade) and photos.
+  A student's writing may run over several pages: all pages are read first, then a page without the
+  printed sheet header (no name/class/date/grammar focus, `isFirstPage`) joins the student before it
+  (`continues_page` = their first page's number; it has no feedback), then each student's whole text
+  is marked once. Sets made before this are regrouped and re-marked when opened (`needsGrouping`).
 - **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add

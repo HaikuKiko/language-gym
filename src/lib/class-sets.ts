@@ -91,7 +91,42 @@ export type ClassSetPage = {
   feedback: WritingFeedback | null;
   cefr_level: CefrLevel | null;
   area_levels: Partial<Record<Area, AreaLevel>> | null;
+  /**
+   * For a student's second (third…) page: the page number of their first
+   * page, which holds the feedback for all of them. Null on first pages.
+   */
+  continues_page: number | null;
 };
+
+/**
+ * Whether a page is the first page of a student's writing: it shows the
+ * printed sheet (a name, class, date or grammar focus). A page with none of
+ * these, like the back of a sheet, continues the student before it.
+ */
+export function isFirstPage(sheet: SheetDetails | null): boolean {
+  if (!sheet) return true;
+  return !!(sheet.student_name || sheet.class_name || sheet.sheet_date || sheet.grammar_focus);
+}
+
+/** One entry per student: the first pages, in order. */
+export function studentPages(pages: ClassSetPage[]): ClassSetPage[] {
+  return pages.filter((p) => p.continues_page == null).sort((a, b) => a.page_number - b.page_number);
+}
+
+/** A student's pages: their first page and the pages that continue it. */
+export function pagesOf(first: ClassSetPage, pages: ClassSetPage[]): ClassSetPage[] {
+  return [first, ...pages.filter((p) => p.continues_page === first.page_number)].sort(
+    (a, b) => a.page_number - b.page_number,
+  );
+}
+
+/** A student's whole writing, over all their pages. */
+export function fullTranscript(first: ClassSetPage, pages: ClassSetPage[]): string {
+  return pagesOf(first, pages)
+    .map((p) => (p.transcript ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
 
 /** The key a student's work is saved under: the name in lower case, single spaces. */
 export function studentKey(name: string): string {
@@ -386,56 +421,126 @@ async function pageImage(page: ClassSetPage): Promise<PreparedPhoto> {
   return { base64: await blobToBase64(data), mediaType: 'image/jpeg' };
 }
 
-/**
- * Reads and marks one page, saving each step. Calls onChange with the page as
- * it changes, so the screen can follow along.
- */
-export async function processPage(
-  set: ClassSet,
+/** Saves changes to a page and tells the screen. */
+function pageUpdater(onChange: (page: ClassSetPage) => void) {
+  return async (page: ClassSetPage, changes: Partial<ClassSetPage>): Promise<ClassSetPage> => {
+    const updated = { ...page, ...changes };
+    onChange(updated);
+    await savePage(page.id, changes);
+    return updated;
+  };
+}
+
+/** Step 1: reads one page (the writing, and the name, task and grammar on the sheet). */
+async function readPage(
   page: ClassSetPage,
   onChange: (page: ClassSetPage) => void,
-  students: ClassStudent[] = [],
+  students: ClassStudent[],
 ): Promise<ClassSetPage> {
-  let current = page;
-  const update = async (changes: Partial<ClassSetPage>) => {
-    current = { ...current, ...changes };
-    onChange(current);
-    await savePage(current.id, changes);
-  };
-
+  const update = pageUpdater(onChange);
+  let current = await update(page, { status: 'reading', error: null });
   try {
-    // 1. Read the page: the writing, and the name, task and grammar on the sheet.
-    if (!current.transcript) {
-      await update({ status: 'reading', error: null });
-      const sheet = await readSheet(await pageImage(current));
-      const { transcript, contains_writing: _hasWriting, ...details } = sheet;
-      // The student: matched to the class list (allowing for misread letters),
-      // unless the teacher has already chosen one.
-      const match = current.student_id ? null : matchStudent(details.student_name, students);
-      await update({
-        transcript,
-        sheet: details,
-        ...(current.student_id
-          ? {}
-          : match
-            ? { student_id: match.id, student_name: match.name, student_key: match.student_key }
-            : { student_name: details.student_name, student_key: studentKey(details.student_name) }),
-      });
-      if (!sheet.contains_writing || !transcript) {
-        await update({ status: 'error', error: 'No writing found on this page.' });
-        return current;
-      }
-    }
+    const sheet = await readSheet(await pageImage(current));
+    const { transcript, contains_writing: hasWriting, ...details } = sheet;
+    // The student: matched to the class list (allowing for misread letters),
+    // unless the teacher has already chosen one.
+    const match = current.student_id || !details.student_name ? null : matchStudent(details.student_name, students);
+    current = await update(current, {
+      status: 'waiting',
+      transcript: hasWriting ? transcript : '',
+      sheet: details,
+      ...(current.student_id
+        ? {}
+        : match
+          ? { student_id: match.id, student_name: match.name, student_key: match.student_key }
+          : { student_name: details.student_name, student_key: studentKey(details.student_name) }),
+    });
+  } catch (e) {
+    current = await update(current, { status: 'error', error: e instanceof Error ? e.message : 'Something went wrong.' });
+  }
+  return current;
+}
 
-    // 2. Mark it: General English feedback at the class's level.
-    const words = countWords(current.transcript ?? '');
-    if (words < MIN_WORDS) {
-      await update({ status: 'error', error: `Too short for feedback (${words} words; at least ${MIN_WORDS}).` });
-      return current;
+/**
+ * Which student each page belongs to: for each page, the page number of the
+ * student's first page, or null for a first page. A page without the printed
+ * sheet continues the student before it. Null when pages are still unread.
+ */
+function plannedGroups(pages: ClassSetPage[]): Map<string, number | null> | null {
+  if (pages.some((p) => p.transcript === null)) return null;
+  const plan = new Map<string, number | null>();
+  let first: number | null = null;
+  for (const page of [...pages].sort((a, b) => a.page_number - b.page_number)) {
+    if (first !== null && !isFirstPage(page.sheet)) {
+      plan.set(page.id, first);
+    } else {
+      plan.set(page.id, null);
+      first = page.page_number;
     }
-    await update({ status: 'marking', error: null });
+  }
+  return plan;
+}
+
+/** Whether the pages are not yet put with their students as they should be. */
+export function needsGrouping(pages: ClassSetPage[]): boolean {
+  const plan = plannedGroups(pages);
+  return !!plan && pages.some((p) => (p.continues_page ?? null) !== plan.get(p.id));
+}
+
+/**
+ * Step 2: puts each page with its student. A later page is "done" with no
+ * feedback of its own; a student whose pages changed is marked again.
+ */
+async function groupPages(pages: ClassSetPage[], onChange: (page: ClassSetPage) => void): Promise<ClassSetPage[]> {
+  const plan = plannedGroups(pages);
+  if (!plan) return pages;
+  const update = pageUpdater(onChange);
+  const changedFirsts = new Set<number>();
+  for (const p of pages) {
+    const wanted = plan.get(p.id) ?? null;
+    if ((p.continues_page ?? null) === wanted) continue;
+    if (wanted !== null) changedFirsts.add(wanted);
+    if (p.continues_page != null) changedFirsts.add(p.continues_page);
+  }
+  const result: ClassSetPage[] = [];
+  for (const page of pages) {
+    const wanted = plan.get(page.id) ?? null;
+    let current = page;
+    if (wanted !== null) {
+      if ((page.continues_page ?? null) !== wanted || page.status !== 'done') {
+        current = await update(page, { continues_page: wanted, status: 'done', error: null, feedback: null, cefr_level: null, area_levels: null });
+      }
+    } else if ((page.continues_page ?? null) !== null || (changedFirsts.has(page.page_number) && page.status !== 'waiting')) {
+      current = await update(page, { continues_page: null, status: 'waiting', feedback: null, cefr_level: null, area_levels: null });
+    }
+    result.push(current);
+  }
+  return result;
+}
+
+/** Step 3: marks one student's writing (all their pages together). */
+async function markStudent(
+  set: ClassSet,
+  first: ClassSetPage,
+  pages: ClassSetPage[],
+  onChange: (page: ClassSetPage) => void,
+): Promise<void> {
+  const update = pageUpdater(onChange);
+  let current = first;
+  try {
+    const text = fullTranscript(first, pages);
+    if (!text) {
+      await update(current, { status: 'error', error: 'No writing found on this page.' });
+      return;
+    }
+    const words = countWords(text);
+    if (words < MIN_WORDS) {
+      await update(current, { status: 'error', error: `Too short for feedback (${words} words; at least ${MIN_WORDS}).` });
+      return;
+    }
+    current = await update(current, { status: 'marking', error: null });
     const response = await requestFeedback({
-      text: current.transcript ?? '',
+      text,
       level: set.level,
       task: current.sheet?.task || set.task,
       focusGrammar: current.sheet?.grammar_focus || set.grammar_focus,
@@ -443,16 +548,25 @@ export async function processPage(
     const f = response.feedback;
     const area_levels: Partial<Record<Area, AreaLevel>> = {};
     for (const c of f.criteria) if ((AREAS as readonly string[]).includes(c.criterion)) area_levels[c.criterion as Area] = c.level;
-    await update({ status: 'done', feedback: f, cefr_level: f.cefr_level, area_levels });
+    await update(current, { status: 'done', feedback: f, cefr_level: f.cefr_level, area_levels });
   } catch (e) {
-    await update({ status: 'error', error: e instanceof Error ? e.message : 'Something went wrong.' });
+    await update(current, { status: 'error', error: e instanceof Error ? e.message : 'Something went wrong.' });
   }
-  return current;
+}
+
+/** Runs the jobs a few at a time. */
+async function fewAtATime<T>(items: T[], job: (item: T) => Promise<unknown>): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(PAGES_AT_ONCE, queue.length) }, async () => {
+    for (let item = queue.shift(); item !== undefined; item = queue.shift()) await job(item);
+  });
+  await Promise.all(workers);
 }
 
 /**
- * Reads and marks every page that is not finished (a few at a time). Pages
- * left half-done by an earlier visit are picked up again.
+ * Reads every page, puts each page with its student (a student's writing may
+ * run over several pages), then marks each student's writing. Pages left
+ * half-done by an earlier visit are picked up again.
  */
 export async function processClassSet(
   set: ClassSet,
@@ -460,11 +574,21 @@ export async function processClassSet(
   onChange: (page: ClassSetPage) => void,
   options: { retryErrors?: boolean; students?: ClassStudent[] } = {},
 ): Promise<void> {
-  const queue = pages.filter((p) => p.status !== 'done' && (options.retryErrors || p.status !== 'error'));
-  const workers = Array.from({ length: Math.min(PAGES_AT_ONCE, queue.length) }, async () => {
-    for (let page = queue.shift(); page; page = queue.shift()) {
-      await processPage(set, page, onChange, options.students ?? []);
-    }
-  });
-  await Promise.all(workers);
+  const byId = new Map(pages.map((p) => [p.id, p]));
+  const track = (page: ClassSetPage) => {
+    byId.set(page.id, page);
+    onChange(page);
+  };
+
+  // 1. Read the pages not read yet.
+  const unread = pages.filter((p) => p.transcript === null && (options.retryErrors || p.status !== 'error'));
+  await fewAtATime(unread, (p) => readPage(p, track, options.students ?? []));
+
+  // 2. Put each page with its student (only once every page has been read).
+  const grouped = await groupPages([...byId.values()], track);
+  if (grouped.some((p) => p.transcript === null)) return;
+
+  // 3. Mark each student's writing that is not marked yet.
+  const toMark = studentPages(grouped).filter((p) => p.status !== 'done' && (options.retryErrors || p.status !== 'error'));
+  await fewAtATime(toMark, (p) => markStudent(set, p, grouped, track));
 }

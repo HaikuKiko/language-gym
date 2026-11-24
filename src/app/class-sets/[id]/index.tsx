@@ -18,7 +18,10 @@ import {
   loadClassSet,
   pagePhotoUrls,
   pageTitle,
+  needsGrouping,
+  pagesOf,
   processClassSet,
+  studentPages,
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
@@ -69,8 +72,12 @@ function ClassSetRouteScreen() {
       const classData = loaded.set.class_id ? await loadClass(loaded.set.class_id) : null;
       setSchoolClass(classData?.schoolClass ?? null);
       setStudents(classData?.students ?? []);
-      // Read and mark whatever is not finished yet (also after a refresh).
-      if (!started.current && loaded.pages.some((p) => p.status !== 'done' && p.status !== 'error')) {
+      // Read and mark whatever is not finished yet (also after a refresh), and
+      // put pages with their student (also in sets made before that).
+      if (
+        !started.current &&
+        (loaded.pages.some((p) => p.status !== 'done' && p.status !== 'error') || needsGrouping(loaded.pages))
+      ) {
         started.current = true;
         run(loaded.set, loaded.pages, classData?.students ?? []);
       }
@@ -108,12 +115,16 @@ function ClassSetRouteScreen() {
     );
   }
 
-  const done = pages.filter((p) => p.status === 'done').length;
-  const failed = pages.filter((p) => p.status === 'error');
+  // One entry per student; a student's writing may run over several pages.
+  const firsts = studentPages(pages);
+  const read = pages.filter((p) => p.transcript !== null || p.status === 'error').length;
+  const reading = read < pages.length;
+  const done = firsts.filter((p) => p.status === 'done').length;
+  const failed = firsts.filter((p) => p.status === 'error');
   const finished = done + failed.length;
   // Pages whose student still needs choosing: no name, or (in a class) not matched to a student.
   const needsName = (p: ClassSetPage) => !p.student_name.trim() || (!!set.class_id && !p.student_id);
-  const noName = pages.filter(needsName).length;
+  const noName = firsts.filter(needsName).length;
 
   return (
     <Screen>
@@ -130,23 +141,33 @@ function ClassSetRouteScreen() {
           ) : (
             <Pill label={`Feedback for ${set.level}`} tone="accent" />
           )}
+          {!reading && firsts.length !== pages.length && (
+            <Pill label={`${firsts.length} ${firsts.length === 1 ? 'student' : 'students'}`} />
+          )}
           <Pill label={`${pages.length} pages`} />
         </View>
       </View>
 
       <View style={styles.section}>
         <ThemedText type="smallBold">
-          {finished < pages.length ? `Marking… ${finished} of ${pages.length} done` : `All ${pages.length} pages marked`}
+          {reading
+            ? `Reading the pages… ${read} of ${pages.length}`
+            : finished < firsts.length
+              ? `Marking… ${finished} of ${firsts.length} done`
+              : `All ${firsts.length} marked`}
         </ThemedText>
-        <ProgressBar fraction={pages.length > 0 ? finished / pages.length : 0} />
+        <ProgressBar
+          fraction={reading ? read / Math.max(1, pages.length) : firsts.length > 0 ? finished / firsts.length : 0}
+        />
         {noName > 0 && (
           <ThemedText type="small" style={{ color: theme.markA }}>
-            {noName === 1 ? '1 page needs' : `${noName} pages need`} the student checking: tap to choose who wrote it.
+            {noName === 1 ? '1 piece of writing needs' : `${noName} pieces of writing need`} the student checking: tap to choose who wrote it.
           </ThemedText>
         )}
       </View>
 
-      {pages.map((page) => {
+      {firsts.map((page) => {
+        const count = pagesOf(page, pages).length;
         const named = !needsName(page);
         const score = schoolClass ? scoreFor(page.area_levels, schoolClass.target_level) : null;
         return (
@@ -174,6 +195,11 @@ function ClassSetRouteScreen() {
                 {page.student_name.trim() && !named ? `${page.student_name}?` : pageTitle(page)}
                 {!named ? ' ✎' : ''}
               </ThemedText>
+              {count > 1 && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Pages {page.page_number}–{page.page_number + count - 1}
+                </ThemedText>
+              )}
               {page.status === 'error' && (
                 <ThemedText type="small" themeColor="warning">
                   {page.error}
