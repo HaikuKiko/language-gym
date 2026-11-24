@@ -6,9 +6,6 @@ Things agreed for later. Newest first.
 
 ## Class writing
 
-- **Delete a class set (asked 24 Nov).** A "Delete this class set" button (with an "Are you sure?"
-  step) on the class set screen: removes its pages, their scores in students' history and the scanned
-  photos. For wrong or bad scans.
 - **Progress charts (step 2, agreed 23 Nov).** Per student (by `student_key`): a line per area
   (Content, Organisation, Grammar, Vocabulary) and the overall level across class sets; tap a point
   to open that writing. The data is saved from the first class set on.
