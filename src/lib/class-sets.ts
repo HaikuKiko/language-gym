@@ -96,6 +96,10 @@ export type ClassSetPage = {
    * page, which holds the feedback for all of them. Null on first pages.
    */
   continues_page: number | null;
+  /** On a first page: the whole writing as corrected by the teacher (null = as read). */
+  edited_text: string | null;
+  /** On a first page: the teacher has checked the reading against the paper. */
+  reading_checked: boolean;
 };
 
 /**
@@ -120,8 +124,14 @@ export function pagesOf(first: ClassSetPage, pages: ClassSetPage[]): ClassSetPag
   );
 }
 
-/** A student's whole writing, over all their pages. */
+/** A student's whole writing, over all their pages (as corrected by the teacher, if they did). */
 export function fullTranscript(first: ClassSetPage, pages: ClassSetPage[]): string {
+  if (first.edited_text != null) return first.edited_text;
+  return readTranscript(first, pages);
+}
+
+/** A student's writing exactly as read from their pages. */
+function readTranscript(first: ClassSetPage, pages: ClassSetPage[]): string {
   return pagesOf(first, pages)
     .map((p) => (p.transcript ?? '').trim())
     .filter(Boolean)
@@ -421,6 +431,51 @@ async function pageImage(page: ClassSetPage): Promise<PreparedPhoto> {
   return { base64: await blobToBase64(data), mediaType: 'image/jpeg' };
 }
 
+/** The words guessed while reading a student's pages (to check against the paper). */
+export function guessedWords(first: ClassSetPage, pages: ClassSetPage[]): string[] {
+  const words = pagesOf(first, pages).flatMap((p) => p.sheet?.guessed_words ?? []);
+  return [...new Set(words.map((w) => w.trim()).filter(Boolean))];
+}
+
+/** Whether a student's reading still needs checking (guessed words not yet checked). */
+export function needsChecking(first: ClassSetPage, pages: ClassSetPage[]): boolean {
+  return !first.reading_checked && guessedWords(first, pages).length > 0;
+}
+
+/** Whether every page has been read (or could not be). */
+export function allRead(pages: ClassSetPage[]): boolean {
+  return pages.every((p) => p.transcript !== null || p.status === 'error');
+}
+
+/** Students read and ready to mark (or to mark again after an error, with retry). */
+export function waitingToMark(pages: ClassSetPage[], retryErrors = false): ClassSetPage[] {
+  if (!allRead(pages) || needsGrouping(pages)) return [];
+  return studentPages(pages).filter(
+    (p) => p.transcript !== null && p.status !== 'done' && (retryErrors || p.status !== 'error'),
+  );
+}
+
+/**
+ * The teacher has checked a student's reading. A changed text is kept; if
+ * the writing was already marked, it is marked again.
+ */
+export async function saveReading(
+  set: ClassSet,
+  first: ClassSetPage,
+  pages: ClassSetPage[],
+  text: string,
+  onChange: (page: ClassSetPage) => void,
+): Promise<void> {
+  const update = pageUpdater(onChange);
+  const changed = text.trim() !== fullTranscript(first, pages).trim();
+  const edited_text = changed ? (text.trim() === readTranscript(first, pages).trim() ? null : text) : first.edited_text;
+  let current = await update(first, { reading_checked: true, edited_text });
+  if (changed && current.status === 'done') {
+    current = await update(current, { status: 'waiting', feedback: null, cefr_level: null, area_levels: null });
+    await markStudent(set, current, pages, onChange);
+  }
+}
+
 /** Saves changes to a page and tells the screen. */
 function pageUpdater(onChange: (page: ClassSetPage) => void) {
   return async (page: ClassSetPage, changes: Partial<ClassSetPage>): Promise<ClassSetPage> => {
@@ -511,7 +566,7 @@ async function groupPages(pages: ClassSetPage[], onChange: (page: ClassSetPage) 
         current = await update(page, { continues_page: wanted, status: 'done', error: null, feedback: null, cefr_level: null, area_levels: null });
       }
     } else if ((page.continues_page ?? null) !== null || (changedFirsts.has(page.page_number) && page.status !== 'waiting')) {
-      current = await update(page, { continues_page: null, status: 'waiting', feedback: null, cefr_level: null, area_levels: null });
+      current = await update(page, { continues_page: null, status: 'waiting', feedback: null, cefr_level: null, area_levels: null, edited_text: null, reading_checked: false });
     }
     result.push(current);
   }
@@ -519,7 +574,7 @@ async function groupPages(pages: ClassSetPage[], onChange: (page: ClassSetPage) 
 }
 
 /** Step 3: marks one student's writing (all their pages together). */
-async function markStudent(
+export async function markStudent(
   set: ClassSet,
   first: ClassSetPage,
   pages: ClassSetPage[],
@@ -565,14 +620,14 @@ async function fewAtATime<T>(items: T[], job: (item: T) => Promise<unknown>): Pr
 
 /**
  * Reads every page, puts each page with its student (a student's writing may
- * run over several pages), then marks each student's writing. Pages left
+ * run over several pages), then (with `mark`) marks each student's writing. Pages left
  * half-done by an earlier visit are picked up again.
  */
 export async function processClassSet(
   set: ClassSet,
   pages: ClassSetPage[],
   onChange: (page: ClassSetPage) => void,
-  options: { retryErrors?: boolean; students?: ClassStudent[] } = {},
+  options: { retryErrors?: boolean; students?: ClassStudent[]; mark?: boolean } = {},
 ): Promise<void> {
   const byId = new Map(pages.map((p) => [p.id, p]));
   const track = (page: ClassSetPage) => {
@@ -588,7 +643,8 @@ export async function processClassSet(
   const grouped = await groupPages([...byId.values()], track);
   if (grouped.some((p) => p.transcript === null)) return;
 
-  // 3. Mark each student's writing that is not marked yet.
-  const toMark = studentPages(grouped).filter((p) => p.status !== 'done' && (options.retryErrors || p.status !== 'error'));
-  await fewAtATime(toMark, (p) => markStudent(set, p, grouped, track));
+  // 3. Mark each student's writing that is not marked yet: only when the
+  // teacher asks ("Mark all"), after checking the readings.
+  if (!options.mark) return;
+  await fewAtATime(waitingToMark(grouped, options.retryErrors), (p) => markStudent(set, p, grouped, track));
 }

@@ -27,9 +27,49 @@ export function Bullet({ text }: { text: string }) {
   );
 }
 
-/** The student's own words, with numbered wavy underlines and ¶ marks. */
-export function MarkedWriting({ marked, title = 'Your writing' }: { marked: MarkedText; title?: string }) {
+/** Splits text so that words guessed from a photo can be highlighted. */
+function guessParts(text: string, guessed: string[]): { text: string; guess: boolean }[] {
+  const words = guessed.map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return [{ text, guess: false }];
+  const escaped = words.sort((a, b) => b.length - a.length).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(${escaped.join('|')})(?![\\p{L}\\p{N}])`, 'gu');
+  const parts: { text: string; guess: boolean }[] = [];
+  let cursor = 0;
+  for (const match of text.matchAll(re)) {
+    const start = match.index ?? 0;
+    if (start > cursor) parts.push({ text: text.slice(cursor, start), guess: false });
+    parts.push({ text: match[0], guess: true });
+    cursor = start + match[0].length;
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), guess: false });
+  return parts;
+}
+
+/**
+ * The student's own words, with numbered wavy underlines and ¶ marks, and
+ * any words guessed from a photo in yellow.
+ */
+export function MarkedWriting({
+  marked,
+  title = 'Your writing',
+  guessed = [],
+}: {
+  marked: MarkedText;
+  title?: string;
+  /** Words guessed when reading a photo of the writing, highlighted in yellow. */
+  guessed?: string[];
+}) {
   const theme = useTheme();
+  const withGuesses = (text: string, key: number | string) =>
+    guessParts(text, guessed).map((part, j) =>
+      part.guess ? (
+        <ThemedText key={`${key}-${j}`} style={{ backgroundColor: theme.guessBg }}>
+          {part.text}
+        </ThemedText>
+      ) : (
+        part.text
+      ),
+    );
   return (
     <Section title={title}>
       <ThemedView type="backgroundElement" style={styles.studentText}>
@@ -43,11 +83,11 @@ export function MarkedWriting({ marked, title = 'Your writing' }: { marked: Mark
                 {'\n¶ '}
               </ThemedText>
             ) : segment.number === null ? (
-              segment.text
+              <ThemedText key={i}>{withGuesses(segment.text, i)}</ThemedText>
             ) : (
               <ThemedText key={i}>
                 <ThemedText style={[styles.markedWords, { textDecorationColor: theme.markA }]}>
-                  {segment.text}
+                  {withGuesses(segment.text, i)}
                 </ThemedText>
                 <ThemedText style={[styles.markNumber, { color: theme.markA }]}>
                   {` ${segment.number}`}
@@ -62,6 +102,11 @@ export function MarkedWriting({ marked, title = 'Your writing' }: { marked: Mark
           Your words stay as you wrote them.
           {marked.notes.length > 0 ? ' The numbers show what to look at.' : ''}
           {marked.paragraphMarks > 0 ? ' ¶ shows where a new paragraph can start.' : ''}
+        </ThemedText>
+      )}
+      {guessed.length > 0 && (
+        <ThemedText type="small" themeColor="textSecondary">
+          Yellow: words that were hard to read on the paper and were guessed.
         </ThemedText>
       )}
     </Section>
