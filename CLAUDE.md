@@ -62,6 +62,10 @@ Things agreed for later: `BACKLOG.md`.
   printed sheet header (no name/class/date/grammar focus, `isFirstPage`) joins the student before it
   (`continues_page` = their first page's number; it has no feedback), then each student's whole text
   is marked once. Sets made before this are regrouped and re-marked when opened (`needsGrouping`).
+  Marking waits for the teacher: after reading, each student shows "N guessed words to check" (orange)
+  or "✓ All clear"; tapping a student shows `ReadingCheck` (text with guessed words in yellow, editable;
+  `edited_text`, `reading_checked`), then "Mark all N". Guessed words stay yellow in the feedback
+  (`MarkedWriting guessed`); "Check the reading" after marking, and a changed text is marked again.
 - **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add

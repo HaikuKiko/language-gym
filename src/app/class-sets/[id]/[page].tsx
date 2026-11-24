@@ -9,6 +9,7 @@ import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
+import { MarkedTextInput } from '@/components/marked-text-input';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -25,16 +26,19 @@ import {
   AREAS,
   knownStudentNames,
   fullTranscript,
+  guessedWords,
   loadClassSet,
   pagesOf,
   pagePhotoUrls,
   pageTitle,
   renamePage,
+  saveReading,
   studentKey,
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
 import { errorMessage } from '@/lib/supabase';
+import { guessAnchorsFrom } from '@/lib/writing';
 
 // ===========================================================================
 // Settings
@@ -60,6 +64,8 @@ function ClassSetPageRouteScreen() {
   const [parts, setParts] = useState<ClassSetPage[]>([]);
   const [photos, setPhotos] = useState<Record<number, string>>({});
   const [bigPhoto, setBigPhoto] = useState<string | null>(null);
+  /** Showing the reading check for writing that is already marked. */
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -86,7 +92,9 @@ function ClassSetPageRouteScreen() {
   }, [load]);
 
   // Still being read or marked (on the class set screen): look again shortly.
-  const pending = !!page && page.status !== 'done' && page.status !== 'error';
+  // (Not while it waits to be marked: the teacher may be checking the reading.)
+  const pending =
+    !!page && (page.status === 'reading' || page.status === 'marking' || (page.status === 'waiting' && page.transcript === null));
   useEffect(() => {
     if (!pending) return;
     const timer = setInterval(load, REFRESH_MS);
@@ -171,6 +179,38 @@ function ClassSetPageRouteScreen() {
     </>
   );
 
+  const guesses = guessedWords(page, parts.length > 0 ? parts : [page]);
+  const readyToCheck = page.transcript !== null && (page.status === 'waiting' || page.status === 'done' || page.status === 'error');
+
+  // Check the reading: before marking, or when asked for after it.
+  if (readyToCheck && (checking || page.status !== 'done' || !page.feedback)) {
+    return (
+      <Screen>
+        {header}
+        {page.status === 'error' && <ThemedText themeColor="warning">{page.error}</ThemedText>}
+        <ReadingCheck
+          key={`${page.id}-${text.length}`}
+          set={set}
+          first={page}
+          parts={parts.length > 0 ? parts : [page]}
+          text={text}
+          guessed={guesses}
+          marked={page.status === 'done' && !!page.feedback}
+          onPage={setPage}
+          onDone={(markedAgain) => {
+            setChecking(false);
+            if (!markedAgain && page.status !== 'done') {
+              router.replace({ pathname: '/class-sets/[id]', params: { id: String(id) } });
+            } else {
+              load();
+            }
+          }}
+        />
+        {back}
+      </Screen>
+    );
+  }
+
   if (page.status !== 'done' || !page.feedback) {
     return (
       <Screen>
@@ -179,7 +219,7 @@ function ClassSetPageRouteScreen() {
           {page.status === 'error'
             ? page.error
             : page.status === 'waiting'
-              ? 'Waiting to be read and marked…'
+              ? 'Waiting to be read…'
               : page.status === 'reading'
                 ? 'Reading the page…'
                 : 'Marking…'}
@@ -199,11 +239,113 @@ function ClassSetPageRouteScreen() {
     <WritingFeedbackView
       response={{ feedback: page.feedback, remainingToday: 0 }}
       text={text}
+      guessedWords={guesses}
       header={header}
-      footer={back}
+      footer={
+        <>
+          <Button label="Check the reading" variant="secondary" onPress={() => setChecking(true)} />
+          {back}
+        </>
+      }
       showUsage={false}
       reportTitle={`Writing feedback: ${pageTitle(page)}`}
     />
+  );
+}
+
+/**
+ * The text as read from the pages, with guessed words in yellow, to check
+ * against the paper and correct. Saving a changed text of marked writing
+ * marks it again.
+ */
+function ReadingCheck({
+  set,
+  first,
+  parts,
+  text,
+  guessed,
+  marked,
+  onPage,
+  onDone,
+}: {
+  set: ClassSet;
+  first: ClassSetPage;
+  parts: ClassSetPage[];
+  text: string;
+  guessed: string[];
+  /** The writing has feedback already (a changed text is marked again). */
+  marked: boolean;
+  onPage: (page: ClassSetPage) => void;
+  /** After saving; true when the writing was marked again. */
+  onDone: (markedAgain: boolean) => void;
+}) {
+  const theme = useTheme();
+  const [value, setValue] = useState(text);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const guesses = { anchors: guessAnchorsFrom(text, guessed), length: text.length };
+  const changed = value.trim() !== text.trim();
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await saveReading(set, first, parts, value, (p) => {
+        if (p.id === first.id) onPage(p);
+      });
+      onDone(marked && changed);
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.check}>
+      <View style={[styles.checkNote, { backgroundColor: guessed.length > 0 ? theme.markABg : theme.accentSoft }]}>
+        <ThemedText type="small">
+          <ThemedText type="smallBold">Check the text against the paper. </ThemedText>
+          {guessed.length > 0 ? (
+            <>
+              {guessed.length === 1 ? 'We guessed this word: ' : `We guessed these ${guessed.length} words: `}
+              {guessed.map((w, i) => (
+                <ThemedText key={i} type="small">
+                  {i > 0 ? ', ' : ''}
+                  <ThemedText type="small" style={{ backgroundColor: theme.guessBg }}>
+                    {w}
+                  </ThemedText>
+                </ThemedText>
+              ))}
+              {'. '}
+            </>
+          ) : (
+            'Everything was clear to read. '
+          )}
+          Fix any reading mistakes, but not the student&apos;s own mistakes: the feedback is about them.
+        </ThemedText>
+      </View>
+      <MarkedTextInput
+        value={value}
+        onChangeText={setValue}
+        anchors={[]}
+        originalLength={text.length}
+        guesses={guesses}
+        accessibilityLabel="The student's writing"
+      />
+      <Button
+        label={busy ? (marked && changed ? 'Marking again…' : 'Saving…') : marked && changed ? 'Save and mark again' : "Save · it's right"}
+        disabled={busy || !value.trim()}
+        onPress={save}
+      />
+      {marked && (
+        <Button label="Cancel" variant="secondary" disabled={busy} onPress={() => onDone(false)} />
+      )}
+      {error && (
+        <ThemedText type="small" themeColor="warning">
+          {error}
+        </ThemedText>
+      )}
+    </View>
   );
 }
 
@@ -425,6 +567,13 @@ function NameEditor({ page, onRenamed }: { page: ClassSetPage; onRenamed: (page:
 }
 
 const styles = StyleSheet.create({
+  check: {
+    gap: Spacing.two,
+  },
+  checkNote: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
   scoreCard: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -18,10 +18,14 @@ import {
   loadClassSet,
   pagePhotoUrls,
   pageTitle,
+  allRead,
+  guessedWords,
+  needsChecking,
   needsGrouping,
   pagesOf,
   processClassSet,
   studentPages,
+  waitingToMark,
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
@@ -53,9 +57,14 @@ function ClassSetRouteScreen() {
   }, []);
 
   const run = useCallback(
-    async (loadedSet: ClassSet, loadedPages: ClassSetPage[], students: ClassStudent[], retryErrors = false) => {
+    async (
+      loadedSet: ClassSet,
+      loadedPages: ClassSetPage[],
+      students: ClassStudent[],
+      options: { retryErrors?: boolean; mark?: boolean } = {},
+    ) => {
       setWorking(true);
-      await processClassSet(loadedSet, loadedPages, onChange, { retryErrors, students });
+      await processClassSet(loadedSet, loadedPages, onChange, { ...options, students });
       setWorking(false);
     },
     [onChange],
@@ -72,12 +81,9 @@ function ClassSetRouteScreen() {
       const classData = loaded.set.class_id ? await loadClass(loaded.set.class_id) : null;
       setSchoolClass(classData?.schoolClass ?? null);
       setStudents(classData?.students ?? []);
-      // Read and mark whatever is not finished yet (also after a refresh), and
-      // put pages with their student (also in sets made before that).
-      if (
-        !started.current &&
-        (loaded.pages.some((p) => p.status !== 'done' && p.status !== 'error') || needsGrouping(loaded.pages))
-      ) {
+      // Read whatever is not read yet (also after a refresh) and put pages with
+      // their student (also in sets made before that). Marking waits for "Mark all".
+      if (!started.current && (!allRead(loaded.pages) || needsGrouping(loaded.pages))) {
         started.current = true;
         run(loaded.set, loaded.pages, classData?.students ?? []);
       }
@@ -122,6 +128,9 @@ function ClassSetRouteScreen() {
   const done = firsts.filter((p) => p.status === 'done').length;
   const failed = firsts.filter((p) => p.status === 'error');
   const finished = done + failed.length;
+  const toMark = working ? [] : waitingToMark(pages);
+  const marking = firsts.some((p) => p.status === 'marking');
+  const toCheck = firsts.filter((p) => p.status !== 'done' && needsChecking(p, pages)).length;
   // Pages whose student still needs choosing: no name, or (in a class) not matched to a student.
   const needsName = (p: ClassSetPage) => !p.student_name.trim() || (!!set.class_id && !p.student_id);
   const noName = firsts.filter(needsName).length;
@@ -152,9 +161,11 @@ function ClassSetRouteScreen() {
         <ThemedText type="smallBold">
           {reading
             ? `Reading the pages… ${read} of ${pages.length}`
-            : finished < firsts.length
+            : marking
               ? `Marking… ${finished} of ${firsts.length} done`
-              : `All ${firsts.length} marked`}
+              : finished < firsts.length
+                ? `All ${pages.length} pages read. ${toCheck > 0 ? 'Check the yellow words, then mark.' : 'Ready to mark.'}`
+                : `All ${firsts.length} marked`}
         </ThemedText>
         <ProgressBar
           fraction={reading ? read / Math.max(1, pages.length) : firsts.length > 0 ? finished / firsts.length : 0}
@@ -170,6 +181,9 @@ function ClassSetRouteScreen() {
         const count = pagesOf(page, pages).length;
         const named = !needsName(page);
         const score = schoolClass ? scoreFor(page.area_levels, schoolClass.target_level) : null;
+        const guesses = guessedWords(page, pages);
+        const check = page.status !== 'done' && page.transcript !== null && needsChecking(page, pages);
+        const orange = !named || check;
         return (
           <Pressable
             key={page.id}
@@ -180,7 +194,7 @@ function ClassSetRouteScreen() {
             }
             style={({ pressed }) => [
               styles.row,
-              named
+              !orange
                 ? { backgroundColor: theme.backgroundElement, borderColor: theme.backgroundElement }
                 : { backgroundColor: theme.markABg, borderColor: theme.markA },
               pressed && styles.pressed,
@@ -205,6 +219,15 @@ function ClassSetRouteScreen() {
                   {page.error}
                 </ThemedText>
               )}
+              {page.status === 'waiting' && page.transcript !== null && !reading && (
+                <ThemedText type="smallBold" style={{ color: check ? theme.markA : theme.successText }}>
+                  {check
+                    ? `${guesses.length} guessed ${guesses.length === 1 ? 'word' : 'words'} to check`
+                    : page.reading_checked
+                      ? '✓ Checked'
+                      : '✓ All clear'}
+                </ThemedText>
+              )}
             </View>
             {page.status === 'done' && score !== null ? (
               <View style={styles.scoreBox}>
@@ -215,7 +238,7 @@ function ClassSetRouteScreen() {
               </View>
             ) : page.status === 'done' && page.cefr_level ? (
               <Pill label={page.cefr_level} tone="accent" />
-            ) : (
+            ) : page.status === 'waiting' && page.transcript !== null ? null : (
               <ThemedText type="small" themeColor="textSecondary">
                 {STATUS_TEXT[page.status]}
               </ThemedText>
@@ -225,11 +248,26 @@ function ClassSetRouteScreen() {
       })}
 
       <View style={styles.section}>
+        {toMark.length > 0 && (
+          <>
+            <Button label={`Mark all ${toMark.length}`} onPress={() => run(set, pages, students, { mark: true })} />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+              {toCheck > 0
+                ? "Tap a student to check the yellow words against the paper. You can also mark straight away: the yellow words stay highlighted in each student's feedback."
+                : 'Tap a student to see their writing.'}
+            </ThemedText>
+          </>
+        )}
         {failed.length > 0 && !working && (
-          <Button label={`Try the ${failed.length} unfinished again`} onPress={() => run(set, pages, students, true)} />
+          <Button
+            label={`Try the ${failed.length} unfinished again`}
+            variant={toMark.length > 0 ? 'secondary' : 'primary'}
+            onPress={() => run(set, pages, students, { retryErrors: true, mark: true })}
+          />
         )}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-          Tap a page to see that student&apos;s feedback or change the name. Marked by an AI (Claude) as a guide.
+          Tap a student to see their feedback, check the reading or change the name. Marked by an AI (Claude) as a
+          guide.
         </ThemedText>
         <DeleteClassSet
           set={set}

@@ -36,6 +36,7 @@ export function WritingFeedbackView({
   footer,
   showUsage = true,
   reportTitle = 'Writing feedback',
+  guessedWords = [],
 }: {
   response: WritingResponse;
   /** The writing the feedback is about, shown exactly as the student wrote it. */
@@ -51,6 +52,8 @@ export function WritingFeedbackView({
   /** The "N feedback checks left today" line. */
   showUsage?: boolean;
   reportTitle?: string;
+  /** Words guessed when reading a photo of the writing, highlighted in yellow. */
+  guessedWords?: string[];
 }) {
   const theme = useTheme();
   const f = response.feedback;
@@ -111,7 +114,7 @@ export function WritingFeedbackView({
         </Section>
       )}
 
-      <MarkedWriting marked={marked} />
+      <MarkedWriting marked={marked} guessed={guessedWords} />
 
       <CorrectionNotes marked={marked} />
 
