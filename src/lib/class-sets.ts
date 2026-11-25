@@ -33,6 +33,12 @@ import {
 export const MAX_CLASS_SET_PAGES = 40;
 /** Pages read and marked at the same time. */
 const PAGES_AT_ONCE = 2;
+/**
+ * TEMPORARY, for testing: true = a class set is read and marked one student
+ * at a time ("Do the next student"), so the teacher can look at each before
+ * more are done. Set to false to read every page and use "Mark all" again.
+ */
+export const ONE_STUDENT_AT_A_TIME = true;
 /** Longest side of each page image sent to Claude (the same as photos). */
 const PAGE_MAX_SIDE = 1568;
 /** The storage bucket for the pages' photos. */
@@ -540,11 +546,16 @@ async function readPage(
  * student's first page, or null for a first page. A page without the printed
  * sheet continues the student before it. Null when pages are still unread.
  */
-function plannedGroups(pages: ClassSetPage[]): Map<string, number | null> | null {
-  if (pages.some((p) => p.transcript === null)) return null;
+function plannedGroups(pages: ClassSetPage[], readSoFar = false): Map<string, number | null> | null {
+  let sorted = [...pages].sort((a, b) => a.page_number - b.page_number);
+  if (readSoFar) {
+    // Only the pages read so far, in order (one student at a time).
+    const unread = sorted.findIndex((p) => p.transcript === null);
+    if (unread !== -1) sorted = sorted.slice(0, unread);
+  } else if (pages.some((p) => p.transcript === null)) return null;
   const plan = new Map<string, number | null>();
   let first: number | null = null;
-  for (const page of [...pages].sort((a, b) => a.page_number - b.page_number)) {
+  for (const page of sorted) {
     if (first !== null && !isFirstPage(page.sheet)) {
       plan.set(page.id, first);
     } else {
@@ -565,12 +576,17 @@ export function needsGrouping(pages: ClassSetPage[]): boolean {
  * Step 2: puts each page with its student. A later page is "done" with no
  * feedback of its own; a student whose pages changed is marked again.
  */
-async function groupPages(pages: ClassSetPage[], onChange: (page: ClassSetPage) => void): Promise<ClassSetPage[]> {
-  const plan = plannedGroups(pages);
+async function groupPages(
+  pages: ClassSetPage[],
+  onChange: (page: ClassSetPage) => void,
+  readSoFar = false,
+): Promise<ClassSetPage[]> {
+  const plan = plannedGroups(pages, readSoFar);
   if (!plan) return pages;
   const update = pageUpdater(onChange);
   const changedFirsts = new Set<number>();
   for (const p of pages) {
+    if (!plan.has(p.id)) continue;
     const wanted = plan.get(p.id) ?? null;
     if ((p.continues_page ?? null) === wanted) continue;
     if (wanted !== null) changedFirsts.add(wanted);
@@ -578,6 +594,10 @@ async function groupPages(pages: ClassSetPage[], onChange: (page: ClassSetPage) 
   }
   const result: ClassSetPage[] = [];
   for (const page of pages) {
+    if (!plan.has(page.id)) {
+      result.push(page);
+      continue;
+    }
     const wanted = plan.get(page.id) ?? null;
     let current = page;
     if (wanted !== null) {
@@ -656,6 +676,11 @@ export async function processClassSet(
     onChange(page);
   };
 
+  if (ONE_STUDENT_AT_A_TIME) {
+    await processNextStudent(set, byId, track, options);
+    return;
+  }
+
   // 1. Read the pages not read yet.
   const unread = pages.filter((p) => p.transcript === null && (options.retryErrors || p.status !== 'error'));
   await fewAtATime(unread, (p) => readPage(p, track, options.students ?? []));
@@ -668,4 +693,46 @@ export async function processClassSet(
   // teacher asks ("Mark all"), after checking the readings.
   if (!options.mark) return;
   await fewAtATime(waitingToMark(grouped, options.retryErrors), (p) => markStudent(set, p, grouped, track));
+}
+
+/**
+ * TEMPORARY (ONE_STUDENT_AT_A_TIME): reads the pages in order until the next
+ * student not yet marked is complete (their pages, up to the next student's
+ * first page), then marks that one student.
+ */
+async function processNextStudent(
+  set: ClassSet,
+  byId: Map<string, ClassSetPage>,
+  track: (page: ClassSetPage) => void,
+  options: { retryErrors?: boolean; students?: ClassStudent[] },
+): Promise<void> {
+  const sorted = () => [...byId.values()].sort((a, b) => a.page_number - b.page_number);
+  let target: ClassSetPage | null = null;
+  for (const [index, listed] of sorted().entries()) {
+    let page = byId.get(listed.id) ?? listed;
+    if (page.transcript === null && (options.retryErrors || page.status !== 'error')) {
+      page = await readPage(page, track, options.students ?? []);
+    }
+    if (page.transcript === null) break; // could not be read: stop here
+    const startsStudent = index === 0 || isFirstPage(page.sheet);
+    if (!startsStudent) continue;
+    if (target) break; // the next student starts: the one before is complete
+    const unmarked = page.status !== 'done' && (options.retryErrors || page.status !== 'error');
+    if (unmarked) target = page;
+  }
+
+  const grouped = await groupPages(sorted(), track, true);
+  if (!target) return;
+  const first = grouped.find((p) => p.id === target!.id);
+  if (first && first.continues_page == null && first.transcript !== null && first.status !== 'done') {
+    await markStudent(set, first, grouped, track);
+  }
+}
+
+/** TEMPORARY (ONE_STUDENT_AT_A_TIME): whether there is another student to read or mark. */
+export function hasNextStudent(pages: ClassSetPage[]): boolean {
+  return (
+    pages.some((p) => p.transcript === null && p.status !== 'error') ||
+    studentPages(pages).some((p) => p.transcript !== null && p.status === 'waiting')
+  );
 }
