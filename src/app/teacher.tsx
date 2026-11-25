@@ -98,7 +98,7 @@ export default function TeacherRoute() {
           )}
         </>
       )}
-      <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
+      <Button label="Back" variant="secondary" onPress={() => router.replace('/dashboard')} />
     </Screen>
   );
 }

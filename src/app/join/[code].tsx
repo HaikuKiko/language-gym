@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
@@ -78,7 +79,7 @@ export default function JoinRoute() {
     <Screen>
       <View style={styles.header}>
         <ThemedText type="smallBold" style={{ color: theme.accent }}>
-          LANGUAGE GYM
+          {PRODUCT_NAME.toUpperCase()}
         </ThemedText>
         <ThemedText type="subtitle">Join the session</ThemedText>
         <ThemedText themeColor="textSecondary">Session {formatCode(code)}</ThemedText>

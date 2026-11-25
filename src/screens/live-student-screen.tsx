@@ -7,6 +7,7 @@ import { GrammarHint } from '@/components/grammar-card';
 import { LiveTimer } from '@/components/live-timer';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
+import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/constants/theme';
 import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
@@ -91,6 +92,14 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
             Thanks for taking part, {me.name}! You can close this page.
           </ThemedText>
         </View>
+        {friending && !backend.demo && (
+          // The landing page (never the teachers' dashboard).
+          <Pressable accessibilityRole="link" onPress={() => router.push('/')}>
+            <ThemedText type="small" style={{ color: theme.accent }}>
+              Teacher or group leader? Run this with your own group →
+            </ThemedText>
+          </Pressable>
+        )}
       </Screen>
     );
   }
@@ -317,7 +326,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
         </View>
 
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-          {`Speed friending${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`}
+          {`${PRODUCT_NAME}${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`}
         </ThemedText>
       </Screen>
     );
@@ -359,7 +368,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
       <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
         {friending
-          ? `Speed friending${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`
+          ? `${PRODUCT_NAME}${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`
           : `${level}${session.week != null ? ` · Week ${session.week}` : ''}${plan ? `: ${plan.topic}` : ''}`}
       </ThemedText>
     </Screen>

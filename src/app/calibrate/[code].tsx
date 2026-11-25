@@ -55,7 +55,7 @@ export default function SharedResultsRoute() {
     load();
   }, [load]);
 
-  const home = <Button label="Home" variant="secondary" onPress={() => router.replace('/')} />;
+  const home = <Button label="Home" variant="secondary" onPress={() => router.replace('/dashboard')} />;
 
   if (error || shared === undefined) {
     return (

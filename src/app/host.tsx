@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { RoundSettingsForm } from '@/components/round-settings-form';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
+import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/constants/theme';
 import { createSession } from '@/lib/live-session';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
@@ -40,7 +41,7 @@ export default function HostRoute() {
   return (
     <Screen>
       <View style={styles.header}>
-        <ThemedText type="subtitle">{friending ? 'Speed friending' : 'Host a session'}</ThemedText>
+        <ThemedText type="subtitle">{friending ? PRODUCT_NAME : 'Host a session'}</ThemedText>
         <ThemedText themeColor="textSecondary">
           {friending
             ? 'Students meet a new partner each round and ask each other fun questions. Everyone has their own question, and there is no grammar point.'
@@ -83,7 +84,7 @@ export default function HostRoute() {
             }
           />
         )}
-        <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
+        <Button label="Back" variant="secondary" onPress={() => router.replace(friending ? '/' : '/dashboard')} />
       </View>
     </Screen>
   );
