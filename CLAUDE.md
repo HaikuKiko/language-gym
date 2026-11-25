@@ -158,6 +158,9 @@ Things agreed for later: `BACKLOG.md`.
 
 ## Checking the live site
 
+When telling the owner a change is live, link straight to the page it is on: teacher features via
+https://language-gym.gjballvn.workers.dev/dashboard (class writing: `/class-sets`), not the landing page `/`.
+
 Route code loads in separate files, so search the entry bundle **and** the chunk files it
 references for a string that only the new code has. Poll every 30 s (up to 40 min) in the
 background, then tell the owner it's live.
