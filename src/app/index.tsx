@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { FooterLinks } from '@/components/footer-links';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { LANDING_VIDEO_URL, PRODUCT_NAME, PRODUCT_SENTENCE } from '@/constants/product';
@@ -62,6 +63,7 @@ export default function LandingRoute() {
         />
         <Button label="Try the demo on your own" variant="secondary" onPress={() => router.push('/demo')} />
       </View>
+      <FooterLinks />
     </Screen>
   );
 }

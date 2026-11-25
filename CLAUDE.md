@@ -47,6 +47,12 @@ Things agreed for later: `BACKLOG.md`.
   ("Back" only if `router.canGoBack()`; leaving a session goes to its join page). A finished speed-
   friending session says "You can close this page" + "Teacher or group leader? Run this with your own
   group →" (the landing page).
+- **Privacy & contact:** `/privacy` (plain English; `RETENTION_DAYS`), `/contact` ("Keep me posted":
+  table `contact_messages`, insert by anyone, read by teachers; shown on the dashboard). Footer links
+  (`FooterLinks`) on the landing, join and contact pages. Sessions + participants are readable only by
+  the host and that session's students (restrictive RLS with `can_see_session`; joining uses the
+  `session_by_code` RPC). Sessions (and names, by cascade) are deleted nightly after 30 days (pg_cron
+  job `delete-old-sessions` → `delete_old_sessions(30)`; keep it equal to `RETENTION_DAYS`).
 - **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
   `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
   components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
@@ -109,7 +115,7 @@ Things agreed for later: `BACKLOG.md`.
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
-  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions,
+  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions, contact_messages,
   classes, class_students, class_sets, class_set_pages, teachers (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to

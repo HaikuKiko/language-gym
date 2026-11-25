@@ -19,5 +19,10 @@ export const PRODUCT_SENTENCE =
  * YouTube/Vimeo "embed" link. Empty = no video shown yet.
  */
 export const LANDING_VIDEO_URL = '';
+/**
+ * Days sessions (and the names in them) are kept. The nightly clean-up in the
+ * database uses the same number: supabase/updates/2026-11-25-retention.sql.
+ */
+export const RETENTION_DAYS = 30;
 
 // ===========================================================================
