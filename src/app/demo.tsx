@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { Chip } from '@/components/chip';
 import { ThemedText } from '@/components/themed-text';
@@ -185,14 +185,15 @@ export default function DemoRoute() {
               <Text style={[styles.label, { color: theme.textSecondary }]}>TEACHER SCREEN</Text>
               <View style={styles.fill}>{host}</View>
             </View>
-            <View style={styles.phones}>
+            {/* The phones scroll (on an iPad in landscape only two fit). */}
+            <ScrollView style={styles.fill} contentContainerStyle={styles.phones}>
               {DEMO_NAMES.map((name) => (
                 <View key={name} style={styles.phoneWrap}>
                   <Text style={[styles.label, { color: theme.textSecondary }]}>{name.toUpperCase()}&apos;S PHONE</Text>
                   <View style={[styles.phone, { backgroundColor: theme.background }]}>{phone(name)}</View>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           </View>
         ) : (
           <>
@@ -260,7 +261,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
   },
   phones: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.three,
