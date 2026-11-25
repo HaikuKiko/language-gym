@@ -34,16 +34,15 @@ import {
   turnFor,
   questionForRound,
   remainingMs,
-  removeParticipant,
   resetTimer,
   setGroupFound,
   startSession,
   startTimer,
-  updateSession,
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
 import { groupsForRound, type Group } from '@/lib/round-robin';
+import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
 
@@ -70,11 +69,12 @@ export function LiveHostScreen({
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
 
-  type Changes = Parameters<typeof updateSession>[1];
+  const backend = useSessionBackend();
+  type Changes = Parameters<typeof backend.updateSession>[1];
 
   async function save(changes: Changes, onlyIfUnmoved = false) {
     try {
-      const saved = await updateSession(session, changes, onlyIfUnmoved);
+      const saved = await backend.updateSession(session, changes, onlyIfUnmoved);
       if (saved) onSession(saved);
       setError(null);
     } catch (e) {
@@ -84,7 +84,7 @@ export function LiveHostScreen({
 
   async function remove(participant: LiveParticipant) {
     try {
-      await removeParticipant(participant.id);
+      await backend.removeParticipant(participant.id);
       onParticipants(participants.filter((p) => p.id !== participant.id));
       setError(null);
     } catch (e) {
@@ -148,7 +148,8 @@ export function LiveHostScreen({
   );
 
   if (session.status === 'lobby') {
-    const address = getAppAddress();
+    // The demo has no real join code: pretend students join by themselves.
+    const address = backend.demo ? null : getAppAddress();
     const link = address ? joinUrl(address, session.code) : null;
 
     return (
@@ -174,7 +175,9 @@ export function LiveHostScreen({
               </View>
             ) : (
               <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>
-                Students open the app and enter this code.
+                {backend.demo
+                  ? 'In the demo, pretend students join by themselves. Press "Start session" when you are ready.'
+                  : 'Students open the app and enter this code.'}
               </Text>
             )}
           </View>
@@ -279,7 +282,7 @@ export function LiveHostScreen({
 
   return (
     <Screen>
-      {header(`Join code ${formatCode(session.code)}`)}
+      {header(backend.demo ? 'Demo' : `Join code ${formatCode(session.code)}`)}
 
       <View style={styles.section}>
         <ThemedText type="subtitle">

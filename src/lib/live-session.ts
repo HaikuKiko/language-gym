@@ -106,6 +106,16 @@ type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
 // Talking to Supabase
 // ---------------------------------------------------------------------------
 
+/** The session's flags (kept in the "categories" column) for these settings. */
+export function sessionFlags(settings: RoundSettings): string[] {
+  return [
+    ...(settings.roundRobin ? [ROUND_ROBIN] : []),
+    ...(settings.mode === 'friending' ? [FRIENDING] : []),
+    ...(settings.mode === 'friending' && settings.customSetId ? [CUSTOM + settings.customSetId] : []),
+    ...(settings.mode === 'friending' && settings.takeTurns ? [TAKE_TURNS] : []),
+  ];
+}
+
 export async function createSession(settings: RoundSettings): Promise<LiveSession> {
   const client = requireSupabase();
   await ensureSignedIn();
@@ -113,12 +123,7 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
   const base = {
     level: settings.level,
     // An older column, now used for flags (see isRoundRobin).
-    categories: [
-      ...(settings.roundRobin ? [ROUND_ROBIN] : []),
-      ...(settings.mode === 'friending' ? [FRIENDING] : []),
-      ...(settings.mode === 'friending' && settings.customSetId ? [CUSTOM + settings.customSetId] : []),
-      ...(settings.mode === 'friending' && settings.takeTurns ? [TAKE_TURNS] : []),
-    ],
+    categories: sessionFlags(settings),
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
     auto_advance: settings.autoAdvance,

@@ -16,16 +16,15 @@ import {
   findingStatus,
   isFriending,
   isTakingTurns,
-  markFound,
   questionForRound,
   customSetId,
   questionForStudent,
-  removeParticipant,
   turnFor,
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
+import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 
 // ===========================================================================
@@ -49,6 +48,7 @@ type LiveStudentScreenProps = {
 /** What a student sees on their own phone. */
 export function LiveStudentScreen({ session, participants, me }: LiveStudentScreenProps) {
   const now = useNow();
+  const backend = useSessionBackend();
   const theme = useTheme();
   const questions = useQuestions();
   const funQuestions = useFunQuestions();
@@ -68,7 +68,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
     setTappedRound(round);
     setTapError(null);
     try {
-      await markFound(me.id, round);
+      await backend.markFound(me.id, round);
     } catch (e) {
       setTappedRound(null);
       setTapError(errorMessage(e));
@@ -76,7 +76,8 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   }
 
   async function leave() {
-    await removeParticipant(me.id).catch(() => {});
+    await backend.removeParticipant(me.id).catch(() => {});
+    if (backend.demo) return;
     // Students only ever go back to the session's join page, never the teacher page.
     router.replace({ pathname: '/join/[code]', params: { code: session.code } });
   }

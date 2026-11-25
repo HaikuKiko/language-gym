@@ -65,6 +65,24 @@ export default function HostRoute() {
             {error}
           </ThemedText>
         )}
+        {friending && (
+          <Button
+            label="Try the demo first (pretend students)"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: '/demo',
+                params: {
+                  level: settings.level,
+                  week: settings.week == null ? '' : String(settings.week),
+                  custom: settings.customSetId ?? '',
+                  turns: settings.takeTurns ? '1' : '0',
+                  minutes: String(settings.roundMinutes),
+                },
+              })
+            }
+          />
+        )}
         <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
       </View>
     </Screen>

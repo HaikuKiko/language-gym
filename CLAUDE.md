@@ -60,6 +60,11 @@ Things agreed for later: `BACKLOG.md`.
   `take-turns`): each round is split equally within a group (`turnFor`); in turn k person k talks and the
   next person asks them their own question (talker sees it too), with follow-up prompts (`FOLLOW_UPS`)
   and "🔄 Swap!" for `SWAP_NOTICE_MS`. To roll back completely: revert the "Take turns" PR.
+  **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
+  turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
+  `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
+  `useSessionBackend()` for every change). Pretend students join, find each other and tap; teacher screen +
+  phones side by side (tabs when narrow). Never saved.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
