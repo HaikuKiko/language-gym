@@ -104,6 +104,9 @@ Things agreed for later: `BACKLOG.md`.
   drops a correction of a guessed word alone, `withoutGuessCorrections`). The feedback shows
   `LineMarkedWriting` (numbered lines, per page; guessed words pink; corrections crossed out + green) and
   "Corrections to copy onto the paper" with "Line N". Older sets keep the paragraph view.
+  **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set
+  reads and marks only the first student; "Do the next student" does one more each tap (no "Mark all").
+  Set it to false when the owner has finished testing.
 - **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add

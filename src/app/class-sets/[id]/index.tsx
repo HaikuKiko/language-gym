@@ -20,7 +20,9 @@ import {
   pageTitle,
   allRead,
   guessedWords,
+  hasNextStudent,
   needsChecking,
+  ONE_STUDENT_AT_A_TIME,
   needsGrouping,
   pagesOf,
   processClassSet,
@@ -83,7 +85,11 @@ function ClassSetRouteScreen() {
       setStudents(classData?.students ?? []);
       // Read whatever is not read yet (also after a refresh) and put pages with
       // their student (also in sets made before that). Marking waits for "Mark all".
-      if (!started.current && (!allRead(loaded.pages) || needsGrouping(loaded.pages))) {
+      // Testing one student at a time: only a new set starts by itself.
+      const start = ONE_STUDENT_AT_A_TIME
+        ? loaded.pages.every((p) => p.transcript === null && p.status !== 'error')
+        : !allRead(loaded.pages) || needsGrouping(loaded.pages);
+      if (!started.current && start) {
         started.current = true;
         run(loaded.set, loaded.pages, classData?.students ?? []);
       }
@@ -159,7 +165,11 @@ function ClassSetRouteScreen() {
 
       <View style={styles.section}>
         <ThemedText type="smallBold">
-          {reading
+          {ONE_STUDENT_AT_A_TIME && reading
+            ? working
+              ? `Testing: doing the next student… (${read} of ${pages.length} pages read)`
+              : `Testing: one student at a time. ${done} marked, ${pages.length - read} pages not read yet.`
+            : reading
             ? `Reading the pages… ${read} of ${pages.length}`
             : marking
               ? `Marking… ${finished} of ${firsts.length} done`
@@ -248,7 +258,15 @@ function ClassSetRouteScreen() {
       })}
 
       <View style={styles.section}>
-        {toMark.length > 0 && (
+        {ONE_STUDENT_AT_A_TIME && !working && hasNextStudent(pages) && (
+          <>
+            <Button label="Do the next student" onPress={() => run(set, pages, students, { mark: true })} />
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+              Testing: each tap reads and marks one more student, so you can look at each one first.
+            </ThemedText>
+          </>
+        )}
+        {toMark.length > 0 && !ONE_STUDENT_AT_A_TIME && (
           <>
             <Button label={`Mark all ${toMark.length}`} onPress={() => run(set, pages, students, { mark: true })} />
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
