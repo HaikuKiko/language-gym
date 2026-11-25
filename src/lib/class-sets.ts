@@ -18,6 +18,7 @@ import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 import {
   MIN_WORDS,
   countWords,
+  joinLines,
   requestFeedback,
   type AreaLevel,
   type CefrLevel,
@@ -71,6 +72,8 @@ export type SheetDetails = {
   guessed_words: string[];
   legibility: string;
   note: string;
+  /** The transcript keeps the lines of the paper (pages read after line-by-line reading came in). */
+  line_by_line?: boolean;
 };
 
 export type PageStatus = 'waiting' | 'reading' | 'marking' | 'done' | 'error';
@@ -128,6 +131,21 @@ export function pagesOf(first: ClassSetPage, pages: ClassSetPage[]): ClassSetPag
 export function fullTranscript(first: ClassSetPage, pages: ClassSetPage[]): string {
   if (first.edited_text != null) return first.edited_text;
   return readTranscript(first, pages);
+}
+
+/**
+ * Whether a student's pages were read line by line (one printed line for each
+ * handwritten line). Sets read before that show the writing as paragraphs.
+ */
+export function isLineByLine(first: ClassSetPage, pages: ClassSetPage[]): boolean {
+  return pagesOf(first, pages).every((p) => p.sheet?.line_by_line === true);
+}
+
+/** How many lines of writing each of a student's pages has (to number lines page by page). */
+export function pageLineCounts(first: ClassSetPage, pages: ClassSetPage[]): number[] {
+  return pagesOf(first, pages)
+    .map((p) => (p.transcript ?? '').split('\n').filter((line) => line.trim()).length)
+    .filter((count) => count > 0);
 }
 
 /** A student's writing exactly as read from their pages. */
@@ -420,6 +438,7 @@ async function readSheet(image: PreparedPhoto): Promise<SheetDetails & { transcr
     guessed_words: Array.isArray(data.guessed_words) ? data.guessed_words : [],
     legibility: text(data.legibility),
     note: text(data.note),
+    line_by_line: data.line_by_line === true,
   };
 }
 
@@ -595,10 +614,12 @@ export async function markStudent(
     }
     current = await update(current, { status: 'marking', error: null });
     const response = await requestFeedback({
-      text,
+      // Read line by line: sent as running text, so lines don't look like paragraphs.
+      text: isLineByLine(first, pages) ? joinLines(text) : text,
       level: set.level,
       task: current.sheet?.task || set.task,
       focusGrammar: current.sheet?.grammar_focus || set.grammar_focus,
+      guessedWords: guessedWords(first, pages),
     });
     const f = response.feedback;
     const area_levels: Partial<Record<Area, AreaLevel>> = {};

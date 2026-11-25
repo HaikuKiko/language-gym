@@ -167,7 +167,7 @@ export default function DemoRoute() {
   return (
     <SessionBackendProvider backend={backend}>
       <ThemedView style={styles.page}>
-        <View style={[styles.banner, { backgroundColor: theme.guessBg }]}>
+        <View style={[styles.banner, { backgroundColor: theme.noticeBg }]}>
           <Text style={styles.bannerText}>
             Demo with {DEMO_NAMES.length} pretend students. They join, find each other and tap by themselves; you
             can tap for them too. Nothing is saved.

@@ -251,7 +251,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
         </ThemedText>
 
         {swapping && (
-          <View style={[styles.swap, { backgroundColor: theme.guessBg }]}>
+          <View style={[styles.swap, { backgroundColor: theme.noticeBg }]}>
             <Text style={styles.swapText}>🔄 Swap!</Text>
           </View>
         )}

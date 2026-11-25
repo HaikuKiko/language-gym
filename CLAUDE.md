@@ -95,9 +95,15 @@ Things agreed for later: `BACKLOG.md`.
   (`continues_page` = their first page's number; it has no feedback), then each student's whole text
   is marked once. Sets made before this are regrouped and re-marked when opened (`needsGrouping`).
   Marking waits for the teacher: after reading, each student shows "N guessed words to check" (orange)
-  or "✓ All clear"; tapping a student shows `ReadingCheck` (text with guessed words in yellow, editable;
-  `edited_text`, `reading_checked`), then "Mark all N". Guessed words stay yellow in the feedback
-  (`MarkedWriting guessed`); "Check the reading" after marking, and a changed text is marked again.
+  or "✓ All clear"; tapping a student shows `ReadingCheck` (text with guessed words in pink, editable;
+  `edited_text`, `reading_checked`), then "Mark all N" (checking first is optional). "Check the reading"
+  after marking, and a changed text is marked again.
+  **Line by line** (sheets read from 25 Nov 2026, `sheet.line_by_line`): the transcript keeps the paper's
+  lines (one per handwritten line, an empty line between paragraphs); it is sent for marking as running
+  text (`joinLines`, same length) with the guessed words (`guessed_words`: never corrected; the app also
+  drops a correction of a guessed word alone, `withoutGuessCorrections`). The feedback shows
+  `LineMarkedWriting` (numbered lines, per page; guessed words pink; corrections crossed out + green) and
+  "Corrections to copy onto the paper" with "Line N". Older sets keep the paragraph view.
 - **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add

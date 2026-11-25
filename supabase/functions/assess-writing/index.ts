@@ -29,7 +29,8 @@
  *            teacher: true uses TEACHER_PHOTO_CAP instead of PHOTO_DAILY_LIMIT.
  *            sheet: true (one page of a class set) also returns student_name,
  *            class_name, sheet_date, task and grammar_focus read from the sheet.
- * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given.
+ * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given,
+ *            and guessed_words (hard-to-read words from handwriting: never corrected).
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -91,6 +92,9 @@ const CACHE_DAYS = 7;
  * that should give new feedback for the same writing.
  */
 const CACHE_VERSION = 1;
+/** Guessed words (from reading handwriting) passed on with feedback: at most this many, this long. */
+const MAX_GUESSED_WORDS = 60;
+const MAX_GUESSED_WORD_LENGTH = 40;
 
 // ===========================================================================
 
@@ -282,7 +286,10 @@ Deno.serve(async (request) => {
     try {
       if (sheet) {
         const read = await transcribeSheet(anthropic, pages[0]);
-        result = read.ok ? { ok: true as const, transcript: read.sheet, usage: read.usage } : read;
+        // line_by_line: the transcript keeps the lines of the paper (see SHEET_PROMPT).
+        result = read.ok
+          ? { ok: true as const, transcript: { ...read.sheet, line_by_line: true }, usage: read.usage }
+          : read;
       } else {
         result = await transcribeImage(anthropic, pages);
       }
@@ -386,12 +393,21 @@ Deno.serve(async (request) => {
     focusGrammar = weekRow?.grammar ?? undefined;
   }
 
+  // Words guessed when reading handwriting (a class set): not to be corrected.
+  const guessedWords = Array.isArray(body.guessed_words)
+    ? body.guessed_words
+      .filter((w): w is string => typeof w === "string" && w.trim().length > 0)
+      .map((w) => w.trim().slice(0, MAX_GUESSED_WORD_LENGTH))
+      .slice(0, MAX_GUESSED_WORDS)
+    : [];
+
   const key = await cacheKey("feedback", {
     prompt: SYSTEM_PROMPT,
     text: text.trim(),
     level,
     task: task?.trim() ?? "",
     focusGrammar: focusGrammar ?? "",
+    ...(guessedWords.length > 0 ? { guessedWords } : {}),
   });
   const saved = await readCache(admin, key);
   if (saved) {
@@ -408,7 +424,7 @@ Deno.serve(async (request) => {
 
   let result;
   try {
-    result = await assessWriting(anthropic, { text, level, task, focusGrammar });
+    result = await assessWriting(anthropic, { text, level, task, focusGrammar, guessedWords });
   } catch (error) {
     return claudeError(error);
   }

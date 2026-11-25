@@ -34,7 +34,7 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
               </ThemedText>
             </ThemedText>
           ))}
-          {'. They are highlighted in yellow below.'}
+          {'. They are highlighted in pink below.'}
         </ThemedText>
       ) : null}
       {photo.fromCache ? (

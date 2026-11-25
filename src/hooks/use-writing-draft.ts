@@ -15,7 +15,7 @@ import {
 
 /**
  * The piece of writing on a writing screen (General English, IELTS, teacher
- * marking): the text, the last photo reading, the yellow guessed words and
+ * marking): the text, the last photo reading, the pink guessed words and
  * the orange mistakes from the last feedback. Shared so a fix here reaches
  * every screen. Everything is kept through a refresh (see useSavedState).
  */

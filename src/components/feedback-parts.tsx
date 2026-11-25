@@ -5,7 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { MarkedText } from '@/lib/writing';
+import { guessAnchorsFrom, type MarkedText } from '@/lib/writing';
 
 /** Pieces shared by the General English and IELTS feedback screens. */
 
@@ -47,7 +47,7 @@ function guessParts(text: string, guessed: string[]): { text: string; guess: boo
 
 /**
  * The student's own words, with numbered wavy underlines and ¶ marks, and
- * any words guessed from a photo in yellow.
+ * any words guessed from a photo in pink.
  */
 export function MarkedWriting({
   marked,
@@ -56,7 +56,7 @@ export function MarkedWriting({
 }: {
   marked: MarkedText;
   title?: string;
-  /** Words guessed when reading a photo of the writing, highlighted in yellow. */
+  /** Words guessed when reading a photo of the writing, highlighted in pink. */
   guessed?: string[];
 }) {
   const theme = useTheme();
@@ -106,30 +106,231 @@ export function MarkedWriting({
       )}
       {guessed.length > 0 && (
         <ThemedText type="small" themeColor="textSecondary">
-          Yellow: words that were hard to read on the paper and were guessed.
+          Pink: words that were hard to read on the paper and were guessed.
         </ThemedText>
       )}
     </Section>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Line by line: the writing as it is laid out on the paper (class sets)
+// ---------------------------------------------------------------------------
+
+type Range = { start: number; end: number };
+type Fix = Range & { number: number; corrected: string };
+
+/** Where the numbered corrections and the ¶ marks are in the text. */
+function markPositions(marked: MarkedText): { fixes: Fix[]; paragraphs: number[] } {
+  const fixes: Fix[] = [];
+  const paragraphs: number[] = [];
+  let at = 0;
+  for (const segment of marked.segments) {
+    if (segment.paragraphMark) paragraphs.push(at);
+    else if (segment.number !== null) {
+      const note = marked.notes.find((n) => n.number === segment.number);
+      fixes.push({ start: at, end: at + segment.text.length, number: segment.number, corrected: note?.correction.corrected ?? '' });
+    }
+    at += segment.text.length;
+  }
+  return { fixes, paragraphs };
+}
+
+type Line = { start: number; end: number; text: string; label: string | null; page: number; number: number };
+
+/**
+ * The text's lines, numbered as on the paper: empty lines (between
+ * paragraphs) have no number, and numbers start again on each page.
+ */
+function paperLines(text: string, pageLines: number[]): Line[] {
+  const lines: Line[] = [];
+  const severalPages = pageLines.length > 1;
+  let offset = 0;
+  let written = 0;
+  for (const lineText of text.split('\n')) {
+    const line: Line = { start: offset, end: offset + lineText.length, text: lineText, label: null, page: 1, number: 0 };
+    if (lineText.trim()) {
+      let page = 0;
+      let before = 0;
+      while (page < pageLines.length - 1 && written >= before + pageLines[page]) before += pageLines[page++];
+      line.page = page + 1;
+      line.number = written - before + 1;
+      line.label = severalPages ? `Page ${line.page}, line ${line.number}` : `Line ${line.number}`;
+      written += 1;
+    }
+    lines.push(line);
+    offset += lineText.length + 1;
+  }
+  return lines;
+}
+
+/** "Line 5" (or "Page 2, line 3") for each numbered correction. */
+export function correctionLines(text: string, marked: MarkedText, pageLines: number[]): Map<number, string> {
+  const lines = paperLines(text, pageLines);
+  const labels = new Map<number, string>();
+  for (const fix of markPositions(marked).fixes) {
+    const line = lines.find((l) => l.label && fix.start >= l.start && fix.start <= l.end);
+    if (line?.label) labels.set(fix.number, line.label);
+  }
+  return labels;
+}
+
+/**
+ * The student's writing line by line, as on the paper, with line numbers:
+ * guessed words in pink, and each correction written in after the student's
+ * words (crossed out) in green, with its number.
+ */
+export function LineMarkedWriting({
+  text,
+  marked,
+  guessed = [],
+  pageLines,
+}: {
+  text: string;
+  marked: MarkedText;
+  guessed?: string[];
+  /** How many lines of writing each page has. */
+  pageLines: number[];
+}) {
+  const theme = useTheme();
+  const { fixes, paragraphs } = markPositions(marked);
+  const guesses: Range[] = guessAnchorsFrom(text, guessed).map((a) => ({ start: a.start, end: a.start + a.original.length }));
+  const lines = paperLines(text, pageLines);
+
+  function renderLine(line: Line) {
+    const cuts = new Set([line.start, line.end]);
+    for (const r of [...fixes, ...guesses]) {
+      if (r.start > line.start && r.start < line.end) cuts.add(r.start);
+      if (r.end > line.start && r.end < line.end) cuts.add(r.end);
+    }
+    for (const p of paragraphs) if (p > line.start && p < line.end) cuts.add(p);
+    const points = [...cuts].sort((a, b) => a - b);
+    const pieces: ReactNode[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [from, to] = [points[i], points[i + 1]];
+      if (paragraphs.includes(from) && (from > line.start || line.text.trim())) {
+        pieces.push(
+          <ThemedText key={`p${from}`} accessibilityLabel="New paragraph here" style={[styles.paragraphMark, { color: theme.markA }]}>
+            {'¶ '}
+          </ThemedText>,
+        );
+      }
+      const fix = fixes.find((f) => from >= f.start && to <= f.end);
+      const guess = guesses.some((g) => from >= g.start && to <= g.end);
+      const words = text.slice(from, to);
+      pieces.push(
+        <ThemedText
+          key={`t${from}`}
+          style={[
+            guess && { backgroundColor: theme.guessBg },
+            fix && [styles.crossedOut, { color: theme.markA, textDecorationColor: theme.markA }],
+          ]}>
+          {words}
+        </ThemedText>,
+      );
+      const ending = fixes.find((f) => f.end === to && f.end > line.start);
+      if (ending) {
+        pieces.push(
+          <ThemedText key={`f${to}`}>
+            {' '}
+            <ThemedText style={[styles.fixWords, { color: theme.fixText }]}>{ending.corrected}</ThemedText>
+            <ThemedText style={[styles.markNumber, { color: theme.markA }]}>{` ${ending.number}`}</ThemedText>
+          </ThemedText>,
+        );
+      }
+    }
+    return pieces;
+  }
+
+  return (
+    <Section title="Their writing, line by line (as on the paper)">
+      <ThemedView type="backgroundElement" style={styles.studentText}>
+        {lines.map((line, i) => {
+          const pageStart = pageLines.length > 1 && line.label && line.number === 1;
+          if (!line.text.trim()) return <View key={i} style={styles.gap} />;
+          return (
+            <View key={i}>
+              {pageStart && (
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.pageHeading}>
+                  Page {line.page}
+                </ThemedText>
+              )}
+              <View style={styles.line}>
+                <ThemedText themeColor="textSecondary" style={styles.lineNumber}>
+                  {line.number}
+                </ThemedText>
+                <ThemedText selectable style={styles.lineText}>
+                  {renderLine(line)}
+                </ThemedText>
+              </View>
+            </View>
+          );
+        })}
+      </ThemedView>
+      <View style={styles.key}>
+        {guessed.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" style={{ backgroundColor: theme.guessBg }}>
+              {' pink '}
+            </ThemedText>
+            {' hard to read, so guessed: check it on the paper (not marked as a mistake)'}
+          </ThemedText>
+        )}
+        {marked.notes.length > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" style={[styles.crossedOut, { color: theme.markA, textDecorationColor: theme.markA }]}>
+              crossed out
+            </ThemedText>{' '}
+            <ThemedText type="small" style={[styles.fixWords, { color: theme.fixText }]}>
+              green
+            </ThemedText>
+            {' a suggested correction'}
+          </ThemedText>
+        )}
+        {marked.paragraphMarks > 0 && (
+          <ThemedText type="small" themeColor="textSecondary">
+            <ThemedText type="small" style={[styles.paragraphMark, { color: theme.markA }]}>
+              ¶
+            </ThemedText>
+            {' start a new paragraph'}
+          </ThemedText>
+        )}
+      </View>
+    </Section>
+  );
+}
+
 /** One numbered note per mistake: what they wrote, what to try, and why. */
-export function CorrectionNotes({ marked }: { marked: MarkedText }) {
+export function CorrectionNotes({
+  marked,
+  title = 'What to look at',
+  lineLabels,
+}: {
+  marked: MarkedText;
+  title?: string;
+  /** Where each note is on the paper ("Line 5"), by note number. */
+  lineLabels?: Map<number, string>;
+}) {
   const theme = useTheme();
   if (marked.notes.length === 0) return null;
   return (
-    <Section title="What to look at">
+    <Section title={title}>
       {marked.notes.map(({ number, correction }) => (
         <ThemedView key={number} type="backgroundElement" style={styles.note}>
           <NumberBadge label={String(number)} color={theme.markA} />
           <View style={styles.noteBody}>
+            {lineLabels && (
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                {lineLabels.get(number) ?? 'Not found in the text'}
+              </ThemedText>
+            )}
             <ThemedText>
               <ThemedText themeColor="textSecondary">You wrote </ThemedText>
               <ThemedText style={[styles.noteWords, { color: theme.markA }]}>
                 {correction.original}
               </ThemedText>
               <ThemedText themeColor="textSecondary"> → try </ThemedText>
-              <ThemedText style={[styles.noteWords, { color: theme.markB }]}>
+              <ThemedText style={[styles.noteWords, { color: lineLabels ? theme.fixText : theme.markB }]}>
                 {correction.corrected}
               </ThemedText>
             </ThemedText>
@@ -201,6 +402,38 @@ const styles = StyleSheet.create({
   paragraphMark: {
     fontSize: 17,
     fontWeight: 800,
+  },
+  line: {
+    flexDirection: 'row',
+    gap: Spacing.three,
+  },
+  lineNumber: {
+    width: 22,
+    textAlign: 'right',
+    fontSize: 13,
+    lineHeight: 30,
+    fontVariant: ['tabular-nums'],
+  },
+  lineText: {
+    flexShrink: 1,
+    fontSize: 17,
+    lineHeight: 30,
+  },
+  gap: {
+    height: Spacing.two,
+  },
+  pageHeading: {
+    marginTop: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  crossedOut: {
+    textDecorationLine: 'line-through',
+  },
+  fixWords: {
+    fontWeight: 700,
+  },
+  key: {
+    gap: Spacing.half,
   },
   markNumber: {
     fontSize: 12,

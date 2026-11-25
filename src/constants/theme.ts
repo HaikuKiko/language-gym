@@ -30,8 +30,12 @@ export const Colors = {
     markABg: '#FDE8D3',
     markB: '#0F4C8F',
     markBBg: '#D6E6FB',
-    /** Highlight for words guessed from a photo of handwriting. */
-    guessBg: '#FFE27A',
+    /** Highlight for words guessed from a photo of handwriting (pink). */
+    guessBg: '#FAD4E0',
+    /** A suggested correction written into the student's text (green, like a teacher's pen). */
+    fixText: '#0F7A3D',
+    /** A bright notice (the demo banner, "Swap!"). */
+    noticeBg: '#FFE27A',
     /** "We found each other!" and other done / ready states. */
     success: '#1A8F52',
     onSuccess: '#ffffff',
@@ -60,7 +64,9 @@ export const Colors = {
     markABg: '#3D2410',
     markB: '#93C5FD',
     markBBg: '#132F55',
-    guessBg: '#6B5400',
+    guessBg: '#6B2440',
+    fixText: '#6EE7A0',
+    noticeBg: '#6B5400',
     success: '#2FBF71',
     onSuccess: '#00140A',
     successSoft: '#0F2E1E',

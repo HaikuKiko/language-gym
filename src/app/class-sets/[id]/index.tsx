@@ -164,7 +164,7 @@ function ClassSetRouteScreen() {
             : marking
               ? `Marking… ${finished} of ${firsts.length} done`
               : finished < firsts.length
-                ? `All ${pages.length} pages read. ${toCheck > 0 ? 'Check the yellow words, then mark.' : 'Ready to mark.'}`
+                ? `All ${pages.length} pages read. ${toCheck > 0 ? 'Check the pink words, then mark.' : 'Ready to mark.'}`
                 : `All ${firsts.length} marked`}
         </ThemedText>
         <ProgressBar
@@ -253,7 +253,7 @@ function ClassSetRouteScreen() {
             <Button label={`Mark all ${toMark.length}`} onPress={() => run(set, pages, students, { mark: true })} />
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               {toCheck > 0
-                ? "Tap a student to check the yellow words against the paper. You can also mark straight away: the yellow words stay highlighted in each student's feedback."
+                ? "Tap a student to check the pink words against the paper. You can also mark straight away: the pink words stay highlighted in each student's feedback."
                 : 'Tap a student to see their writing.'}
             </ThemedText>
           </>

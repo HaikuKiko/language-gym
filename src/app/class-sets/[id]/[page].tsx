@@ -27,7 +27,9 @@ import {
   knownStudentNames,
   fullTranscript,
   guessedWords,
+  isLineByLine,
   loadClassSet,
+  pageLineCounts,
   pagesOf,
   pagePhotoUrls,
   pageTitle,
@@ -179,7 +181,8 @@ function ClassSetPageRouteScreen() {
     </>
   );
 
-  const guesses = guessedWords(page, parts.length > 0 ? parts : [page]);
+  const allParts = parts.length > 0 ? parts : [page];
+  const guesses = guessedWords(page, allParts);
   const readyToCheck = page.transcript !== null && (page.status === 'waiting' || page.status === 'done' || page.status === 'error');
 
   // Check the reading: before marking, or when asked for after it.
@@ -240,6 +243,7 @@ function ClassSetPageRouteScreen() {
       response={{ feedback: page.feedback, remainingToday: 0 }}
       text={text}
       guessedWords={guesses}
+      pageLines={isLineByLine(page, allParts) ? pageLineCounts(page, allParts) : undefined}
       header={header}
       footer={
         <>
@@ -254,7 +258,7 @@ function ClassSetPageRouteScreen() {
 }
 
 /**
- * The text as read from the pages, with guessed words in yellow, to check
+ * The text as read from the pages, with guessed words in pink, to check
  * against the paper and correct. Saving a changed text of marked writing
  * marks it again.
  */
