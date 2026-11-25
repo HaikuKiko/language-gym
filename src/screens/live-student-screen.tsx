@@ -269,16 +269,19 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
           </Text>
         </View>
 
+        {/* Only the asker sees the question; the others listen for it. */}
         <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
           <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>
-            {role === 'talk'
-              ? `${asker.name.toUpperCase()}'S QUESTION FOR YOU`
-              : role === 'ask'
-                ? `ASK ${talker.name.toUpperCase()}`
-                : `${asker.name.toUpperCase()} ASKS ${talker.name.toUpperCase()}`}
+            {role === 'ask' ? `ASK ${talker.name.toUpperCase()}` : `LISTEN TO ${asker.name.toUpperCase()}'S QUESTION`}
           </Text>
           <Text style={[styles.questionText, { color: theme.grammarText }]}>
-            {askerQuestion ? askerQuestion.text : 'There are no questions at this level yet.'}
+            {role === 'ask'
+              ? askerQuestion
+                ? askerQuestion.text
+                : 'There are no questions at this level yet.'
+              : role === 'talk'
+                ? `${asker.name} will ask you a question. Listen, then answer.`
+                : `${asker.name} is asking ${talker.name} a question. Listen to the answer.`}
           </Text>
         </View>
 
