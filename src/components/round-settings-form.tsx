@@ -151,6 +151,25 @@ export function RoundSettingsForm({
         )}
       </View>
 
+      {friending && (
+        <View style={styles.section}>
+          <ThemedText type="smallBold">Talking</ThemedText>
+          <View style={styles.chips}>
+            <Chip label="Take turns" selected={!!settings.takeTurns} onPress={() => onChange({ takeTurns: true })} />
+            <Chip
+              label="Free conversation"
+              selected={!settings.takeTurns}
+              onPress={() => onChange({ takeTurns: false })}
+            />
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            {settings.takeTurns
+              ? `Each round is split in half: one person asks and the other talks, then they swap. With ${roundMinutes} ${roundMinutes === 1 ? 'minute' : 'minutes'}, each person talks for ${formatHalf(roundMinutes)}.`
+              : 'Both partners have a question and take turns as they like.'}
+          </ThemedText>
+        </View>
+      )}
+
       <View style={styles.section}>
         <ThemedText type="smallBold">Minutes per round</ThemedText>
         <View style={styles.chips}>
@@ -244,6 +263,15 @@ export function RoundSettingsForm({
       </View>
     </>
   );
+}
+
+/** Half a round, in words: "1 minute", "30 seconds", "1½ minutes". */
+function formatHalf(minutes: number): string {
+  const seconds = (minutes * 60) / 2;
+  if (seconds < 60) return `${seconds} seconds`;
+  const whole = Math.floor(seconds / 60);
+  const half = seconds % 60 >= 30 ? '½' : '';
+  return `${whole}${half} ${whole === 1 && !half ? 'minute' : 'minutes'}`;
 }
 
 const styles = StyleSheet.create({

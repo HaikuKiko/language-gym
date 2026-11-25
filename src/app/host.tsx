@@ -20,7 +20,7 @@ export default function HostRoute() {
   const friending = params.mode === 'friending';
   const [settings, setSettings] = useState<RoundSettings>({
     ...DEFAULT_ROUND_SETTINGS,
-    ...(friending ? { mode: 'friending', week: null } : { mode: 'conversation' }),
+    ...(friending ? { mode: 'friending', week: null, takeTurns: true } : { mode: 'conversation' }),
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

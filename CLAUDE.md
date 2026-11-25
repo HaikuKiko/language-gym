@@ -56,6 +56,10 @@ Things agreed for later: `BACKLOG.md`.
   every level. Shown as "★ name" chips under "Custom" on the setup screen (only when a set has
   questions); flag `custom:<set id>` in `sessions.categories`. The owner asks Claude for a set: write
   the questions, insert them with SQL, and tell the owner. Later: teachers add their own.
+  **Take turns** (experiment, default on for speed friending; "Free conversation" switches it off; flag
+  `take-turns`): each round is split equally within a group (`turnFor`); in turn k person k talks and the
+  next person asks them their own question (talker sees it too), with follow-up prompts (`FOLLOW_UPS`)
+  and "🔄 Swap!" for `SWAP_NOTICE_MS`. To roll back completely: revert the "Take turns" PR.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).

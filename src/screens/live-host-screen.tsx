@@ -30,6 +30,8 @@ import {
   nextRound,
   pauseTimer,
   customSetId,
+  isTakingTurns,
+  turnFor,
   questionForRound,
   remainingMs,
   removeParticipant,
@@ -322,6 +324,13 @@ export function LiveHostScreen({
 
         <ThemedView type="backgroundElement" style={[styles.card, styles.timerCard]}>
           <LiveTimer session={session} now={now} />
+          {isTakingTurns(session) && (
+            <ThemedText type="smallBold" themeColor="textSecondary" style={{ textAlign: 'center' }}>
+              {turnFor(session, 2, now).turn === 0
+                ? 'First half: one partner talks, the other asks'
+                : 'Second half: they swap'}
+            </ThemedText>
+          )}
           <View style={styles.centeredRow}>
             {remaining > 0 && (
               <Button
