@@ -5,6 +5,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
+import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
@@ -28,6 +29,8 @@ function NewClassSetRouteScreen() {
   const [task, setTask] = useState('');
   const [grammarFocus, setGrammarFocus] = useState('');
   const [preparing, setPreparing] = useState(false);
+  /** Opening a PDF: pages turned into photos so far (null while choosing the file). */
+  const [opened, setOpened] = useState<{ done: number; total: number } | null>(null);
   const [uploaded, setUploaded] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
@@ -45,8 +48,12 @@ function NewClassSetRouteScreen() {
   async function choosePdf() {
     setError(null);
     setPreparing(true);
+    setOpened(null);
     try {
-      const chosen = await choosePdfPages();
+      const chosen = await choosePdfPages(
+        () => setOpened({ done: 0, total: 0 }),
+        (done, total) => setOpened({ done, total }),
+      );
       if (chosen) {
         setPages(chosen.pages);
         setFileName(chosen.fileName);
@@ -56,6 +63,7 @@ function NewClassSetRouteScreen() {
       setError(errorMessage(e));
     }
     setPreparing(false);
+    setOpened(null);
   }
 
   async function choosePhotos() {
@@ -117,6 +125,16 @@ function NewClassSetRouteScreen() {
           </ThemedText>
         ) : (
           <ThemedText style={styles.centered}>Choose the scan of the class&apos;s writing.</ThemedText>
+        )}
+        {opened && (
+          <View style={styles.opening}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+              {opened.total === 0
+                ? 'Opening the PDF…'
+                : `Opening page ${Math.min(opened.done + 1, opened.total)} of ${opened.total}…`}
+            </ThemedText>
+            <ProgressBar fraction={opened.total === 0 ? 0 : opened.done / opened.total} />
+          </View>
         )}
         <View style={styles.buttons}>
           {CAN_READ_PDF && (
@@ -225,6 +243,9 @@ function NewClassSetRouteScreen() {
 
 const styles = StyleSheet.create({
   header: {
+    gap: Spacing.one,
+  },
+  opening: {
     gap: Spacing.one,
   },
   section: {

@@ -48,6 +48,8 @@ const PHOTO_LINK_SECONDS = 24 * 60 * 60;
 /** pdf.js, loaded from a CDN only when a PDF is chosen (web only). */
 const PDF_JS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
 const PDF_JS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+/** Opening a PDF: give up (with a message) if loading the PDF reader or one page takes longer than this. */
+const PDF_STEP_TIMEOUT_MS = 60_000;
 
 // ===========================================================================
 
@@ -180,8 +182,9 @@ type PdfJs = {
   GlobalWorkerOptions: { workerSrc: string };
   getDocument: (src: { data: Uint8Array }) => { promise: Promise<PdfDocument> };
 };
-type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
+type PdfDocument = { numPages: number; getPage: (n: number) => Promise<PdfPage>; destroy?: () => Promise<void> };
 type PdfPage = {
+  cleanup?: () => void;
   getViewport: (o: { scale: number }) => { width: number; height: number };
   render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> };
 };
@@ -212,39 +215,90 @@ function loadPdfJs(): Promise<PdfJs> {
 /** True where a PDF can be turned into pages (in a browser). */
 export const CAN_READ_PDF = Platform.OS === 'web';
 
-/** Lets the teacher choose a PDF (web only) and returns its pages as JPEG photos. */
-export async function choosePdfPages(): Promise<{ fileName: string; pages: PreparedPhoto[] } | null> {
-  const file = await new Promise<File | null>((resolve) => {
+/** Waits for a step of opening a PDF, but not for ever. */
+function withTimeout<T>(promise: Promise<T>, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Opening the PDF got stuck (${what}). Try again, or try on a computer, or use "Choose photos".`)),
+      PDF_STEP_TIMEOUT_MS,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+/** Opens the file chooser; null if nothing is chosen. */
+function chooseFile(accept: string): Promise<File | null> {
+  return new Promise<File | null>((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/pdf,.pdf';
-    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.accept = accept;
+    // Some browsers (iPad Safari) only report the chosen file when the input is on the page.
+    input.style.display = 'none';
+    document.body.appendChild(input);
+    const finish = (file: File | null) => {
+      input.remove();
+      resolve(file);
+    };
+    input.addEventListener('change', () => finish(input.files?.[0] ?? null));
+    input.addEventListener('cancel', () => finish(null));
     input.click();
   });
-  if (!file) return null;
+}
 
-  const pdfjs = await loadPdfJs();
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+/**
+ * Lets the teacher choose a PDF (web only) and returns its pages as JPEG
+ * photos. onFile: a file was chosen; onProgress: pages turned into photos so far.
+ */
+export async function choosePdfPages(
+  onFile?: () => void,
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ fileName: string; pages: PreparedPhoto[] } | null> {
+  const file = await chooseFile('application/pdf,.pdf');
+  if (!file) return null;
+  onFile?.();
+
+  const pdfjs = await withTimeout(loadPdfJs(), 'loading the PDF reader');
+  const data = new Uint8Array(await withTimeout(file.arrayBuffer(), 'reading the file'));
+  const pdf = await withTimeout(pdfjs.getDocument({ data }).promise, 'opening the file');
   if (pdf.numPages > MAX_CLASS_SET_PAGES) {
     throw new Error(`That PDF has ${pdf.numPages} pages. A class set can have up to ${MAX_CLASS_SET_PAGES}.`);
   }
+  onProgress?.(0, pdf.numPages);
 
   const pages: PreparedPhoto[] = [];
-  for (let n = 1; n <= pdf.numPages; n++) {
-    const page = await pdf.getPage(n);
-    const base = page.getViewport({ scale: 1 });
-    const scale = PAGE_MAX_SIDE / Math.max(base.width, base.height);
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(viewport.width);
-    canvas.height = Math.round(viewport.height);
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Could not draw the PDF pages.');
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: context, viewport }).promise;
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    pages.push({ base64: dataUrl.replace(/^data:[^,]+,/, ''), mediaType: 'image/jpeg' });
+  // One canvas for every page, so small devices don't run out of memory.
+  const canvas = document.createElement('canvas');
+  try {
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await withTimeout(pdf.getPage(n), `page ${n}`);
+      const base = page.getViewport({ scale: 1 });
+      const scale = PAGE_MAX_SIDE / Math.max(base.width, base.height);
+      const viewport = page.getViewport({ scale });
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not draw the PDF pages.');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      await withTimeout(page.render({ canvasContext: context, viewport }).promise, `page ${n}`);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      pages.push({ base64: dataUrl.replace(/^data:[^,]+,/, ''), mediaType: 'image/jpeg' });
+      page.cleanup?.();
+      onProgress?.(n, pdf.numPages);
+    }
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+    pdf.destroy?.().catch(() => undefined);
   }
   return { fileName: file.name, pages };
 }
