@@ -72,6 +72,8 @@ export type AssessmentInput = {
   task?: string;
   /** This week's main grammar point, to give it particular attention. */
   focusGrammar?: string;
+  /** Words that were hard to read in the handwriting and were guessed (they may be misread). */
+  guessedWords?: string[];
 };
 
 export type AssessmentResult =
@@ -153,6 +155,11 @@ function buildUserMessage(input: AssessmentInput): string {
     `Writing task: ${input.task?.trim() ? input.task.trim() : "(none given)"}`,
     `Focus grammar point this week: ${input.focusGrammar?.trim() ? input.focusGrammar.trim() : "(none)"}`,
     `Word count: ${countWords(input.text)}`,
+    ...(input.guessedWords?.length
+      ? [
+          `Words that were hard to read in the handwriting and were guessed: ${input.guessedWords.map((w) => `"${w}"`).join(", ")}. They may be misread, so never correct a guessed word itself (its spelling, form or choice): it could be the reading, not the student. Do not count them as mistakes in the levels either. You may still correct the words around them.`,
+        ]
+      : []),
     "",
     "<student_writing>",
     input.text.trim(),
@@ -220,11 +227,23 @@ export const TranscriptSchema = z.object({
 
 export type Transcript = z.infer<typeof TranscriptSchema>;
 
-export const TRANSCRIBE_PROMPT = `You turn a photo of a language learner's English writing (usually handwriting) into typed text, so that their teacher's feedback tool can assess it.
+/** How lines are copied: joined into paragraphs (photo readings for students). */
+const JOIN_LINES =
+  "- Keep the student's paragraph breaks; join lines that are only wrapped because the page ran out of space.";
+
+/**
+ * How lines are copied for a class set: line by line, as on the paper, so the
+ * teacher can find each correction on the page by its line number.
+ */
+const LINE_BY_LINE =
+  "- Copy the writing line by line, exactly as it is laid out on the page: each handwritten line is one line in the transcript, ending where the student's line ends, even in the middle of a sentence. If a word is split over two lines with a hyphen, write the whole word at the end of the first line. Put one empty line between paragraphs (where the student left a gap, indented, or clearly started a new paragraph); never leave an empty line anywhere else.";
+
+function transcribePrompt(lineRule: string): string {
+  return `You turn a photo of a language learner's English writing (usually handwriting) into typed text, so that their teacher's feedback tool can assess it.
 
 Copy exactly what the student wrote. This is essential: keep every spelling, grammar and punctuation mistake as written, and never correct, improve or complete anything, even obvious slips.
 
-- Keep the student's paragraph breaks; join lines that are only wrapped because the page ran out of space.
+${lineRule}
 - Leave out words that the student crossed out.
 - Ignore everything a teacher added: marks in red pen (or any colour or writing that is clearly not the student's), corrections written above or beside words, ticks, crosses, underlining, circles, arrows, comments, scores and grades. Copy only what the student wrote. If a teacher crossed out or corrected a student's word, keep the student's original word exactly as they wrote it, and do not add the teacher's correction.
 - When a word is hard to read, give your best guess from the letters you can see and the words around it, put that guess in the transcript, and also list it in guessed_words exactly as you wrote it. Only write [?] when you cannot make any sensible guess at all.
@@ -235,6 +254,9 @@ Copy exactly what the student wrote. This is essential: keep every spelling, gra
 - contains_writing: false if the photo has no student writing in it; then leave transcript empty.
 - When there are several photos, they are the pages of ONE piece of writing, in order: give one transcript with page 1 first. If a sentence or paragraph runs on from one page to the next, join it up; do not add a paragraph break just because a new page starts. If a page has no student writing, skip it.
 - note: one short sentence for the student, for example "Two words were hard to read, so we guessed them: please check." or "All clear." Use simple English.`;
+}
+
+export const TRANSCRIBE_PROMPT = transcribePrompt(JOIN_LINES);
 
 /** A page of a class set: the transcript plus what is filled in on the printed sheet. */
 export const SheetSchema = TranscriptSchema.extend({
@@ -247,7 +269,7 @@ export const SheetSchema = TranscriptSchema.extend({
 
 export type SheetReading = z.infer<typeof SheetSchema>;
 
-export const SHEET_PROMPT = `${TRANSCRIBE_PROMPT}
+export const SHEET_PROMPT = `${transcribePrompt(LINE_BY_LINE)}
 
 This photo is one page of a class set: usually a printed writing sheet with one student's handwriting on it. As well as the transcript, copy these from the sheet when they are there, and leave them empty when they are not:
 - student_name: the name written next to "Name", exactly as written. Never guess a name that is not on the page.

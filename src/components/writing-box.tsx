@@ -8,7 +8,7 @@ import type { WritingDraft } from '@/hooks/use-writing-draft';
 
 /**
  * The writing part of every writing screen: add photos of the pages, check
- * the photo reading, and write or edit in the box (yellow = guessed from a
+ * the photo reading, and write or edit in the box (pink = guessed from a
  * photo, orange = mistakes from the last feedback). One copy for General
  * English, IELTS and teacher marking.
  */

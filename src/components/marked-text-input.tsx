@@ -11,7 +11,7 @@ type MarkedTextInputProps = Omit<TextInputProps, 'style' | 'multiline'> & {
   anchors: MistakeAnchor[];
   /** Length of the text the feedback was about, to tell how far words moved. */
   originalLength: number;
-  /** Words guessed from a photo, highlighted in yellow until they are changed. */
+  /** Words guessed from a photo, highlighted in pink until they are changed. */
   guesses?: { anchors: MistakeAnchor[]; length: number } | null;
 };
 
@@ -20,7 +20,7 @@ const MIN_HEIGHT = 220;
 /**
  * A multi-line writing box that underlines earlier mistakes with orange
  * squiggles, like a word processor, and highlights words guessed from a
- * photo in yellow. On the web a copy of the text sits behind a transparent
+ * photo in pink. On the web a copy of the text sits behind a transparent
  * text box, with only the marks visible, so they move with the text as it is
  * edited. The box grows to fit the text; if it does scroll, the copy scrolls
  * with it, and nothing is drawn outside the box. Other platforms get a plain

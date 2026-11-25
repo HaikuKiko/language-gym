@@ -2,7 +2,15 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
-import { Bullet, CorrectionNotes, MarkedWriting, ParagraphNote, Section } from '@/components/feedback-parts';
+import {
+  Bullet,
+  CorrectionNotes,
+  correctionLines,
+  LineMarkedWriting,
+  MarkedWriting,
+  ParagraphNote,
+  Section,
+} from '@/components/feedback-parts';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
 import { ShareReportButton } from '@/components/share-report-button';
@@ -12,7 +20,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { writingReportHtml } from '@/lib/report-html';
 import { writingReport } from '@/lib/share-report';
-import { markCorrections, type WritingResponse } from '@/lib/writing';
+import { markCorrections, withoutGuessCorrections, type WritingResponse } from '@/lib/writing';
 
 /** A plain-English line under each area's name, for lower levels. */
 const CRITERION_HINTS: Record<string, string> = {
@@ -37,6 +45,7 @@ export function WritingFeedbackView({
   showUsage = true,
   reportTitle = 'Writing feedback',
   guessedWords = [],
+  pageLines,
 }: {
   response: WritingResponse;
   /** The writing the feedback is about, shown exactly as the student wrote it. */
@@ -52,12 +61,20 @@ export function WritingFeedbackView({
   /** The "N feedback checks left today" line. */
   showUsage?: boolean;
   reportTitle?: string;
-  /** Words guessed when reading a photo of the writing, highlighted in yellow. */
+  /** Words guessed when reading a photo of the writing, highlighted in pink. */
   guessedWords?: string[];
+  /**
+   * The text was copied line by line from the paper (a class set): how many
+   * lines each page has. Then the writing is shown with line numbers and the
+   * corrections written in, and each note says which line it is on.
+   */
+  pageLines?: number[];
 }) {
   const theme = useTheme();
   const f = response.feedback;
-  const marked = markCorrections(text, f.corrections, f.paragraphing?.new_paragraph_before);
+  // A guessed word on its own is never a mistake: it may be our misreading.
+  const corrections = withoutGuessCorrections(f.corrections, guessedWords);
+  const marked = markCorrections(text, corrections, f.paragraphing?.new_paragraph_before);
 
   return (
     <Screen>
@@ -114,9 +131,21 @@ export function WritingFeedbackView({
         </Section>
       )}
 
-      <MarkedWriting marked={marked} guessed={guessedWords} />
-
-      <CorrectionNotes marked={marked} />
+      {pageLines ? (
+        <>
+          <LineMarkedWriting text={text} marked={marked} guessed={guessedWords} pageLines={pageLines} />
+          <CorrectionNotes
+            marked={marked}
+            title="Corrections to copy onto the paper"
+            lineLabels={correctionLines(text, marked, pageLines)}
+          />
+        </>
+      ) : (
+        <>
+          <MarkedWriting marked={marked} guessed={guessedWords} />
+          <CorrectionNotes marked={marked} />
+        </>
+      )}
 
       {f.paragraphing?.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 

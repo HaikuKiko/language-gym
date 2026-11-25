@@ -37,6 +37,8 @@ export type WritingRequest = {
   week?: number | null;
   /** A grammar point to pay attention to when no week is given (e.g. from a class set's sheet). */
   focusGrammar?: string;
+  /** Words guessed when reading handwriting: they may be misread, so they are never corrected. */
+  guessedWords?: string[];
 };
 
 export type WritingResponse = {
@@ -61,6 +63,7 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
       task: request.task?.trim() || undefined,
       week: request.week ?? undefined,
       focus_grammar: request.focusGrammar?.trim() || undefined,
+      guessed_words: request.guessedWords?.length ? request.guessedWords : undefined,
     },
   });
 
@@ -234,9 +237,41 @@ export type MarkedText = {
   paragraphMarks: number;
 };
 
-/** Curly quotes and apostrophes count as straight ones when matching. */
+/**
+ * Curly quotes and apostrophes count as straight ones when matching, and a
+ * line break as a space (so a mistake can run on to the next line). The
+ * length stays the same, so positions found apply to the text itself.
+ */
 function normalise(value: string): string {
-  return value.replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[\u201c\u201d]/g, '"');
+  return value
+    .replace(/[\u2018\u2019\u02bc]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\n/g, ' ');
+}
+
+/**
+ * Writing copied line by line from the paper, as running text: each line
+ * break inside a paragraph becomes a space (an empty line between
+ * paragraphs stays). Same length, so corrections found in one are in the
+ * same place in the other.
+ */
+export function joinLines(text: string): string {
+  return text.replace(/(?<!\n)\n(?!\n)/g, ' ');
+}
+
+/** Whether a word is one of the guessed (hard-to-read) words. */
+function isGuessed(words: string, guessed: string[]): boolean {
+  const target = normalise(words.trim()).toLowerCase().replace(/[.,!?;:"]+$/g, '');
+  return guessed.some((w) => normalise(w.trim()).toLowerCase() === target);
+}
+
+/**
+ * Leaves out corrections of a guessed word on its own: it may be our
+ * misreading of the handwriting, not the student's mistake.
+ */
+export function withoutGuessCorrections(corrections: Correction[], guessed: string[]): Correction[] {
+  if (guessed.length === 0) return corrections;
+  return corrections.filter((c) => !isGuessed(c.original, guessed));
 }
 
 /**
