@@ -7,7 +7,7 @@ import { Spacing } from '@/constants/theme';
 import { ThemedView } from '@/components/themed-view';
 import { LEVELS, countForWeek, findQuestions } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
-import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useCustomSets, useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { FRIENDING_WEEKS, findFunQuestions } from '@/data/fun-questions';
 import { uniqueRoundCount } from '@/lib/round-robin';
 import { CHANGEOVER_SECONDS, type RoundSettings } from '@/lib/session';
@@ -37,9 +37,11 @@ export function RoundSettingsForm({
   const { level, week, roundMinutes, roundCount, roundRobin, autoAdvance } = settings;
   const questions = useQuestions();
   const funQuestions = useFunQuestions();
+  const customSets = useCustomSets();
   const weeks = useWeeks();
   const plan = findWeek(weeks, level, week);
   const friending = settings.mode === 'friending';
+  const custom = friending ? (customSets.find((c) => c.id === settings.customSetId) ?? null) : null;
   const available = friending
     ? findFunQuestions(funQuestions, level, week).length
     : findQuestions(questions, level, week).length;
@@ -75,13 +77,42 @@ export function RoundSettingsForm({
               key={n}
               label={findWeek(weeks, level, n)?.topic ?? `Week ${n}`}
               accessibilityLabel={`Week ${n}: ${findWeek(weeks, level, n)?.topic ?? ''}`}
-              selected={n === week}
-              onPress={() => onChange({ week: n })}
+              selected={!custom && n === week}
+              onPress={() => onChange({ week: n, customSetId: null })}
             />
           ))}
-          <Chip label="Any theme" selected={week === null} onPress={() => onChange({ week: null })} />
+          <Chip
+            label="Any theme"
+            selected={!custom && week === null}
+            onPress={() => onChange({ week: null, customSetId: null })}
+          />
         </View>
-        {friending ? (
+        {friending && customSets.length > 0 && (
+          <>
+            <ThemedText type="smallBold">Custom</ThemedText>
+            <View style={styles.chips}>
+              {customSets.map((c) => (
+                <Chip
+                  key={c.id}
+                  label={`★ ${c.name}`}
+                  accessibilityLabel={`Custom: ${c.name}`}
+                  selected={custom?.id === c.id}
+                  onPress={() => onChange({ customSetId: c.id, week: null })}
+                />
+              ))}
+            </View>
+          </>
+        )}
+        {custom ? (
+          <ThemedView type="backgroundElement" style={styles.plan}>
+            <ThemedText type="smallBold">★ {custom.name}</ThemedText>
+            {custom.description ? <ThemedText type="small">{custom.description}</ThemedText> : null}
+            <ThemedText type="small" themeColor="textSecondary">
+              {custom.questions.length} custom {custom.questions.length === 1 ? 'question' : 'questions'}, the same at
+              every level. Everyone gets their own question to ask their partner, and a new one each round.
+            </ThemedText>
+          </ThemedView>
+        ) : friending ? (
           <ThemedView type="backgroundElement" style={styles.plan}>
             <ThemedText type="smallBold">
               {level} · {week === null ? 'Any theme' : (plan?.topic ?? `Theme ${week}`)}

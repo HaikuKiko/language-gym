@@ -10,13 +10,14 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { findWeek } from '@/data/weeks';
 import { useNow } from '@/hooks/use-now';
-import { useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useCustomSets, useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   findingStatus,
   isFriending,
   markFound,
   questionForRound,
+  customSetId,
   questionForStudent,
   removeParticipant,
   type LiveParticipant,
@@ -38,6 +39,8 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   const theme = useTheme();
   const questions = useQuestions();
   const funQuestions = useFunQuestions();
+  const customSets = useCustomSets();
+  const custom = customSets.find((s) => s.id === customSetId(session)) ?? null;
   const friending = isFriending(session);
   const weeks = useWeeks();
   // The teacher sets one level for everyone.
@@ -114,7 +117,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   const partners = groups[groupIndex].filter((p) => p.id !== me.id);
   const partnerNames = partners.map((p) => p.name).join(' & ');
   const question = friending
-    ? questionForStudent(session, funQuestions, me.id)
+    ? questionForStudent(session, funQuestions, me.id, customSets)
     : questionForRound(session, questions, level);
   const plan = findWeek(weeks, level, session.week);
 
@@ -240,7 +243,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
       <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
         {friending
-          ? `Speed friending${plan ? ` · ${plan.topic}` : ''}`
+          ? `Speed friending${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`
           : `${level}${session.week != null ? ` · Week ${session.week}` : ''}${plan ? `: ${plan.topic}` : ''}`}
       </ThemedText>
     </Screen>

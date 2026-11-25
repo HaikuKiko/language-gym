@@ -18,6 +18,18 @@ export type FunQuestion = {
   week: number;
 };
 
+/**
+ * A custom question set: a name, a line about what it is for, and its
+ * questions (the same at every level). Tables custom_question_sets and
+ * custom_questions; made by the owner with Claude for now.
+ */
+export type CustomSet = {
+  id: string;
+  name: string;
+  description: string;
+  questions: string[];
+};
+
 /** The themes speed friending uses (course weeks), in the order shown. */
 export const FRIENDING_WEEKS = [4, 5, 6, 7, 8, 10, 13, 16] as const;
 

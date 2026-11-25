@@ -25,6 +25,8 @@ export type RoundSettings = {
    * grammar point). Missing means conversation.
    */
   mode?: SessionMode;
+  /** Speed friending: a custom question set (its id) instead of a theme. */
+  customSetId?: string | null;
 };
 
 export type SessionMode = 'friending' | 'conversation';
