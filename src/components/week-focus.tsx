@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/constants/theme';
 import type { Level } from '@/data/questions';
 import { findWeek } from '@/data/weeks';
@@ -22,7 +23,7 @@ export function WeekFocus({ level, week, friending = false, customName = null }:
   return (
     <View style={styles.focus}>
       <ThemedText type="smallBold" themeColor="textSecondary">
-        {friending ? `Speed friending · ${level}` : level}
+        {friending ? `${PRODUCT_NAME} · ${level}` : level}
         {friending
           ? customName
             ? ` · ${customName}`

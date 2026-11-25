@@ -31,7 +31,7 @@ export default function SingleScreenSession() {
       <SetupScreen
         settings={settings}
         onChange={setSettings}
-        onBack={() => router.replace('/')}
+        onBack={() => router.replace('/dashboard')}
         onStart={() =>
           setPhase({
             name: 'playing',

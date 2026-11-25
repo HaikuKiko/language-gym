@@ -107,7 +107,7 @@ export function TeacherOnly({ children }: { children: ReactNode }) {
         </ThemedText>
         <ThemedText type="subtitle">Teacher sign in</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Class writing is for teachers. Sign in with your teacher username and password.
+          This page is for teachers. Sign in with your teacher username and password.
         </ThemedText>
       </View>
       <TeacherSignIn onSignedIn={refresh} />

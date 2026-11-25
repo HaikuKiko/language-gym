@@ -14,6 +14,7 @@ import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WeekFocus } from '@/components/week-focus';
+import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { findWeek } from '@/data/weeks';
@@ -126,7 +127,7 @@ export function LiveHostScreen({
         roundsPlayed={session.roster.length > 0 ? session.round + 1 : 0}
         studentCount={session.roster.length}
         restartLabel="Back to start"
-        onRestart={() => router.replace('/')}
+        onRestart={() => router.replace(friending ? '/' : '/dashboard')}
       />
     );
   }
@@ -141,7 +142,7 @@ export function LiveHostScreen({
     <View style={styles.topBar}>
       <View style={styles.brand}>
         <View style={[styles.brandMark, { backgroundColor: theme.accent }]} />
-        <ThemedText type="smallBold">Language Gym</ThemedText>
+        <ThemedText type="smallBold">{friending ? PRODUCT_NAME : 'Language Gym'}</ThemedText>
       </View>
       <Pill label={status} tone="accent" />
     </View>
@@ -220,7 +221,7 @@ export function LiveHostScreen({
         </ThemedView>
 
         <View style={styles.pills}>
-          {friending && <Pill label="Speed friending" tone="accent" />}
+          {friending && <Pill label={PRODUCT_NAME} tone="accent" />}
           <Pill label={`Level ${session.level}`} />
           {custom ? (
             <Pill label={custom.name} />

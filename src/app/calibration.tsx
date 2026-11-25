@@ -137,7 +137,7 @@ export default function CalibrationRoute() {
       )}
 
       <Button label="Mark an IELTS essay" onPress={() => router.replace('/teacher-ielts')} />
-      <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
+      <Button label="Back to home" variant="secondary" onPress={() => router.replace('/dashboard')} />
     </Screen>
   );
 }

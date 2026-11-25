@@ -35,16 +35,23 @@ Things agreed for later: `BACKLOG.md`.
 
 ### Parts of the app
 
-- **Teacher page vs student pages:** the main page (`index.tsx`) is the **teacher page** only (sessions,
-  class writing, marking, "Links to send students" with Copy/Open). Students never see it: the QR code
-  opens `join/[code].tsx` (old `/?code=` links redirect there); student screens (`session/[code]`,
-  `write`, `ielts`, `account`) must never link to `/` ("Back" only if `router.canGoBack()`; leaving a
-  session goes to its join page; a finished session says "You can close this page").
+- **Front door (promotion):** `/` (`index.tsx`) is the public **landing page** for the speaking product
+  only (name in `src/constants/product.json` → `PRODUCT_NAME`, also the browser tab title via
+  `app.config.js`; sentence and `LANDING_VIDEO_URL` in `src/constants/product.ts`): "Try it now" →
+  `/host?mode=friending`, "Try the demo" → `/demo`. Never mention IELTS, class writing or Language Gym
+  there. "Speed friending" is the internal name; visitors see `PRODUCT_NAME`.
+- **Teacher dashboard:** `/dashboard` (`dashboard.tsx`, wrapped in `TeacherOnly`): all modes, class
+  writing, marking, "Links to send students". Nothing public links to it; teacher pages go "Back" to it.
+- **Students never see the dashboard:** the QR code opens `join/[code].tsx` (old `/?code=` links redirect
+  there); student screens (`session/[code]`, `write`, `ielts`, `account`) never link to `/dashboard`
+  ("Back" only if `router.canGoBack()`; leaving a session goes to its join page). A finished speed-
+  friending session says "You can close this page" + "Teacher or group leader? Run this with your own
+  group →" (the landing page).
 - **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
   `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
   components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
   Questions table: 1,488 rows (levels × themes, 15 each); defaults: Automatic, 2 minutes, round robin.
-  Two modes (flag in `sessions.categories`): **Speed friending** (home "🎉 Speed friending" →
+  Two modes (flag in `sessions.categories`): **Speed friending** (dashboard "🎉 Speed friending" →
   `/host?mode=friending`; questions per level A1–C2 × 8 fun themes × 10 in
   `src/data/fun-questions.ts` / table `friending_questions`; each student gets their own question,
   `questionForStudent`: (roster seat + round) through a seeded shuffle; no grammar) and

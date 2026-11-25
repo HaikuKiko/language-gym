@@ -211,7 +211,7 @@ export default function TeacherIeltsRoute() {
           Marked by an AI (Claude) as a guide, not an official IELTS result. The essay is only saved if you add your own marks.
         </ThemedText>
         <Button label="Calibration: AI compared with teachers" variant="secondary" onPress={() => router.push('/calibration')} />
-        <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
+        <Button label="Back" variant="secondary" onPress={() => router.replace('/dashboard')} />
       </View>
       <BusyOverlay
         visible={reading}
