@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { loadContactMessages, type ContactMessage } from '@/lib/contact';
 import { findMyOpenSession } from '@/lib/live-session';
 import { NOT_CONFIGURED_MESSAGE, supabase } from '@/lib/supabase';
 
@@ -99,7 +100,41 @@ function Dashboard() {
       </View>
 
       <StudentLinks />
+      <Messages />
     </Screen>
+  );
+}
+
+/** Messages left on the contact page ("Keep me posted"), newest first. */
+function Messages() {
+  const [messages, setMessages] = useState<ContactMessage[] | null>(null);
+  useEffect(() => {
+    loadContactMessages()
+      .then(setMessages)
+      .catch(() => setMessages([]));
+  }, []);
+  if (!messages) return null;
+  return (
+    <View style={styles.section}>
+      <ThemedText type="smallBold">Messages from the contact page</ThemedText>
+      {messages.length === 0 ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          No messages yet.
+        </ThemedText>
+      ) : (
+        messages.map((m) => (
+          <ThemedView key={m.id} type="backgroundElement" style={styles.link}>
+            <ThemedText type="smallBold" selectable>
+              {m.email}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {new Date(m.created_at).toLocaleString()}
+            </ThemedText>
+            {m.message ? <ThemedText selectable>{m.message}</ThemedText> : null}
+          </ThemedView>
+        ))
+      )}
+    </View>
   );
 }
 

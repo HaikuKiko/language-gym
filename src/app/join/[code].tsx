@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { FooterLinks } from '@/components/footer-links';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -129,6 +130,7 @@ export default function JoinRoute() {
           </ThemedText>
         )}
       </ThemedView>
+      <FooterLinks contact={false} />
     </Screen>
   );
 }
