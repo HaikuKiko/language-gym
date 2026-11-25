@@ -151,14 +151,16 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
   throw new Error('Could not create a session. Please try again.');
 }
 
+/**
+ * A session by its join code. Sessions (and their names) are readable only by
+ * their host and students, so this goes through session_by_code, which also
+ * lets a student find a session before joining it.
+ */
 export async function fetchSessionByCode(code: string): Promise<LiveSession | null> {
-  const { data, error } = await requireSupabase()
-    .from('sessions')
-    .select()
-    .eq('code', code)
-    .maybeSingle();
+  const { data, error } = await requireSupabase().rpc('session_by_code', { p_code: code });
   if (error) throw new Error(error.message);
-  return data as LiveSession | null;
+  const rows = (data ?? []) as LiveSession[];
+  return rows[0] ?? null;
 }
 
 export async function fetchParticipants(sessionId: string): Promise<LiveParticipant[]> {
@@ -232,9 +234,11 @@ export async function joinSession(code: string, name: string): Promise<LiveSessi
 
   let finalName = name.trim();
   if (!finalName) {
-    const others = await fetchParticipants(session.id);
-    const existing = others.find((p) => p.user_id === userId);
-    finalName = existing?.name ?? `Guest ${others.length + 1}`;
+    // Only this student's own entry is readable before joining, so a new guest
+    // gets a random number rather than the next one.
+    const mine = await fetchParticipants(session.id);
+    const existing = mine.find((p) => p.user_id === userId);
+    finalName = existing?.name ?? `Guest ${10 + Math.floor(Math.random() * 90)}`;
   }
 
   const { error } = await client
