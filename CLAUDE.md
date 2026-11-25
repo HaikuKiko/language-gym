@@ -76,7 +76,7 @@ Things agreed for later: `BACKLOG.md`.
   **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
   turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
   `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
-  `useSessionBackend()` for every change). Pretend students join, find each other and tap; teacher screen +
+  `useSessionBackend()` for every change). Four pretend students join, find each other and tap; teacher screen +
   phones side by side (tabs when narrow). Never saved.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
