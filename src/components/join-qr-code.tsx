@@ -18,9 +18,9 @@ export function getAppAddress(): string | null {
   return null;
 }
 
-/** The link that opens the app with the join code already filled in. */
+/** The link to the session's join page (the QR code). */
 export function joinUrl(address: string, code: string): string {
-  return `${address}/?code=${code}`;
+  return `${address}/join/${code}`;
 }
 
 /**

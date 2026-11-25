@@ -61,7 +61,8 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   async function leave() {
     await removeParticipant(me.id).catch(() => {});
-    router.replace('/');
+    // Students only ever go back to the session's join page, never the teacher page.
+    router.replace({ pathname: '/join/[code]', params: { code: session.code } });
   }
 
   if (session.status === 'finished') {
@@ -69,9 +70,10 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
       <Screen>
         <View style={styles.message}>
           <ThemedText type="subtitle">Session complete</ThemedText>
-          <ThemedText themeColor="textSecondary">Thanks for taking part, {me.name}.</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Thanks for taking part, {me.name}! You can close this page.
+          </ThemedText>
         </View>
-        <Button label="Back to start" onPress={() => router.replace('/')} />
       </Screen>
     );
   }

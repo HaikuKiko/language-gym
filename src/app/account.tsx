@@ -100,7 +100,8 @@ export default function AccountRoute() {
     });
 
   const back = (
-    <Button label="Back" variant="secondary" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} />
+    // Students arrive from a link: "Back" only goes back, never to the teacher page.
+    router.canGoBack() ? <Button label="Back" variant="secondary" onPress={() => router.back()} /> : null
   );
 
   const messages = (

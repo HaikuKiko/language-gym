@@ -164,7 +164,8 @@ export default function WriteRoute() {
           Your writing and photos are checked by an AI (Claude) and are not saved. The feedback
           may contain mistakes; ask your teacher if something is unclear.
         </ThemedText>
-        <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />
+        {/* Students arrive from a link: "Back" only goes back, never to the teacher page. */}
+        {router.canGoBack() && <Button label="Back" variant="secondary" onPress={() => router.back()} />}
       </View>
       <BusyOverlay visible={draft.reading} title="Reading your handwriting…" detail="This usually takes 10 to 20 seconds." />
       <BusyOverlay visible={busy} title="Checking your writing…" detail="This usually takes 15 to 30 seconds." />

@@ -33,6 +33,7 @@ export function IeltsFeedbackView({
   header,
   essayTitle = 'Your essay',
   showUsage = true,
+  showHome = true,
 }: {
   response: IeltsResponse;
   text: string;
@@ -48,6 +49,8 @@ export function IeltsFeedbackView({
   essayTitle?: string;
   /** The "N feedback checks left today" line. */
   showUsage?: boolean;
+  /** "Back to home" (the teacher page): not on students' screens. */
+  showHome?: boolean;
 }) {
   const theme = useTheme();
   const f = response.feedback;
@@ -177,7 +180,7 @@ export function IeltsFeedbackView({
           html={() => ieltsReportHtml(f, text, subtitle)}
           pdfName="ielts-feedback"
         />
-        <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />
+        {showHome && <Button label="Back to home" variant="secondary" onPress={() => router.replace('/')} />}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           AI band scores are a guide, not an official IELTS result.{' '}
           {showUsage && response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}

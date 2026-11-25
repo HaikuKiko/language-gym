@@ -29,7 +29,7 @@ export default function LiveSessionRoute() {
           <ThemedText type="subtitle">Can&apos;t open this session</ThemedText>
           <ThemedText themeColor="textSecondary">{state.message}</ThemedText>
         </View>
-        <Button label="Back to start" onPress={() => router.replace('/')} />
+        <Button label="Back" onPress={() => router.replace({ pathname: '/join/[code]', params: { code: String(code) } })} />
       </Screen>
     );
   }
@@ -55,12 +55,12 @@ export default function LiveSessionRoute() {
         <View style={styles.message}>
           <ThemedText type="subtitle">You&apos;re not in this session</ThemedText>
           <ThemedText themeColor="textSecondary">
-            Enter your name on the start page to join.
+            Enter your name to join.
           </ThemedText>
         </View>
         <Button
           label="Join this session"
-          onPress={() => router.replace({ pathname: '/', params: { code: session.code } })}
+          onPress={() => router.replace({ pathname: '/join/[code]', params: { code: session.code } })}
         />
       </Screen>
     );

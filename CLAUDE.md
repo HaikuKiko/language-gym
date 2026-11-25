@@ -35,6 +35,11 @@ Things agreed for later: `BACKLOG.md`.
 
 ### Parts of the app
 
+- **Teacher page vs student pages:** the main page (`index.tsx`) is the **teacher page** only (sessions,
+  class writing, marking, "Links to send students" with Copy/Open). Students never see it: the QR code
+  opens `join/[code].tsx` (old `/?code=` links redirect there); student screens (`session/[code]`,
+  `write`, `ielts`, `account`) must never link to `/` ("Back" only if `router.canGoBack()`; leaving a
+  session goes to its join page; a finished session says "You can close this page").
 - **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
   `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
   components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.

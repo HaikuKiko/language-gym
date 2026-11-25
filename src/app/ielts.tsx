@@ -100,7 +100,8 @@ export default function IeltsRoute() {
   const words = countWords(text);
   const minWords = prompt?.minWords ?? 250;
 
-  const back = <Button label="Back" variant="secondary" onPress={() => router.replace('/')} />;
+  // Students arrive from a link: "Back" only goes back, never to the teacher page.
+  const back = router.canGoBack() ? <Button label="Back" variant="secondary" onPress={() => router.back()} /> : null;
 
   // ---- Before writing: account, enrolment and a question --------------------
   if (loadError || !account || !prompts) {
@@ -161,6 +162,7 @@ export default function IeltsRoute() {
         text={text}
         subtitle={`${prompt.essayType ? `${ESSAY_TYPE_NAMES[prompt.essayType]} essay · ` : ''}${prompt.topic}`}
         onImprove={() => setResult(null)}
+        showHome={false}
       />
     );
   }
