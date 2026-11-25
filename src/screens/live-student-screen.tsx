@@ -15,16 +15,29 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   findingStatus,
   isFriending,
+  isTakingTurns,
   markFound,
   questionForRound,
   customSetId,
   questionForStudent,
   removeParticipant,
+  turnFor,
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
 import { errorMessage } from '@/lib/supabase';
+
+// ===========================================================================
+// Settings
+// ===========================================================================
+
+/** Taking turns: questions the asker can use to keep their partner talking. */
+const FOLLOW_UPS = ['Why?', 'What happened next?', 'How did you feel?', 'Can you give an example?', 'Tell me more about…'];
+/** Taking turns: how long "Swap!" shows when the next turn starts. */
+const SWAP_NOTICE_MS = 4000;
+
+// ===========================================================================
 
 type LiveStudentScreenProps = {
   session: LiveSession;
@@ -207,6 +220,108 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
 
   // ---- Then: the question ------------------------------------------------------
 
+  // Taking turns: one person talks while their partner asks, then they swap.
+  const group = groups[groupIndex];
+  if (friending && isTakingTurns(session) && group.length > 1) {
+    const { turn, turns, turnMs, leftMs, sinceStartMs } = turnFor(session, group.length, now);
+    const talker = group[turn];
+    const asker = group[(turn + 1) % group.length];
+    const role = talker.id === me.id ? 'talk' : asker.id === me.id ? 'ask' : 'listen';
+    const askerQuestion = questionForStudent(session, funQuestions, asker.id, customSets);
+    const running = session.ends_at !== null && leftMs > 0;
+    const swapping = running && turn > 0 && sinceStartMs < SWAP_NOTICE_MS;
+    const seconds = Math.ceil(leftMs / 1000);
+    const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    const turnWord = turns === 2 ? (turn === 0 ? 'First half' : 'Second half') : `Turn ${turn + 1} of ${turns}`;
+
+    return (
+      <Screen>
+        <ThemedText type="smallBold" themeColor="textSecondary" style={styles.centered}>
+          {roundTitle} · {turnWord}
+        </ThemedText>
+
+        {swapping && (
+          <View style={[styles.swap, { backgroundColor: theme.guessBg }]}>
+            <Text style={styles.swapText}>🔄 Swap!</Text>
+          </View>
+        )}
+
+        <View style={[styles.partnerCard, { backgroundColor: role === 'talk' ? theme.success : theme.hero }]}>
+          <Text style={[styles.bigLabel, { color: role === 'talk' ? theme.onSuccess : theme.onHeroMuted }]}>
+            {role === 'talk'
+              ? 'YOUR TURN TO TALK'
+              : role === 'ask'
+                ? `YOU ASK · ${talker.name.toUpperCase()} TALKS`
+                : 'LISTEN: YOUR TURN COMES NEXT'}
+          </Text>
+          <Text style={[styles.partnerName, { color: role === 'talk' ? theme.onSuccess : theme.onHero }]}>
+            {role === 'talk' ? `Talk to ${asker.name}` : role === 'ask' ? talker.name : `${talker.name} is talking`}
+          </Text>
+        </View>
+
+        <View style={[styles.questionCard, { backgroundColor: theme.accentSoft }]}>
+          <Text style={[styles.bigLabel, { color: theme.grammarLabel }]}>
+            {role === 'talk'
+              ? `${asker.name.toUpperCase()}'S QUESTION FOR YOU`
+              : role === 'ask'
+                ? `ASK ${talker.name.toUpperCase()}`
+                : `${asker.name.toUpperCase()} ASKS ${talker.name.toUpperCase()}`}
+          </Text>
+          <Text style={[styles.questionText, { color: theme.grammarText }]}>
+            {askerQuestion ? askerQuestion.text : 'There are no questions at this level yet.'}
+          </Text>
+        </View>
+
+        {role === 'talk' ? (
+          <View style={styles.tips}>
+            <ThemedText type="smallBold">Keep talking for the whole time!</ThemedText>
+            <ThemedText>• Say why.</ThemedText>
+            <ThemedText>• Give an example or a story.</ThemedText>
+            <ThemedText>• Say how you felt.</ThemedText>
+          </View>
+        ) : (
+          <View style={[styles.followUps, { backgroundColor: theme.markABg }]}>
+            <Text style={[styles.bigLabel, { color: theme.markA }]}>
+              KEEP {talker.name.toUpperCase()} TALKING: ASK
+            </Text>
+            <View style={styles.chips}>
+              {FOLLOW_UPS.map((f) => (
+                <View key={f} style={[styles.followChip, { borderColor: theme.markA }]}>
+                  <Text style={[styles.followText, { color: theme.markA }]}>{f}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.turnTimer}>
+          <ThemedText style={styles.turnClock}>{clock}</ThemedText>
+          <View style={[styles.turnTrack, { backgroundColor: theme.backgroundSelected }]}>
+            <View
+              style={[
+                styles.turnFill,
+                { backgroundColor: theme.accent, width: `${Math.min(100, Math.max(0, (1 - leftMs / turnMs) * 100))}%` },
+              ]}
+            />
+          </View>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+            {!running && session.ends_at === null
+              ? 'Waiting for the timer to start'
+              : turn < turns - 1
+                ? role === 'talk'
+                  ? 'Your turn ends, then you swap'
+                  : `${talker.name} talks until the swap`
+                : 'Last turn of this round'}
+          </ThemedText>
+        </View>
+
+        <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+          {`Speed friending${custom ? ` · ${custom.name}` : plan ? ` · ${plan.topic}` : ''}`}
+        </ThemedText>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <ThemedText type="smallBold" themeColor="textSecondary" style={styles.centered}>
@@ -324,6 +439,59 @@ const styles = StyleSheet.create({
     fontSize: 22,
     lineHeight: 28,
     fontWeight: 800,
+  },
+  swap: {
+    paddingVertical: Spacing.four,
+    borderRadius: Spacing.four,
+    alignItems: 'center',
+  },
+  swapText: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: 800,
+    color: '#111',
+  },
+  tips: {
+    gap: Spacing.one,
+  },
+  followUps: {
+    padding: Spacing.three,
+    borderRadius: Spacing.four,
+    gap: Spacing.two,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  followChip: {
+    borderWidth: 2,
+    borderRadius: 999,
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    backgroundColor: '#fff',
+  },
+  followText: {
+    fontSize: 16,
+    fontWeight: 700,
+  },
+  turnTimer: {
+    gap: Spacing.one,
+    alignItems: 'stretch',
+  },
+  turnClock: {
+    fontSize: 44,
+    lineHeight: 52,
+    fontWeight: 800,
+    textAlign: 'center',
+  },
+  turnTrack: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  turnFill: {
+    height: '100%',
   },
   pressed: {
     opacity: 0.85,

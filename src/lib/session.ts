@@ -27,6 +27,11 @@ export type RoundSettings = {
   mode?: SessionMode;
   /** Speed friending: a custom question set (its id) instead of a theme. */
   customSetId?: string | null;
+  /**
+   * Speed friending: take turns. Each round is split between the group: one
+   * person talks while their partner asks, then they swap.
+   */
+  takeTurns?: boolean;
 };
 
 export type SessionMode = 'friending' | 'conversation';

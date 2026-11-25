@@ -41,6 +41,8 @@ export type LiveSession = {
 
 const ROUND_ROBIN = 'round-robin';
 const FRIENDING = 'speed-friending';
+/** Flag for speed friending with turns (one talks, one asks, then swap). */
+const TAKE_TURNS = 'take-turns';
 /** Flag prefix for a custom question set: `custom:<set id>`. */
 const CUSTOM = 'custom:';
 
@@ -52,6 +54,29 @@ export function isRoundRobin(session: LiveSession): boolean {
 /** Speed friending: fun get-to-know-you questions, with no grammar point. */
 export function isFriending(session: LiveSession): boolean {
   return session.categories?.includes(FRIENDING) ?? false;
+}
+
+/** Speed friending with turns: one person talks while their partner asks, then they swap. */
+export function isTakingTurns(session: LiveSession): boolean {
+  return isFriending(session) && (session.categories?.includes(TAKE_TURNS) ?? false);
+}
+
+/**
+ * Taking turns: whose turn it is in a group, from how much of the round has
+ * gone. The round is split equally; in turn k, person k talks and the next
+ * person in the group asks them their own question.
+ */
+export function turnFor(
+  session: LiveSession,
+  groupSize: number,
+  now: number,
+): { turn: number; turns: number; turnMs: number; leftMs: number; sinceStartMs: number } {
+  const total = session.round_minutes * 60_000;
+  const turns = Math.max(1, groupSize);
+  const turnMs = total / turns;
+  const elapsed = Math.min(total, Math.max(0, total - remainingMs(session, now)));
+  const turn = Math.min(turns - 1, Math.floor(elapsed / turnMs));
+  return { turn, turns, turnMs, leftMs: Math.max(0, (turn + 1) * turnMs - elapsed), sinceStartMs: elapsed - turn * turnMs };
 }
 
 /** Speed friending with a custom question set: its id (null for the usual questions). */
@@ -92,6 +117,7 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
       ...(settings.roundRobin ? [ROUND_ROBIN] : []),
       ...(settings.mode === 'friending' ? [FRIENDING] : []),
       ...(settings.mode === 'friending' && settings.customSetId ? [CUSTOM + settings.customSetId] : []),
+      ...(settings.mode === 'friending' && settings.takeTurns ? [TAKE_TURNS] : []),
     ],
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
