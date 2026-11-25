@@ -22,7 +22,7 @@ import { LiveStudentScreen } from '@/screens/live-student-screen';
 /** The pretend students, in the order they join. */
 const DEMO_NAMES = ['Ana', 'Ben', 'Chen', 'Dara', 'Eli'];
 /** Time between pretend students joining. */
-const JOIN_EVERY_MS = 900;
+const JOIN_EVERY_MS = 400;
 /** A pretend pair taps "We found each other!" between these times after a round starts. */
 const FIND_MIN_MS = 2500;
 const FIND_MAX_MS = 7000;
