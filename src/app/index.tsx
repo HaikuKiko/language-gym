@@ -1,200 +1,142 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { getAppAddress } from '@/components/join-qr-code';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
-import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/lib/supabase';
-import { signOutTeacher } from '@/lib/teachers';
+import { CODE_LENGTH, findMyOpenSession } from '@/lib/live-session';
+import { NOT_CONFIGURED_MESSAGE, supabase } from '@/lib/supabase';
 
-/** Start page: students join with a code, teachers host a session. */
+/** The pages teachers send to students as links (students never see this page). */
+const STUDENT_LINKS = [
+  { label: 'Writing practice', path: '/write' },
+  { label: 'IELTS writing', path: '/ielts' },
+  { label: 'Student account', path: '/account' },
+] as const;
+
+/**
+ * The teacher page: sessions, class writing, marking, and the links to send
+ * students. Students join sessions from the QR code's own page (/join/…),
+ * and nothing on the student side leads here.
+ */
 export default function HomeRoute() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ code?: string }>();
-  // The session code comes from the QR code or link (?code=123456).
+  // Old links (/?code=123456) go to the join page.
   const code = (params.code ?? '').replace(/\D/g, '').slice(0, CODE_LENGTH);
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  /** This device is the session's host: 'teacher' when signed in to a teacher account. */
-  const [hostDevice, setHostDevice] = useState<'teacher' | 'guest' | null>(null);
-  const [open, setOpen] = useState<{ code: string; asHost: boolean } | null>(null);
-
+  const [hosting, setHosting] = useState<string | null>(null);
   const configured = supabase !== null;
 
-  // Still in a session (after a reload or the back button)? Offer the way back.
+  // A session this device is running (after a reload or the back button).
   useEffect(() => {
     if (!configured) return;
     findMyOpenSession()
-      .then(setOpen)
-      .catch(() => setOpen(null));
+      .then((open) => setHosting(open?.asHost ? open.code : null))
+      .catch(() => setHosting(null));
   }, [configured]);
-  const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.background }];
 
-  async function join() {
-    setBusy(true);
-    setError(null);
-    setHostDevice(null);
-    try {
-      const session = await joinSession(code, name);
-      router.push({ pathname: '/session/[code]', params: { code: session.code } });
-    } catch (e) {
-      if (e instanceof HostDeviceError) {
-        const { data } = await supabase!.auth.getSession();
-        setHostDevice(data.session?.user.is_anonymous === false ? 'teacher' : 'guest');
-      } else {
-        setError(errorMessage(e));
-      }
-    }
-    setBusy(false);
-  }
-
-  /** A device signed in to the teacher account: sign out, then join as a student. */
-  async function joinAsStudent() {
-    setBusy(true);
-    await signOutTeacher();
-    setOpen(null);
-    await join();
-  }
+  if (code.length === CODE_LENGTH) return <Redirect href={{ pathname: '/join/[code]', params: { code } }} />;
 
   return (
     <Screen>
       <View style={styles.header}>
-        <ThemedText type="subtitle">Language Gym</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Talk with a new partner every round, with a question to get you started.
+        <ThemedText type="smallBold" style={{ color: theme.accent }}>
+          TEACHERS
         </ThemedText>
+        <ThemedText type="subtitle">Language Gym</ThemedText>
+        <ThemedText themeColor="textSecondary">For teachers: run sessions and mark writing.</ThemedText>
       </View>
 
-      {open && (
+      {hosting && (
         <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
-          <ThemedText type="smallBold">
-            {open.asHost ? 'Your session is still running' : "You're still in a session"}
-          </ThemedText>
+          <ThemedText type="smallBold">Your session is still running</ThemedText>
           <Button
             label="Back to my session"
-            onPress={() => router.push({ pathname: '/session/[code]', params: { code: open.code } })}
+            onPress={() => router.push({ pathname: '/session/[code]', params: { code: hosting } })}
           />
           <ThemedText type="small" themeColor="textSecondary">
-            Code {open.code}
+            Code {hosting}
           </ThemedText>
         </View>
       )}
 
-      {/* Students arrive here from the QR code or link, which brings the session code. */}
-      {code.length === CODE_LENGTH && (
-        <ThemedView type="backgroundElement" style={styles.card}>
-          <ThemedText type="smallBold">Join the session</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Session {formatCode(code)}
-          </ThemedText>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Your name"
-            placeholderTextColor={theme.textSecondary}
-            accessibilityLabel="Your name"
-            autoFocus
-            maxLength={40}
-            onSubmitEditing={join}
-            style={[inputStyle, styles.nameInput]}
-          />
-          <Button label={busy ? 'Joining…' : 'Join'} disabled={!configured || busy} onPress={join} />
-          {hostDevice && (
-            <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
-              <ThemedText type="smallBold">This device is the teacher&apos;s</ThemedText>
-              <ThemedText type="small">
-                {hostDevice === 'teacher'
-                  ? 'It is signed in to the teacher account that is running this session, so it would show the teacher’s screen. To join as a student, sign out of the teacher account here (only on a phone that is not running the session; signing in again brings the teacher’s screen back).'
-                  : 'This device is running the session, so it shows the teacher’s screen. Join from another phone.'}
-              </ThemedText>
-              {hostDevice === 'teacher' && (
-                <Button
-                  label="Sign out of the teacher account and join"
-                  disabled={busy}
-                  onPress={joinAsStudent}
-                />
-              )}
-            </View>
-          )}
-          {error && (
-            <ThemedText type="small" themeColor="warning">
-              {error}
-            </ThemedText>
-          )}
-        </ThemedView>
-      )}
-
       <View style={styles.section}>
-        <ThemedText type="smallBold">Practise on your own</ThemedText>
+        <ThemedText type="smallBold">Speaking</ThemedText>
         <Button
-          label="Writing practice"
-          variant="secondary"
+          label="🎉 Speed friending"
           disabled={!configured}
-          onPress={() => router.push('/write')}
+          onPress={() => router.push({ pathname: '/host', params: { mode: 'friending' } })}
         />
-        <Button
-          label="IELTS writing"
-          variant="secondary"
-          disabled={!configured}
-          onPress={() => router.push('/ielts')}
-        />
-        <Button
-          label="My account"
-          variant="secondary"
-          disabled={!configured}
-          onPress={() => router.push('/account')}
-        />
+        <Button label="Host a session" variant="secondary" disabled={!configured} onPress={() => router.push('/host')} />
+        <Button label="Use one shared screen instead" variant="secondary" onPress={() => router.push('/single')} />
       </View>
 
       <View style={styles.section}>
-        <ThemedText type="smallBold">Teachers</ThemedText>
+        <ThemedText type="smallBold">Writing</ThemedText>
+        <Button label="Class writing" variant="secondary" disabled={!configured} onPress={() => router.push('/class-sets')} />
         <Button
           label="Mark an IELTS essay"
           variant="secondary"
           disabled={!configured}
           onPress={() => router.push('/teacher-ielts')}
         />
-        <Button
-          label="Teacher account"
-          variant="secondary"
-          disabled={!configured}
-          onPress={() => router.push('/teacher')}
-        />
-        <Button
-          label="Class writing"
-          variant="secondary"
-          disabled={!configured}
-          onPress={() => router.push('/class-sets')}
-        />
-        <Button
-          label="🎉 Speed friending"
-          disabled={!configured}
-          onPress={() => router.push({ pathname: '/host', params: { mode: 'friending' } })}
-        />
-        <Button
-          label="Host a session"
-          variant="secondary"
-          disabled={!configured}
-          onPress={() => router.push('/host')}
-        />
-        <Button
-          label="Use one shared screen instead"
-          variant="secondary"
-          onPress={() => router.push('/single')}
-        />
+        <Button label="Teacher account" variant="secondary" disabled={!configured} onPress={() => router.push('/teacher')} />
         {!configured && (
           <ThemedText type="small" themeColor="warning">
             {NOT_CONFIGURED_MESSAGE}
           </ThemedText>
         )}
       </View>
+
+      <StudentLinks />
     </Screen>
+  );
+}
+
+/** The links to send students, each with "Copy" (and "Open" to try it). */
+function StudentLinks() {
+  const address = getAppAddress() ?? '';
+  const canCopy = Platform.OS === 'web' && typeof navigator !== 'undefined' && !!navigator.clipboard;
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(url);
+    } catch {
+      setCopied(null);
+    }
+  }
+
+  return (
+    <View style={styles.section}>
+      <ThemedText type="smallBold">Links to send students</ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        Students use these on their own (they don&apos;t see this page). For speed friending they scan the QR code.
+      </ThemedText>
+      {STUDENT_LINKS.map(({ label, path }) => {
+        const url = `${address}${path}`;
+        return (
+          <ThemedView key={path} type="backgroundElement" style={styles.link}>
+            <ThemedText type="smallBold">{label}</ThemedText>
+            <ThemedText type="small" selectable themeColor="textSecondary">
+              {url}
+            </ThemedText>
+            <View style={styles.linkButtons}>
+              {canCopy && (
+                <Button label={copied === url ? 'Copied ✓' : 'Copy link'} onPress={() => copy(url)} style={styles.linkButton} />
+              )}
+              <Button label="Open" variant="secondary" onPress={() => router.push(path)} style={styles.linkButton} />
+            </View>
+          </ThemedView>
+        );
+      })}
+    </View>
   );
 }
 
@@ -210,14 +152,17 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     gap: Spacing.three,
   },
-  input: {
-    minHeight: 48,
-    paddingHorizontal: Spacing.three,
+  link: {
+    padding: Spacing.three,
     borderRadius: Spacing.three,
-    fontSize: 16,
+    gap: Spacing.one,
   },
-  nameInput: {
-    fontSize: 20,
-    minHeight: 56,
+  linkButtons: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginTop: Spacing.one,
+  },
+  linkButton: {
+    flex: 1,
   },
 });
