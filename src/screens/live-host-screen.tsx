@@ -17,7 +17,7 @@ import { WeekFocus } from '@/components/week-focus';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { findWeek } from '@/data/weeks';
-import { useQuestions, useWeeks } from '@/hooks/use-questions';
+import { useCustomSets, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { useTheme } from '@/hooks/use-theme';
 import {
   beginDiscussion,
@@ -29,6 +29,7 @@ import {
   roundRobinRounds,
   nextRound,
   pauseTimer,
+  customSetId,
   questionForRound,
   remainingMs,
   removeParticipant,
@@ -61,6 +62,8 @@ export function LiveHostScreen({
   const now = useNow();
   const questions = useQuestions();
   const friending = isFriending(session);
+  const customSets = useCustomSets();
+  const custom = customSets.find((s) => s.id === customSetId(session)) ?? null;
   const plan = findWeek(useWeeks(), session.level, session.week);
   const theme = useTheme();
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +217,11 @@ export function LiveHostScreen({
         <View style={styles.pills}>
           {friending && <Pill label="Speed friending" tone="accent" />}
           <Pill label={`Level ${session.level}`} />
-          {session.week != null && <Pill label={friending ? (plan?.topic ?? `Theme ${session.week}`) : `Week ${session.week}`} />}
+          {custom ? (
+            <Pill label={custom.name} />
+          ) : (
+            session.week != null && <Pill label={friending ? (plan?.topic ?? `Theme ${session.week}`) : `Week ${session.week}`} />
+          )}
           {isRoundRobin(session) ? (
             <Pill
               label={
@@ -276,7 +283,7 @@ export function LiveHostScreen({
         <ThemedText type="subtitle">
           Round {session.round + 1} of {session.round_count}
         </ThemedText>
-        <WeekFocus level={session.level} week={session.week} friending={friending} />
+        <WeekFocus level={session.level} week={session.week} friending={friending} customName={custom?.name} />
         <View style={styles.steps}>
           {Array.from({ length: session.round_count }, (_, i) => (
             <View

@@ -1,6 +1,6 @@
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
-import { BUILT_IN_FUN_QUESTIONS, type FunQuestion } from '@/data/fun-questions';
+import { BUILT_IN_FUN_QUESTIONS, type CustomSet, type FunQuestion } from '@/data/fun-questions';
 import { BUILT_IN_QUESTIONS, LEVELS, type Level, type Question } from '@/data/questions';
 import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
@@ -14,6 +14,8 @@ type Content = {
   weeks: readonly Week[];
   /** Speed friending's questions. */
   funQuestions: readonly FunQuestion[];
+  /** Speed friending's custom question sets. */
+  customSets: readonly CustomSet[];
 };
 
 const ALL_BUILT_IN_QUESTIONS: readonly Question[] = [...BUILT_IN_QUESTIONS, ...WEEK_QUESTIONS];
@@ -22,6 +24,7 @@ const BUILT_IN: Content = {
   questions: ALL_BUILT_IN_QUESTIONS,
   weeks: BUILT_IN_WEEKS,
   funQuestions: BUILT_IN_FUN_QUESTIONS,
+  customSets: [],
 };
 
 const ContentContext = createContext<Content>(BUILT_IN);
@@ -39,6 +42,11 @@ export function useWeeks(): readonly Week[] {
 /** Speed friending's questions: from the database, or the built-in list. */
 export function useFunQuestions(): readonly FunQuestion[] {
   return use(ContentContext).funQuestions;
+}
+
+/** Speed friending's custom question sets (from the database; none built in). */
+export function useCustomSets(): readonly CustomSet[] {
+  return use(ContentContext).customSets;
 }
 
 const isLevel = (value: unknown): value is Level => LEVELS.includes(value as Level);
@@ -153,16 +161,35 @@ async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   return questions.length > 0 ? questions : null;
 }
 
+/** The custom question sets with their questions, in a fixed order (so every phone agrees). */
+async function loadCustomSets(): Promise<CustomSet[]> {
+  if (!supabase) return [];
+  const [{ data: sets }, { data: questions }] = await Promise.all([
+    supabase.from('custom_question_sets').select('id, name, description').eq('active', true).order('created_at'),
+    supabase.from('custom_questions').select('set_id, text').eq('active', true).order('id').limit(5000),
+  ]);
+  return (sets ?? [])
+    .map((s) => ({
+      id: String(s.id),
+      name: String(s.name),
+      description: String(s.description ?? ''),
+      questions: (questions ?? []).filter((q) => q.set_id === s.id).map((q) => String(q.text)),
+    }))
+    .filter((s) => s.questions.length > 0);
+}
+
 async function loadContent(): Promise<Content> {
-  const [questions, weeks, funQuestions] = await Promise.all([
+  const [questions, weeks, funQuestions, customSets] = await Promise.all([
     loadQuestions().catch(() => null),
     loadWeeks().catch(() => null),
     loadFunQuestions().catch(() => null),
+    loadCustomSets().catch(() => []),
   ]);
   return {
     questions: questions ?? ALL_BUILT_IN_QUESTIONS,
     weeks: weeks ?? BUILT_IN_WEEKS,
     funQuestions: funQuestions ?? BUILT_IN_FUN_QUESTIONS,
+    customSets,
   };
 }
 

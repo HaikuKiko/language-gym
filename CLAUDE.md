@@ -51,6 +51,11 @@ Things agreed for later: `BACKLOG.md`.
   **Conversation practice** ("Host a session" → `/host`; one question for everyone + weekly grammar).
   Each round: students find their partner and tap "We found each other!" (one tap per pair); the
   questions appear when every pair is found. Old table `fun_questions` is no longer used.
+  **Custom question sets** (speed friending): tables `custom_question_sets` (name, description = one
+  line on what it's for, active) + `custom_questions` (set_id, text, active); the same questions at
+  every level. Shown as "★ name" chips under "Custom" on the setup screen (only when a set has
+  questions); flag `custom:<set id>` in `sessions.categories`. The owner asks Claude for a set: write
+  the questions, insert them with SQL, and tell the owner. Later: teachers add their own.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
@@ -88,7 +93,7 @@ Things agreed for later: `BACKLOG.md`.
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
-  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions,
+  enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions,
   classes, class_students, class_sets, class_set_pages, teachers (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to

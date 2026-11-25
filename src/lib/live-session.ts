@@ -3,7 +3,7 @@
  * join with that code, and every phone follows the same session row in
  * Supabase. See supabase/schema.sql for the tables.
  */
-import { findFunQuestions, type FunQuestion } from '@/data/fun-questions';
+import { findFunQuestions, type CustomSet, type FunQuestion } from '@/data/fun-questions';
 import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
 import { groupsForRound, uniqueRoundCount, type Group, type Participant } from '@/lib/round-robin';
 import { shuffle, type RoundSettings } from '@/lib/session';
@@ -41,6 +41,8 @@ export type LiveSession = {
 
 const ROUND_ROBIN = 'round-robin';
 const FRIENDING = 'speed-friending';
+/** Flag prefix for a custom question set: `custom:<set id>`. */
+const CUSTOM = 'custom:';
 
 /** True when the number of rounds is worked out from the class size at the start. */
 export function isRoundRobin(session: LiveSession): boolean {
@@ -50,6 +52,12 @@ export function isRoundRobin(session: LiveSession): boolean {
 /** Speed friending: fun get-to-know-you questions, with no grammar point. */
 export function isFriending(session: LiveSession): boolean {
   return session.categories?.includes(FRIENDING) ?? false;
+}
+
+/** Speed friending with a custom question set: its id (null for the usual questions). */
+export function customSetId(session: LiveSession): string | null {
+  const flag = session.categories?.find((c) => c.startsWith(CUSTOM));
+  return flag ? flag.slice(CUSTOM.length) : null;
 }
 
 /** Rounds needed for everyone to talk to everyone once (at least 1). */
@@ -83,6 +91,7 @@ export async function createSession(settings: RoundSettings): Promise<LiveSessio
     categories: [
       ...(settings.roundRobin ? [ROUND_ROBIN] : []),
       ...(settings.mode === 'friending' ? [FRIENDING] : []),
+      ...(settings.mode === 'friending' && settings.customSetId ? [CUSTOM + settings.customSetId] : []),
     ],
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
@@ -381,8 +390,13 @@ export function questionForStudent(
   session: LiveSession,
   funQuestions: readonly FunQuestion[],
   participantId: string,
+  customSets: readonly CustomSet[] = [],
 ): { text: string } | null {
-  const pool = findFunQuestions(funQuestions, session.level, session.week);
+  // A custom set: its questions, the same at every level.
+  const custom = customSets.find((s) => s.id === customSetId(session));
+  const pool = custom
+    ? custom.questions.map((text) => ({ text }))
+    : findFunQuestions(funQuestions, session.level, session.week);
   if (pool.length === 0) return null;
   const seat = Math.max(0, session.roster.findIndex((p) => p.id === participantId));
   const ordered = shuffle(pool, session.seed + LEVELS.indexOf(session.level));
