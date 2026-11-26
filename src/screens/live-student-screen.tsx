@@ -479,13 +479,16 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   followChip: {
+    // A long follow-up wraps inside its chip instead of running off the phone.
+    maxWidth: '100%',
     borderWidth: 2,
-    borderRadius: 999,
+    borderRadius: Spacing.three,
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     backgroundColor: '#fff',
   },
   followText: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: 700,
   },
