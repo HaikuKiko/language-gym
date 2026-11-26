@@ -23,6 +23,10 @@ one group of three when the number is odd). "Speed friending" is the internal na
 - **Take turns** (experiment): each round split in halves; the asker's phone shows the question and
   follow-up prompts, the talker's phone says "Listen to …'s question" (owner chose: only the asker sees
   it); "🔄 Swap!" at half time. Roll back with "Free conversation", or revert the Take turns PR.
+- **Follow-ups that match the question** (26 Nov 2026): every prompt has its own 3 follow-ups for the
+  asker (column `follow_ups` on `friending_questions` and `custom_questions`; all 480 + 40 written).
+  A question without any shows the general five (`FOLLOW_UPS`). Write 3 for every new question,
+  custom sets included. The owner liked the wording; more feedback may come from class.
 - Teacher can't accidentally join as a student (same login): blocked with a message.
 - **Solo demo** `/demo`: 4 pretend students (Ana, Ben, Chen, Dara), in memory only (never saved).
   Side by side on wide screens (phones scroll on iPad landscape), tabs when narrow.
