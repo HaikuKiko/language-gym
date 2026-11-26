@@ -115,6 +115,8 @@ Things agreed for later: `BACKLOG.md`.
   through the whole text): teacher IELTS marking always; General English class sets send `every_mistake`.
   Students keep the short list (GE 6 + 4 punctuation, IELTS 8). Class-set pages are read with
   `SHEET_READING_EFFORT` ("medium"); guesses must be real words; a copied-out title is left out.
+  **"Read and mark again"** (student page, with an "Are you sure?" step; `rereadStudent`): reads the
+  student's pages and marks again with `fresh: true`, which skips the saved result (`response_cache`).
   "Mark an IELTS essay" reads photos line by line too (`useWritingDraft` `lineByLine`, request
   `line_by_line`), sends guessed words, and shows the same line view.
   **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set

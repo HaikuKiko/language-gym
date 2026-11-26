@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { BusyOverlay } from '@/components/busy-overlay';
 import { Button } from '@/components/button';
 import { Chip } from '@/components/chip';
 import { Pill } from '@/components/pill';
@@ -36,6 +37,7 @@ import {
   pagePhotoUrls,
   pageTitle,
   renamePage,
+  rereadStudent,
   saveReading,
   studentKey,
   type ClassSet,
@@ -244,6 +246,7 @@ function ClassSetPageRouteScreen() {
   const footer = (
     <>
       <Button label="Check the reading" variant="secondary" onPress={() => setChecking(true)} />
+      <ReadAgain set={set} first={page} pageCount={allParts.length} students={students} onDone={load} />
       {back}
     </>
   );
@@ -372,6 +375,77 @@ function ReadingCheck({
           {error}
         </ThemedText>
       )}
+    </View>
+  );
+}
+
+/**
+ * "Read and mark again": a fresh reading of the student's pages and a fresh
+ * marking, instead of the saved results. Asks first, as it uses readings.
+ */
+function ReadAgain({
+  set,
+  first,
+  pageCount,
+  students,
+  onDone,
+}: {
+  set: ClassSet;
+  first: ClassSetPage;
+  pageCount: number;
+  students: ClassStudent[];
+  onDone: () => void;
+}) {
+  const theme = useTheme();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    setAsking(false);
+    setBusy(true);
+    setError(null);
+    try {
+      const loaded = await loadClassSet(set.id);
+      if (!loaded) throw new Error('The class set could not be loaded.');
+      const current = loaded.pages.find((p) => p.id === first.id) ?? first;
+      await rereadStudent(loaded.set, current, loaded.pages, () => {}, students);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+    setBusy(false);
+    onDone();
+  }
+
+  const readings = pageCount === 1 ? '1 photo reading' : `${pageCount} photo readings`;
+  return (
+    <View style={styles.readAgain}>
+      {asking ? (
+        <View style={[styles.readAgainBox, { backgroundColor: theme.markABg }]}>
+          <ThemedText type="small">
+            Read the {pageCount === 1 ? 'page' : 'pages'} and mark again from scratch? This uses {readings} and 1{' '}
+            {set.course === 'ielts' ? 'IELTS marking' : 'feedback check'}. Any changes you made to the reading are
+            replaced.
+          </ThemedText>
+          <View style={styles.readAgainButtons}>
+            <Button label="Yes, read and mark again" onPress={run} />
+            <Button label="Cancel" variant="secondary" onPress={() => setAsking(false)} />
+          </View>
+        </View>
+      ) : (
+        <Button
+          label={busy ? 'Reading and marking again…' : 'Read and mark again'}
+          variant="secondary"
+          disabled={busy}
+          onPress={() => setAsking(true)}
+        />
+      )}
+      {error && <ThemedText type="small" themeColor="warning">{error}</ThemedText>}
+      <BusyOverlay
+        visible={busy}
+        title="Reading and marking again…"
+        detail="A fresh reading and marking: this usually takes under a minute."
+      />
     </View>
   );
 }
@@ -595,6 +669,19 @@ function NameEditor({ page, onRenamed }: { page: ClassSetPage; onRenamed: (page:
 }
 
 const styles = StyleSheet.create({
+  readAgain: {
+    gap: Spacing.two,
+  },
+  readAgainBox: {
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  readAgainButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
   check: {
     gap: Spacing.two,
   },
