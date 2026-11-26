@@ -16,6 +16,18 @@ export type StudentLevel = (typeof STUDENT_LEVELS)[number];
 export const MIN_WORDS = 20;
 export const MAX_WORDS = 600;
 
+/** Teacher marking ("every mistake"): at most this many corrections. */
+export const MAX_TEACHER_CORRECTIONS = 30;
+/** How carefully a class-set page is read ("medium" reads hard handwriting better than "low"). */
+export const SHEET_READING_EFFORT: "low" | "medium" | "high" = "medium";
+
+/**
+ * Added to the request when a teacher marks writing to copy the corrections
+ * onto the student's paper: every mistake, through the whole text.
+ */
+export function everyMistakeNote(): string {
+  return `This is teacher marking: the teacher copies your corrections onto the student's paper, so ignore the usual limits on how many corrections to give. List every mistake in the text (up to ${MAX_TEACHER_CORRECTIONS}), from the beginning to the end, in the order they appear, including the last paragraphs: do not stop after the first part. Each correction still follows the rules (shortest span, one mistake each).`;
+}
 const Level = z.enum(CEFR_LEVELS);
 /** An area's level may also be a "+" level (clearly above it, not yet the next). */
 export const AREA_LEVELS = ["Pre-A1", "A1", "A1+", "A2", "A2+", "B1", "B1+", "B2", "B2+", "C1", "C2"] as const;
@@ -74,6 +86,8 @@ export type AssessmentInput = {
   focusGrammar?: string;
   /** Words that were hard to read in the handwriting and were guessed (they may be misread). */
   guessedWords?: string[];
+  /** Teacher marking: correct every mistake (see everyMistakeNote). */
+  everyMistake?: boolean;
 };
 
 export type AssessmentResult =
@@ -160,6 +174,7 @@ function buildUserMessage(input: AssessmentInput): string {
           `Words that were hard to read in the handwriting and were guessed: ${input.guessedWords.map((w) => `"${w}"`).join(", ")}. They may be misread, so never correct a guessed word itself (its spelling, form or choice): it could be the reading, not the student. Do not count them as mistakes in the levels either. You may still correct the words around them.`,
         ]
       : []),
+    ...(input.everyMistake ? [everyMistakeNote()] : []),
     "",
     "<student_writing>",
     input.text.trim(),
@@ -174,8 +189,8 @@ export async function assessWriting(
 ): Promise<AssessmentResult> {
   const response = await client.messages.parse({
     model: MODEL,
-    // Room for adaptive thinking plus the feedback itself.
-    max_tokens: 8000,
+    // Room for adaptive thinking plus the feedback itself (more when every mistake is listed).
+    max_tokens: input.everyMistake ? 14000 : 8000,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserMessage(input) }],
     output_config: {
@@ -236,7 +251,7 @@ const JOIN_LINES =
  * teacher can find each correction on the page by its line number.
  */
 export const LINE_BY_LINE =
-  "- Copy the writing line by line, exactly as it is laid out on the page: each handwritten line is one line in the transcript, ending where the student's line ends, even in the middle of a sentence. If a word is split over two lines with a hyphen, write the whole word at the end of the first line. Put one empty line between paragraphs (where the student left a gap, indented, or clearly started a new paragraph); never leave an empty line anywhere else.";
+  "- Copy the writing line by line, exactly as it is laid out on the page: each handwritten line is one line in the transcript, ending where the student's line ends, even in the middle of a sentence. If a word is split over two lines with a hyphen, write the whole word at the end of the first line. Put one empty line between paragraphs (where the student left a gap, indented, or clearly started a new paragraph); never leave an empty line anywhere else. If the student copied out the question or a title above their writing, leave it out: start with the writing itself.";
 
 export function transcribePrompt(lineRule: string): string {
   return `You turn a photo of a language learner's English writing (usually handwriting) into typed text, so that their teacher's feedback tool can assess it.
@@ -246,7 +261,7 @@ Copy exactly what the student wrote. This is essential: keep every spelling, gra
 ${lineRule}
 - Leave out words that the student crossed out.
 - Ignore everything a teacher added: marks in red pen (or any colour or writing that is clearly not the student's), corrections written above or beside words, ticks, crosses, underlining, circles, arrows, comments, scores and grades. Copy only what the student wrote. If a teacher crossed out or corrected a student's word, keep the student's original word exactly as they wrote it, and do not add the teacher's correction.
-- When a word is hard to read, give your best guess from the letters you can see and the words around it, put that guess in the transcript, and also list it in guessed_words exactly as you wrote it. Only write [?] when you cannot make any sensible guess at all.
+- When a word is hard to read, give your best guess from the letters you can see and the words around it, put that guess in the transcript, and also list it in guessed_words exactly as you wrote it. A guess must be a real English word that fits the sentence (or, if the letters clearly show it, the student's own misspelling of one): never a string of letters that is not a word, such as "soudenos" for "students". Use the rest of the text to help: a word the student writes several times is usually the same word each time. Only write [?] when you cannot make any sensible guess at all.
 - Guessing is only for handwriting you cannot read clearly. If a word is clear but wrongly spelt or used, copy it exactly as written and do not list it: the student's own mistakes must stay.
 - Copy only the student's writing, not printed instructions, page numbers or headings that are part of the worksheet.
 - legibility: "good" if you could read everything, "partial" if some words were unclear or guessed, "poor" if much of it was unreadable.
@@ -308,7 +323,7 @@ export async function transcribeSheet(
       },
     ],
     output_config: {
-      effort: "low",
+      effort: SHEET_READING_EFFORT,
       format: zodOutputFormat(SheetSchema),
     },
   });

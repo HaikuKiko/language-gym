@@ -723,6 +723,8 @@ export async function markStudent(
       task: current.sheet?.task || set.task,
       focusGrammar: current.sheet?.grammar_focus || set.grammar_focus,
       guessedWords: guessedWords(first, pages),
+      // The teacher copies the corrections onto the paper: every mistake.
+      everyMistake: true,
     });
     const f = response.feedback;
     const area_levels: Partial<Record<Area, AreaLevel>> = {};

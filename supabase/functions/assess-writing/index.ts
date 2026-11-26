@@ -32,7 +32,8 @@
  *            teacher + line_by_line: true keeps the lines of the paper (returns line_by_line: true).
  * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given,
  *            and guessed_words (hard-to-read words from handwriting: never corrected);
- *            teacher IELTS marking takes guessed_words too.
+ *            teacher IELTS marking takes guessed_words too. every_mistake: true (class sets) lists
+ *            every mistake (up to MAX_TEACHER_CORRECTIONS); teacher IELTS marking always does.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -412,6 +413,8 @@ Deno.serve(async (request) => {
 
   // Words guessed when reading handwriting (a class set): not to be corrected.
   const guessedWords = guessedWordsFrom(body);
+  // Teachers marking writing to copy onto paper (class sets): every mistake.
+  const everyMistake = body.every_mistake === true;
 
   const key = await cacheKey("feedback", {
     prompt: SYSTEM_PROMPT,
@@ -420,6 +423,7 @@ Deno.serve(async (request) => {
     task: task?.trim() ?? "",
     focusGrammar: focusGrammar ?? "",
     ...(guessedWords.length > 0 ? { guessedWords } : {}),
+    ...(everyMistake ? { everyMistake } : {}),
   });
   const saved = await readCache(admin, key);
   if (saved) {
@@ -436,7 +440,7 @@ Deno.serve(async (request) => {
 
   let result;
   try {
-    result = await assessWriting(anthropic, { text, level, task, focusGrammar, guessedWords });
+    result = await assessWriting(anthropic, { text, level, task, focusGrammar, guessedWords, everyMistake });
   } catch (error) {
     return claudeError(error);
   }
@@ -617,6 +621,7 @@ async function teacherIeltsFeedback(
     text: text.trim(),
     question,
     ...(guessedWords.length > 0 ? { guessedWords } : {}),
+    everyMistake: true,
   });
   const saved = await readCache(admin, key);
   if (saved) {
@@ -634,7 +639,15 @@ async function teacherIeltsFeedback(
 
   let result;
   try {
-    result = await assessIeltsTask2(anthropic, { text, prompt: question, essayType: null, targetBand: null, guessedWords });
+    result = await assessIeltsTask2(anthropic, {
+      text,
+      prompt: question,
+      essayType: null,
+      targetBand: null,
+      guessedWords,
+      // Teachers copy the corrections onto the paper: every mistake.
+      everyMistake: true,
+    });
   } catch (error) {
     return claudeError(error);
   }

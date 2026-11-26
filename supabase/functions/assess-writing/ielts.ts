@@ -14,7 +14,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
-import { CorrectionSchema, countWords, MODEL, ParagraphingSchema } from "./assess.ts";
+import { CorrectionSchema, countWords, everyMistakeNote, MODEL, ParagraphingSchema } from "./assess.ts";
 
 // ---------------------------------------------------------------------------
 // Scoring rules (change these here)
@@ -275,6 +275,8 @@ export type IeltsInput = {
   effort?: "low" | "medium" | "high";
   /** Words that were hard to read in the handwriting and were guessed (they may be misread). */
   guessedWords?: string[];
+  /** Teacher marking: correct every mistake, through the whole essay (see everyMistakeNote). */
+  everyMistake?: boolean;
 };
 
 export type IeltsResult =
@@ -296,6 +298,7 @@ function buildUserMessage(input: IeltsInput, wordCount: number, minWords: number
         `Words that were hard to read in the handwriting and were guessed: ${input.guessedWords.map((w) => `"${w}"`).join(", ")}. They may be misread, so never correct a guessed word itself (its spelling, form or choice): it could be the reading, not the student. Do not count them as mistakes in the bands either. You may still correct the words around them.`,
       ]
       : []),
+    ...(input.everyMistake ? [everyMistakeNote()] : []),
     "",
     "<student_essay>",
     input.text.trim(),
@@ -311,7 +314,7 @@ export async function assessIeltsTask2(client: Anthropic, input: IeltsInput): Pr
   const response = await client.messages.parse({
     model: MODEL,
     // Room for adaptive thinking plus the feedback on a 250-400 word essay.
-    max_tokens: 12000,
+    max_tokens: input.everyMistake ? 18000 : 12000,
     system: IELTS_SYSTEM_PROMPT,
     messages: [{ role: "user", content: buildUserMessage(input, wordCount, minWords) }],
     output_config: {

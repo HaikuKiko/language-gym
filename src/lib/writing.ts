@@ -39,6 +39,8 @@ export type WritingRequest = {
   focusGrammar?: string;
   /** Words guessed when reading handwriting: they may be misread, so they are never corrected. */
   guessedWords?: string[];
+  /** Teacher marking (class sets): correct every mistake, not just the main ones. */
+  everyMistake?: boolean;
 };
 
 export type WritingResponse = {
@@ -64,6 +66,7 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
       week: request.week ?? undefined,
       focus_grammar: request.focusGrammar?.trim() || undefined,
       guessed_words: request.guessedWords?.length ? request.guessedWords : undefined,
+      every_mistake: request.everyMistake ? true : undefined,
     },
   });
 
