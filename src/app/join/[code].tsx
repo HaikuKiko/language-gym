@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
@@ -65,16 +65,8 @@ export default function JoinRoute() {
     await join();
   }
 
-  if (code.length !== CODE_LENGTH) {
-    return (
-      <Screen>
-        <View style={styles.header}>
-          <ThemedText type="subtitle">Join a session</ThemedText>
-          <ThemedText themeColor="textSecondary">Scan the QR code your teacher shows to join.</ThemedText>
-        </View>
-      </Screen>
-    );
-  }
+  // A wrong or cut-off code: type it instead.
+  if (code.length !== CODE_LENGTH) return <Redirect href="/join" />;
 
   return (
     <Screen>
