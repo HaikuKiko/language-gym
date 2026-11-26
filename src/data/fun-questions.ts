@@ -16,6 +16,8 @@ export type FunQuestion = {
   level: Level;
   /** The theme, as the course week (1 to 16) it belongs to. */
   week: number;
+  /** Follow-up questions for the asker (empty: the general ones are shown). */
+  followUps?: string[];
 };
 
 /**
@@ -28,6 +30,8 @@ export type CustomSet = {
   name: string;
   description: string;
   questions: string[];
+  /** Each question's follow-ups, in the same order as questions (may be empty). */
+  followUps?: string[][];
 };
 
 /** The themes speed friending uses (course weeks), in the order shown. */

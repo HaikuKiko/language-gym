@@ -71,7 +71,8 @@ Things agreed for later: `BACKLOG.md`.
   the questions, insert them with SQL, and tell the owner. Later: teachers add their own.
   **Take turns** (experiment, default on for speed friending; "Free conversation" switches it off; flag
   `take-turns`): each round is split equally within a group (`turnFor`); in turn k person k talks and the
-  next person asks them their own question (only the asker sees it; the talker listens), with follow-up prompts (`FOLLOW_UPS`)
+  next person asks them their own question (only the asker sees it; the talker listens), with follow-up prompts: each question's own 3 (`follow_ups` text[] column on `friending_questions` and
+  `custom_questions`; write 3 for every new question), else the general `FOLLOW_UPS`
   and "🔄 Swap!" for `SWAP_NOTICE_MS`. To roll back completely: revert the "Take turns" PR.
   **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
   turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
