@@ -489,11 +489,21 @@ export async function knownStudentNames(): Promise<string[]> {
 // Reading and marking
 // ---------------------------------------------------------------------------
 
-async function readSheet(image: PreparedPhoto): Promise<SheetDetails & { transcript: string; contains_writing: boolean }> {
+async function readSheet(
+  image: PreparedPhoto,
+  fresh = false,
+): Promise<SheetDetails & { transcript: string; contains_writing: boolean }> {
   const client = requireSupabase();
   await ensureSignedIn();
   const { data, error } = await client.functions.invoke('assess-writing', {
-    body: { mode: 'transcribe', image: image.base64, media_type: image.mediaType, teacher: true, sheet: true },
+    body: {
+      mode: 'transcribe',
+      image: image.base64,
+      media_type: image.mediaType,
+      teacher: true,
+      sheet: true,
+      ...(fresh ? { fresh: true } : {}),
+    },
   });
   if (error) {
     if (error instanceof FunctionsHttpError) {
@@ -586,11 +596,12 @@ async function readPage(
   page: ClassSetPage,
   onChange: (page: ClassSetPage) => void,
   students: ClassStudent[],
+  fresh = false,
 ): Promise<ClassSetPage> {
   const update = pageUpdater(onChange);
   let current = await update(page, { status: 'reading', error: null });
   try {
-    const sheet = await readSheet(await pageImage(current));
+    const sheet = await readSheet(await pageImage(current), fresh);
     const { transcript, contains_writing: hasWriting, ...details } = sheet;
     // The student: matched to the class list (allowing for misread letters),
     // unless the teacher has already chosen one.
@@ -688,6 +699,8 @@ export async function markStudent(
   first: ClassSetPage,
   pages: ClassSetPage[],
   onChange: (page: ClassSetPage) => void,
+  /** Skip the saved result and mark again ("Read and mark again"). */
+  fresh = false,
 ): Promise<void> {
   const update = pageUpdater(onChange);
   let current = first;
@@ -710,6 +723,7 @@ export async function markStudent(
         current.sheet?.task || set.task,
         lineByLine ? joinLines(text) : text,
         guessedWords(first, pages),
+        fresh,
       );
       // The class's target band is added when the feedback is shown (it may change).
       const f = response.feedback;
@@ -725,6 +739,7 @@ export async function markStudent(
       guessedWords: guessedWords(first, pages),
       // The teacher copies the corrections onto the paper: every mistake.
       everyMistake: true,
+      fresh,
     });
     const f = response.feedback;
     const area_levels: Partial<Record<Area, AreaLevel>> = {};
@@ -742,6 +757,43 @@ async function fewAtATime<T>(items: T[], job: (item: T) => Promise<unknown>): Pr
     for (let item = queue.shift(); item !== undefined; item = queue.shift()) await job(item);
   });
   await Promise.all(workers);
+}
+
+/**
+ * "Read and mark again": reads a student's pages again and marks the writing
+ * again, without the saved results (uses a reading per page and a marking).
+ * The teacher's changes to the reading are dropped.
+ */
+export async function rereadStudent(
+  set: ClassSet,
+  first: ClassSetPage,
+  pages: ClassSetPage[],
+  onChange: (page: ClassSetPage) => void,
+  students: ClassStudent[] = [],
+): Promise<void> {
+  const byId = new Map(pages.map((p) => [p.id, p]));
+  const track = (page: ClassSetPage) => {
+    byId.set(page.id, page);
+    onChange(page);
+  };
+  const update = pageUpdater(track);
+  for (const page of pagesOf(first, pages)) {
+    const reset = await update(page, {
+      status: 'waiting',
+      transcript: null,
+      ...(page.id === first.id
+        ? { feedback: null, cefr_level: null, area_levels: null, band: null, edited_text: null, reading_checked: false }
+        : {}),
+    });
+    const read = await readPage(reset, track, students, true);
+    if (read.status === 'error') return;
+  }
+  // The pages may now belong together differently; then mark the student again.
+  const grouped = await groupPages([...byId.values()], track);
+  const current = grouped.find((p) => p.id === first.id);
+  if (current && current.continues_page == null && current.transcript !== null) {
+    await markStudent(set, current, grouped, track, true);
+  }
 }
 
 /**

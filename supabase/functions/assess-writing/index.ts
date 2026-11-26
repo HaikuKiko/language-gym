@@ -34,6 +34,8 @@
  *            and guessed_words (hard-to-read words from handwriting: never corrected);
  *            teacher IELTS marking takes guessed_words too. every_mistake: true (class sets) lists
  *            every mistake (up to MAX_TEACHER_CORRECTIONS); teacher IELTS marking always does.
+ * fresh: true (photo readings, General English feedback, teacher IELTS marking) skips the saved
+ *            result and asks again; the new result replaces the saved one.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -281,7 +283,8 @@ Deno.serve(async (request) => {
       prompt,
       pages: pages.map((p) => [p.mediaType, p.data]),
     });
-    const saved = await readCache(admin, key);
+    // fresh: true (a teacher's "Read and mark again") skips the saved result.
+    const saved = body.fresh === true ? null : await readCache(admin, key);
     if (saved) {
       return reply(200, {
         ...saved,
@@ -425,7 +428,8 @@ Deno.serve(async (request) => {
     ...(guessedWords.length > 0 ? { guessedWords } : {}),
     ...(everyMistake ? { everyMistake } : {}),
   });
-  const saved = await readCache(admin, key);
+  // fresh: true (a teacher's "Read and mark again") skips the saved result.
+  const saved = body.fresh === true ? null : await readCache(admin, key);
   if (saved) {
     return reply(200, { ...saved, remaining_today: Math.max(0, DAILY_LIMIT - used), cached: true });
   }
@@ -623,7 +627,8 @@ async function teacherIeltsFeedback(
     ...(guessedWords.length > 0 ? { guessedWords } : {}),
     everyMistake: true,
   });
-  const saved = await readCache(admin, key);
+  // fresh: true (a teacher's "Read and mark again") skips the saved result.
+  const saved = body.fresh === true ? null : await readCache(admin, key);
   if (saved) {
     return reply(200, {
       ...saved,

@@ -41,6 +41,8 @@ export type WritingRequest = {
   guessedWords?: string[];
   /** Teacher marking (class sets): correct every mistake, not just the main ones. */
   everyMistake?: boolean;
+  /** Skip the saved result and mark again ("Read and mark again"). */
+  fresh?: boolean;
 };
 
 export type WritingResponse = {
@@ -67,6 +69,7 @@ export async function requestFeedback(request: WritingRequest): Promise<WritingR
       focus_grammar: request.focusGrammar?.trim() || undefined,
       guessed_words: request.guessedWords?.length ? request.guessedWords : undefined,
       every_mistake: request.everyMistake ? true : undefined,
+      fresh: request.fresh ? true : undefined,
     },
   });
 

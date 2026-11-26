@@ -115,6 +115,8 @@ export async function requestTeacherIeltsFeedback(
   text: string,
   /** Words guessed when reading handwriting: never corrected. */
   guessedWords: string[] = [],
+  /** Skip the saved result and mark again ("Read and mark again"). */
+  fresh = false,
 ): Promise<IeltsResponse> {
   const client = requireSupabase();
   await ensureSignedIn();
@@ -125,6 +127,7 @@ export async function requestTeacherIeltsFeedback(
       question: question.trim(),
       text,
       ...(guessedWords.length > 0 ? { guessed_words: guessedWords } : {}),
+      ...(fresh ? { fresh: true } : {}),
     },
   });
   if (error) {
