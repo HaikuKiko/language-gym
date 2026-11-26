@@ -110,6 +110,10 @@ Things agreed for later: `BACKLOG.md`.
   guessed words) and saves the IeltsFeedback in `feedback` + the overall band in `class_set_pages.band`
   (`isIeltsFeedback`). Lists use `pageResult`/`targetLabel` (`class-scores.ts`): score out of 10 or band.
   The page shows `IeltsFeedbackView` with the class's target band, line by line like General English.
+  **Teacher marking lists every mistake** (`everyMistakeNote`, up to `MAX_TEACHER_CORRECTIONS` = 30,
+  through the whole text): teacher IELTS marking always; General English class sets send `every_mistake`.
+  Students keep the short list (GE 6 + 4 punctuation, IELTS 8). Class-set pages are read with
+  `SHEET_READING_EFFORT` ("medium"); guesses must be real words; a copied-out title is left out.
   "Mark an IELTS essay" reads photos line by line too (`useWritingDraft` `lineByLine`, request
   `line_by_line`), sends guessed words, and shows the same line view.
   **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set
