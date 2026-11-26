@@ -1,3 +1,4 @@
+import { usePathname } from 'expo-router';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
 import { BUILT_IN_FUN_QUESTIONS, type CustomSet, type FunQuestion } from '@/data/fun-questions';
@@ -8,6 +9,12 @@ import { supabase } from '@/lib/supabase';
 
 /** Give up on the database after this long and use the built-in content. */
 const LOAD_TIMEOUT_MS = 6000;
+/**
+ * Pages that use the questions or the weekly plan, so they wait until those are
+ * loaded (every phone in a session must shuffle the same list). Every other page
+ * (the join page, the landing page, …) shows straight away.
+ */
+const PAGES_THAT_WAIT = /^\/(host|session|demo|single|write)(\/|$)/;
 
 type Content = {
   questions: readonly Question[];
@@ -204,10 +211,12 @@ async function loadContent(): Promise<Content> {
 
 /**
  * Loads the questions and the weekly plan once when the app opens and shares
- * them with every screen. Nothing is shown until they are ready, so a screen
- * never starts with one list and then switches to another.
+ * them with every screen. The pages that use them (PAGES_THAT_WAIT) show
+ * "Loading…" until they are ready, so a session never starts with one list and
+ * then switches to another. Other pages show straight away.
  */
-export function QuestionsProvider({ children }: { children: ReactNode }) {
+export function QuestionsProvider({ children, loading }: { children: ReactNode; loading: ReactNode }) {
+  const pathname = usePathname();
   const [content, setContent] = useState<Content | null>(supabase ? null : BUILT_IN);
 
   useEffect(() => {
@@ -228,6 +237,6 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (!content) return null;
-  return <ContentContext value={content}>{children}</ContentContext>;
+  const waiting = !content && PAGES_THAT_WAIT.test(pathname);
+  return <ContentContext value={content ?? BUILT_IN}>{waiting ? loading : children}</ContentContext>;
 }

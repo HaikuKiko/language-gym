@@ -12,7 +12,7 @@ import { LiveStudentScreen } from '@/screens/live-student-screen';
 /** A phone session: shows the host's controls or the student's view. */
 export default function LiveSessionRoute() {
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { state, applySession, applyParticipants } = useLiveSession(code);
+  const { state, applySession, applyParticipants, retry } = useLiveSession(code);
 
   if (state.status === 'loading') {
     return (
@@ -27,9 +27,14 @@ export default function LiveSessionRoute() {
       <Screen>
         <View style={styles.message}>
           <ThemedText type="subtitle">Can&apos;t open this session</ThemedText>
-          <ThemedText themeColor="textSecondary">{state.message}</ThemedText>
+          <ThemedText themeColor="textSecondary">{friendlyMessage(state.message)}</ThemedText>
         </View>
-        <Button label="Back" onPress={() => router.replace({ pathname: '/join/[code]', params: { code: String(code) } })} />
+        <Button label="Try again" onPress={retry} />
+        <Button
+          label="Back"
+          variant="secondary"
+          onPress={() => router.replace({ pathname: '/join/[code]', params: { code: String(code) } })}
+        />
       </Screen>
     );
   }
@@ -67,6 +72,13 @@ export default function LiveSessionRoute() {
   }
 
   return <LiveStudentScreen session={session} participants={participants} me={me} />;
+}
+
+/** A lost connection, in words a student understands. */
+function friendlyMessage(message: string): string {
+  return /fetch|network|load failed|timed? ?out/i.test(message)
+    ? 'Your phone can’t reach the internet right now. Check your Wi-Fi or data, then tap Try again.'
+    : message;
 }
 
 const styles = StyleSheet.create({

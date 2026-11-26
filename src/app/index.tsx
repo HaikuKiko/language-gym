@@ -1,6 +1,6 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { createElement } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { FooterLinks } from '@/components/footer-links';
@@ -63,6 +63,9 @@ export default function LandingRoute() {
         />
         <Button label="Try the demo on your own" variant="secondary" onPress={() => router.push('/demo')} />
       </View>
+      <Pressable accessibilityRole="link" onPress={() => router.push('/join')}>
+        <ThemedText style={{ color: theme.accent, fontWeight: 700 }}>Joining a session? Type your code here →</ThemedText>
+      </Pressable>
       <FooterLinks />
     </Screen>
   );

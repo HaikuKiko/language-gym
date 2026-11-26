@@ -168,11 +168,12 @@ export function LiveHostScreen({
                 <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>
                   Scan to join, or go to
                 </Text>
-                <ExternalLink href={link as Href & string}>
+                <ExternalLink href={`${address}/join` as Href & string}>
                   <Text style={[styles.heroLink, { color: theme.onHero }]}>
-                    {address.replace(/^https?:\/\//, '')}
+                    {address.replace(/^https?:\/\//, '')}/join
                   </Text>
                 </ExternalLink>
+                <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>and type the code</Text>
               </View>
             ) : (
               <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>

@@ -10,6 +10,8 @@ import { ensureSignedIn, errorMessage, requireSupabase } from '@/lib/supabase';
 
 /** How often to re-read the session, as a safety net behind live updates. */
 const REFRESH_INTERVAL_MS = 5000;
+/** Stop waiting for the first connection after this long and offer "Try again". */
+const CONNECT_TIMEOUT_MS = 15_000;
 
 export type LiveSessionState =
   | { status: 'loading' }
@@ -29,6 +31,8 @@ export type LiveSessionState =
  */
 export function useLiveSession(code: string) {
   const [state, setState] = useState<LiveSessionState>({ status: 'loading' });
+  /** Goes up each time "Try again" is tapped, which connects again. */
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,15 +94,32 @@ export function useLiveSession(code: string) {
       if (cancelled) cleanUp();
     }
 
-    connect().catch((error) => {
-      if (!cancelled) setState({ status: 'error', message: errorMessage(error) });
-    });
+    let connected = false;
+    const slow = setTimeout(() => {
+      if (!cancelled && !connected) setState({ status: 'error', message: 'Connecting timed out.' });
+    }, CONNECT_TIMEOUT_MS);
+
+    connect()
+      .then(() => {
+        connected = true;
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ status: 'error', message: errorMessage(error) });
+      })
+      .finally(() => clearTimeout(slow));
 
     return () => {
       cancelled = true;
+      clearTimeout(slow);
       cleanUp();
     };
-  }, [code]);
+  }, [code, attempt]);
+
+  /** Connects again after an error. */
+  function retry() {
+    setState({ status: 'loading' });
+    setAttempt((n) => n + 1);
+  }
 
   /** Shows a change the host just saved without waiting for it to come back. */
   function applySession(session: LiveSession) {
@@ -109,5 +130,5 @@ export function useLiveSession(code: string) {
     setState((prev) => (prev.status === 'ready' ? { ...prev, participants } : prev));
   }
 
-  return { state, applySession, applyParticipants };
+  return { state, applySession, applyParticipants, retry };
 }
