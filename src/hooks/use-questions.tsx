@@ -141,12 +141,17 @@ async function loadWeeks(): Promise<Week[] | null> {
   return weeks.length > 0 ? weeks : null;
 }
 
+/** A list of strings from a text[] column (anything else: empty). */
+function textList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && v.trim() !== '') : [];
+}
+
 /** Speed friending's questions from the friending_questions table (null if missing or empty). */
 async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   if (!supabase) return null;
   const { data, error } = await supabase
     .from('friending_questions')
-    .select('level, week, text')
+    .select('level, week, text, follow_ups')
     .eq('active', true)
     // A fixed order, so every phone shuffles the same list the same way.
     .order('id')
@@ -155,7 +160,7 @@ async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   const rows = data as unknown as Record<string, unknown>[];
   const questions = rows.flatMap((row): FunQuestion[] =>
     isLevel(row.level) && typeof row.week === 'number' && typeof row.text === 'string'
-      ? [{ level: row.level, week: row.week, text: row.text }]
+      ? [{ level: row.level, week: row.week, text: row.text, followUps: textList(row.follow_ups) }]
       : [],
   );
   return questions.length > 0 ? questions : null;
@@ -166,15 +171,19 @@ async function loadCustomSets(): Promise<CustomSet[]> {
   if (!supabase) return [];
   const [{ data: sets }, { data: questions }] = await Promise.all([
     supabase.from('custom_question_sets').select('id, name, description').eq('active', true).order('created_at'),
-    supabase.from('custom_questions').select('set_id, text').eq('active', true).order('id').limit(5000),
+    supabase.from('custom_questions').select('set_id, text, follow_ups').eq('active', true).order('id').limit(5000),
   ]);
   return (sets ?? [])
-    .map((s) => ({
-      id: String(s.id),
-      name: String(s.name),
-      description: String(s.description ?? ''),
-      questions: (questions ?? []).filter((q) => q.set_id === s.id).map((q) => String(q.text)),
-    }))
+    .map((s) => {
+      const own = (questions ?? []).filter((q) => q.set_id === s.id);
+      return {
+        id: String(s.id),
+        name: String(s.name),
+        description: String(s.description ?? ''),
+        questions: own.map((q) => String(q.text)),
+        followUps: own.map((q) => textList(q.follow_ups)),
+      };
+    })
     .filter((s) => s.questions.length > 0);
 }
 

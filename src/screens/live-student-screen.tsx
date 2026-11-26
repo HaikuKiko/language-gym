@@ -33,6 +33,7 @@ import { errorMessage } from '@/lib/supabase';
 // ===========================================================================
 
 /** Taking turns: questions the asker can use to keep their partner talking. */
+/** Shown when a question has no follow-ups of its own. */
 const FOLLOW_UPS = ['Why?', 'What happened next?', 'How did you feel?', 'Can you give an example?', 'Tell me more about…'];
 /** Taking turns: how long "Swap!" shows when the next turn starts. */
 const SWAP_NOTICE_MS = 4000;
@@ -298,7 +299,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
               KEEP {talker.name.toUpperCase()} TALKING: ASK
             </Text>
             <View style={styles.chips}>
-              {FOLLOW_UPS.map((f) => (
+              {(askerQuestion?.followUps?.length ? askerQuestion.followUps : FOLLOW_UPS).map((f) => (
                 <View key={f} style={[styles.followChip, { borderColor: theme.markA }]}>
                   <Text style={[styles.followText, { color: theme.markA }]}>{f}</Text>
                 </View>

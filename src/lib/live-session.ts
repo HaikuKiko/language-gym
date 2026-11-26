@@ -426,11 +426,11 @@ export function questionForStudent(
   funQuestions: readonly FunQuestion[],
   participantId: string,
   customSets: readonly CustomSet[] = [],
-): { text: string } | null {
+): { text: string; followUps?: string[] } | null {
   // A custom set: its questions, the same at every level.
   const custom = customSets.find((s) => s.id === customSetId(session));
-  const pool = custom
-    ? custom.questions.map((text) => ({ text }))
+  const pool: { text: string; followUps?: string[] }[] = custom
+    ? custom.questions.map((text, i) => ({ text, followUps: custom.followUps?.[i] }))
     : findFunQuestions(funQuestions, session.level, session.week);
   if (pool.length === 0) return null;
   const seat = Math.max(0, session.roster.findIndex((p) => p.id === participantId));
