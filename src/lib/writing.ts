@@ -101,6 +101,8 @@ export type PhotoReading = {
   fromCache?: boolean;
   /** How many pages (photos) were read together. */
   pages: number;
+  /** The transcript keeps the lines of the paper (teachers, when asked). */
+  lineByLine?: boolean;
 };
 
 // The last photo a teacher had read on this device, so uploading the same
@@ -174,10 +176,13 @@ export type TextMarks = { anchors: MistakeAnchor[]; length: number };
  */
 export async function readPhoto(
   images: { base64: string; mediaType: string }[],
-  options: { teacher?: boolean } = {},
+  options: { teacher?: boolean; lineByLine?: boolean } = {},
 ): Promise<PhotoReading> {
   if (images.length === 0) throw new Error('Please choose a photo.');
-  const key = options.teacher ? await photoKey(images.map((i) => i.base64).join('|')) : null;
+  const lineByLine = !!options.teacher && !!options.lineByLine;
+  const key = options.teacher
+    ? await photoKey((lineByLine ? 'lines|' : '') + images.map((i) => i.base64).join('|'))
+    : null;
   if (key) {
     const last = loadLastPhoto();
     if (last && last.key === key) return { ...last.reading, usedToday: undefined, fromCache: true };
@@ -193,6 +198,7 @@ export async function readPhoto(
         ? { image: images[0].base64, media_type: images[0].mediaType }
         : { images: images.map((i) => ({ image: i.base64, media_type: i.mediaType })) }),
       ...(options.teacher ? { teacher: true } : {}),
+      ...(lineByLine ? { line_by_line: true } : {}),
     },
   });
 
@@ -214,6 +220,7 @@ export async function readPhoto(
     usedToday: typeof data.used_today === 'number' ? data.used_today : undefined,
     fromCache: data.cached === true,
     pages: images.length,
+    lineByLine: data.line_by_line === true,
   };
   if (key && reading.containsWriting) saveLastPhoto(key, reading);
   return reading;
@@ -257,6 +264,16 @@ function normalise(value: string): string {
  */
 export function joinLines(text: string): string {
   return text.replace(/(?<!\n)\n(?!\n)/g, ' ');
+}
+
+/** How many lines of writing a text has (empty lines between paragraphs don't count). */
+export function writtenLines(text: string): number {
+  return text.split('\n').filter((line) => line.trim()).length;
+}
+
+/** The guessed words that are still in the text (the teacher may have corrected some). */
+export function guessesStillIn(text: string, guessed: string[]): string[] {
+  return guessAnchorsFrom(text, guessed).map((a) => a.original);
 }
 
 /** Whether a word is one of the guessed (hard-to-read) words. */

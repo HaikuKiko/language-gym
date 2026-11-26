@@ -24,7 +24,15 @@ import {
 } from '@/lib/ielts';
 import { pickPhoto } from '@/lib/photo';
 import { errorMessage, supabase } from '@/lib/supabase';
-import { countWords, readPhoto, writingProblem, type PhotoReading } from '@/lib/writing';
+import {
+  countWords,
+  guessesStillIn,
+  joinLines,
+  readPhoto,
+  writingProblem,
+  writtenLines,
+  type PhotoReading,
+} from '@/lib/writing';
 
 /**
  * Teachers mark any IELTS Writing Task 2 essay: type or paste the question
@@ -43,9 +51,12 @@ export default function TeacherIeltsRoute() {
   // The link made with "Share results", and this teacher's own saved marks.
   const [sharedCode, setSharedCode] = useState<string | null>(null);
   const [myMarkId, setMyMarkId] = useState<number | null>(null);
-  const draft = useWritingDraft('teacher-ielts', { teacher: true, onError: setError, onRead: noteUsage });
+  const draft = useWritingDraft('teacher-ielts', { teacher: true, lineByLine: true, onError: setError, onRead: noteUsage });
   const text = draft.text;
   const reading = readingQuestion || draft.reading;
+  // Read from photos line by line: shown with line numbers, sent as running text.
+  const lineByLine = draft.photo?.lineByLine === true;
+  const guessed = guessesStillIn(text, draft.photo?.guessedWords ?? []);
 
   const words = countWords(text);
   const problem =
@@ -64,7 +75,7 @@ export default function TeacherIeltsRoute() {
     setBusy(true);
     setError(null);
     try {
-      const response = await requestTeacherIeltsFeedback(question, text);
+      const response = await requestTeacherIeltsFeedback(question, lineByLine ? joinLines(text) : text, guessed);
       if (!response.cached && response.usedToday && response.usedToday % 5 === 0) {
         setUsage(
           `You have marked ${response.usedToday} essays today (the limit is ${response.usedToday + response.remainingToday}).`,
@@ -105,6 +116,8 @@ export default function TeacherIeltsRoute() {
       <IeltsFeedbackView
         response={result}
         text={text}
+        guessedWords={guessed}
+        pageLines={lineByLine ? [writtenLines(text)] : undefined}
         subtitle={question.trim() ? 'Teacher marking' : 'Teacher marking · question worked out from the essay'}
         improveLabel="Back to the essay"
         onImprove={() => setResult(null)}

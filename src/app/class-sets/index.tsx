@@ -10,8 +10,14 @@ import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { TARGET_LEVELS, type TargetLevel } from '@/lib/class-scores';
-import { loadClassSets, type ClassSet } from '@/lib/class-sets';
+import {
+  IELTS_TARGET_BANDS,
+  TARGET_LEVELS,
+  formatBandValue,
+  targetLabel,
+  type TargetLevel,
+} from '@/lib/class-scores';
+import { loadClassSets, type ClassSet, type Course } from '@/lib/class-sets';
 import { createClass, loadClasses, type SchoolClass } from '@/lib/classes';
 import { errorMessage } from '@/lib/supabase';
 
@@ -24,6 +30,8 @@ function ClassWritingRouteScreen() {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [target, setTarget] = useState<TargetLevel>('A2+');
+  const [course, setCourse] = useState<Course>('general');
+  const [targetBand, setTargetBand] = useState<number>(6.5);
 
   const load = useCallback(async () => {
     setError(null);
@@ -43,7 +51,10 @@ function ClassWritingRouteScreen() {
   async function add() {
     setError(null);
     try {
-      await createClass(name, target);
+      await createClass(
+        name,
+        course === 'ielts' ? { course: 'ielts', band: targetBand } : { course: 'general', level: target },
+      );
       setName('');
       setAdding(false);
       load();
@@ -63,7 +74,7 @@ function ClassWritingRouteScreen() {
         <ThemedText type="subtitle">Class writing</ThemedText>
         <ThemedText themeColor="textSecondary">
           Your classes and their writing. Upload a scan for a class: each page is read, marked against the
-          class&apos;s target level, scored out of 10, and saved under the student.
+          class&apos;s target (a level, scored out of 10, or an IELTS band), and saved under the student.
         </ThemedText>
       </View>
 
@@ -88,7 +99,7 @@ function ClassWritingRouteScreen() {
                 {c.studentCount} {c.studentCount === 1 ? 'student' : 'students'}
               </ThemedText>
             </View>
-            <Pill label={`Target ${c.target_level}`} tone="accent" />
+            <Pill label={c.course === 'ielts' ? `IELTS · ${targetLabel(c)}` : targetLabel(c)} tone="accent" />
           </Pressable>
         ))}
 
@@ -104,15 +115,36 @@ function ClassWritingRouteScreen() {
               autoFocus
               style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
             />
-            <ThemedText type="smallBold">Target level</ThemedText>
+            <ThemedText type="smallBold">Course</ThemedText>
             <View style={styles.chips}>
-              {TARGET_LEVELS.map((l) => (
-                <Chip key={l} label={l} selected={l === target} onPress={() => setTarget(l)} />
-              ))}
+              <Chip label="General English" selected={course === 'general'} onPress={() => setCourse('general')} />
+              <Chip label="IELTS Writing Task 2" selected={course === 'ielts'} onPress={() => setCourse('ielts')} />
             </View>
-            <ThemedText type="small" themeColor="textSecondary">
-              The level the class is working towards. Writing at this level in all four areas scores 7 out of 10.
-            </ThemedText>
+            {course === 'ielts' ? (
+              <>
+                <ThemedText type="smallBold">Target band</ThemedText>
+                <View style={styles.chips}>
+                  {IELTS_TARGET_BANDS.map((b) => (
+                    <Chip key={b} label={formatBandValue(b)} selected={b === targetBand} onPress={() => setTargetBand(b)} />
+                  ))}
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Each essay gets IELTS band scores (Task 2), compared with this target.
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <ThemedText type="smallBold">Target level</ThemedText>
+                <View style={styles.chips}>
+                  {TARGET_LEVELS.map((l) => (
+                    <Chip key={l} label={l} selected={l === target} onPress={() => setTarget(l)} />
+                  ))}
+                </View>
+                <ThemedText type="small" themeColor="textSecondary">
+                  The level the class is working towards. Writing at this level in all four areas scores 7 out of 10.
+                </ThemedText>
+              </>
+            )}
             <View style={styles.chips}>
               <Button label="Save the class" disabled={!name.trim()} onPress={add} />
               <Button label="Cancel" variant="secondary" onPress={() => setAdding(false)} />

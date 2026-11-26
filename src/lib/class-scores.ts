@@ -5,11 +5,17 @@
  * 10; below it falls gently, so 5.5 means "doesn't meet the standard" and
  * under 5 is very rare.
  */
-import type { Area } from '@/lib/class-sets';
+import type { Area, ClassSetPage } from '@/lib/class-sets';
+import type { SchoolClass } from '@/lib/classes';
 
 // ===========================================================================
 // Settings: change the scoring here
 // ===========================================================================
+
+/** The bands an IELTS class can aim for, lowest first. */
+export const IELTS_TARGET_BANDS = [4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8] as const;
+/** IELTS classes don't use a CEFR target; this is stored in its place. */
+export const IELTS_PLACEHOLDER_LEVEL = 'B2';
 
 /** The levels a class can aim for, lowest first. */
 export const TARGET_LEVELS = ['A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2', 'B2+', 'C1', 'C2'] as const;
@@ -82,4 +88,38 @@ export function scoreFor(
 /** "7", "6.5". */
 export function formatScore(score: number): string {
   return Number.isInteger(score) ? String(score) : score.toFixed(1);
+}
+
+/** "6.0", "6.5" (as IELTS shows bands). */
+export function formatBandValue(band: number): string {
+  return band.toFixed(1);
+}
+
+/** The class's target in words: "Target A2+" or "Target band 6.5". */
+export function targetLabel(schoolClass: Pick<SchoolClass, 'course' | 'target_level' | 'target_band'>): string {
+  if (schoolClass.course === 'ielts') {
+    return schoolClass.target_band != null ? `Target band ${formatBandValue(schoolClass.target_band)}` : 'IELTS';
+  }
+  return `Target ${schoolClass.target_level}`;
+}
+
+/**
+ * A marked piece of writing's result for lists: General English, the score
+ * out of 10 and the level; IELTS, the overall band and how it compares with
+ * the target. Null while not marked.
+ */
+export function pageResult(
+  page: Pick<ClassSetPage, 'area_levels' | 'cefr_level' | 'band'>,
+  schoolClass: Pick<SchoolClass, 'course' | 'target_level' | 'target_band'> | null,
+): { big: string; small: string } | null {
+  if (page.band != null) {
+    const target = schoolClass?.course === 'ielts' ? schoolClass.target_band : null;
+    return {
+      big: formatBandValue(page.band),
+      small: target == null ? 'band' : page.band >= target ? 'on target' : `target ${formatBandValue(target)}`,
+    };
+  }
+  if (!page.cefr_level) return null;
+  const score = schoolClass ? scoreFor(page.area_levels, schoolClass.target_level) : null;
+  return score === null ? { big: page.cefr_level, small: 'level' } : { big: formatScore(score), small: page.cefr_level };
 }

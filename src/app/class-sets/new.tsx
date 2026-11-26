@@ -11,7 +11,7 @@ import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { feedbackLevel } from '@/lib/class-scores';
+import { feedbackLevel, targetLabel } from '@/lib/class-scores';
 import { CAN_READ_PDF, MAX_CLASS_SET_PAGES, choosePdfPages, createClassSet } from '@/lib/class-sets';
 import { loadClasses, type SchoolClass } from '@/lib/classes';
 import { pickPhotos, type PreparedPhoto } from '@/lib/photo';
@@ -35,6 +35,7 @@ function NewClassSetRouteScreen() {
   const [error, setError] = useState<string | null>(null);
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
   const chosenClass = classes?.find((c) => c.id === classId) ?? null;
+  const ielts = chosenClass?.course === 'ielts';
 
   useEffect(() => {
     loadClasses()
@@ -89,6 +90,7 @@ function NewClassSetRouteScreen() {
       const id = await createClassSet(
         {
           classId: chosenClass.id,
+          course: chosenClass.course,
           title,
           className: chosenClass.name,
           level: feedbackLevel(chosenClass.target_level),
@@ -179,6 +181,10 @@ function NewClassSetRouteScreen() {
           <ThemedText type="small" themeColor="warning">
             Add your classes first (Class writing → Add a class).
           </ThemedText>
+        ) : chosenClass?.course === 'ielts' ? (
+          <ThemedText type="small" themeColor="textSecondary">
+            IELTS Writing Task 2 · {targetLabel(chosenClass)}: each essay gets band scores, compared with the target.
+          </ThemedText>
         ) : chosenClass ? (
           <ThemedText type="small" themeColor="textSecondary">
             Target {chosenClass.target_level}: scores are worked out against it, and the feedback is written for{' '}
@@ -192,25 +198,33 @@ function NewClassSetRouteScreen() {
       </View>
 
       <View style={styles.section}>
-        <ThemedText type="smallBold">Task (optional)</ThemedText>
+        <ThemedText type="smallBold">{ielts ? 'The Task 2 question' : 'Task (optional)'}</ThemedText>
         <TextInput
           value={task}
           onChangeText={setTask}
-          placeholder="Leave empty to read it from each sheet"
+          placeholder={
+            ielts
+              ? 'Type or paste the question. Leave empty to read it from each sheet, or work it out from the essay.'
+              : 'Leave empty to read it from each sheet'
+          }
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Task"
           multiline
           style={[inputStyle, styles.multiline]}
         />
-        <ThemedText type="smallBold">Grammar focus (optional)</ThemedText>
-        <TextInput
-          value={grammarFocus}
-          onChangeText={setGrammarFocus}
-          placeholder="Leave empty to read it from each sheet"
-          placeholderTextColor={theme.textSecondary}
-          accessibilityLabel="Grammar focus"
-          style={inputStyle}
-        />
+        {!ielts && (
+          <>
+            <ThemedText type="smallBold">Grammar focus (optional)</ThemedText>
+            <TextInput
+              value={grammarFocus}
+              onChangeText={setGrammarFocus}
+              placeholder="Leave empty to read it from each sheet"
+              placeholderTextColor={theme.textSecondary}
+              accessibilityLabel="Grammar focus"
+              style={inputStyle}
+            />
+          </>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -221,7 +235,7 @@ function NewClassSetRouteScreen() {
         />
         {pages.length > 0 && (
           <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-            Uses {pages.length} photo readings and {pages.length} feedback checks.
+            Uses {pages.length} photo readings and up to {pages.length} {ielts ? 'IELTS markings' : 'feedback checks'}.
           </ThemedText>
         )}
         {error && (

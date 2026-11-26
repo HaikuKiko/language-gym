@@ -25,6 +25,8 @@ export function useWritingDraft(
   options: {
     /** Teacher marking: photo readings count against the teacher's cap. */
     teacher?: boolean;
+    /** Teachers: read photos line by line, as on the paper. */
+    lineByLine?: boolean;
     /** Shows (or with null, clears) a message on the screen. */
     onError: (message: string | null) => void;
     /** Called whenever the text changes, e.g. to keep a draft. */
@@ -53,7 +55,7 @@ export function useWritingDraft(
     setReading(true);
     let ok = false;
     try {
-      const read = await readPhoto(pages, { teacher: options.teacher });
+      const read = await readPhoto(pages, { teacher: options.teacher, lineByLine: options.lineByLine });
       options.onRead?.(read);
       if (!read.containsWriting || !read.transcript.trim()) {
         options.onError(

@@ -29,8 +29,10 @@
  *            teacher: true uses TEACHER_PHOTO_CAP instead of PHOTO_DAILY_LIMIT.
  *            sheet: true (one page of a class set) also returns student_name,
  *            class_name, sheet_date, task and grammar_focus read from the sheet.
+ *            teacher + line_by_line: true keeps the lines of the paper (returns line_by_line: true).
  * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given,
- *            and guessed_words (hard-to-read words from handwriting: never corrected).
+ *            and guessed_words (hard-to-read words from handwriting: never corrected);
+ *            teacher IELTS marking takes guessed_words too.
  *
  * "track" defaults to "general", so the app's existing requests work as
  * before. Other tracks need an active row in the tracks table and an
@@ -54,6 +56,7 @@ import {
   type StudentLevel,
   SHEET_PROMPT,
   SYSTEM_PROMPT,
+  TRANSCRIBE_LINES_PROMPT,
   TRANSCRIBE_PROMPT,
   transcribeImage,
   transcribeSheet,
@@ -188,6 +191,16 @@ async function usedToday(admin: SupabaseClient, userId: string, kind: Kind): Pro
   return error ? null : (count ?? 0);
 }
 
+/** Words guessed when reading handwriting (sent with marking): never to be corrected. */
+function guessedWordsFrom(body: Record<string, unknown>): string[] {
+  return Array.isArray(body.guessed_words)
+    ? body.guessed_words
+      .filter((w): w is string => typeof w === "string" && w.trim().length > 0)
+      .map((w) => w.trim().slice(0, MAX_GUESSED_WORD_LENGTH))
+      .slice(0, MAX_GUESSED_WORDS)
+    : [];
+}
+
 /** Turns an error from the Claude call into a reply for the student. */
 function claudeError(error: unknown): Response {
   if (error instanceof Anthropic.RateLimitError) {
@@ -260,8 +273,11 @@ Deno.serve(async (request) => {
     if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
 
     const sheet = body.sheet === true && pages.length === 1;
+    // Teachers can ask for the lines of the paper to be kept (to find corrections by line).
+    const lines = !sheet && teacher && body.line_by_line === true;
+    const prompt = sheet ? SHEET_PROMPT : lines ? TRANSCRIBE_LINES_PROMPT : TRANSCRIBE_PROMPT;
     const key = await cacheKey(sheet ? "sheet" : "transcribe", {
-      prompt: sheet ? SHEET_PROMPT : TRANSCRIBE_PROMPT,
+      prompt,
       pages: pages.map((p) => [p.mediaType, p.data]),
     });
     const saved = await readCache(admin, key);
@@ -291,7 +307,8 @@ Deno.serve(async (request) => {
           ? { ok: true as const, transcript: { ...read.sheet, line_by_line: true }, usage: read.usage }
           : read;
       } else {
-        result = await transcribeImage(anthropic, pages);
+        const read = await transcribeImage(anthropic, pages, prompt);
+        result = read.ok && lines ? { ...read, transcript: { ...read.transcript, line_by_line: true } } : read;
       }
     } catch (error) {
       return claudeError(error);
@@ -394,12 +411,7 @@ Deno.serve(async (request) => {
   }
 
   // Words guessed when reading handwriting (a class set): not to be corrected.
-  const guessedWords = Array.isArray(body.guessed_words)
-    ? body.guessed_words
-      .filter((w): w is string => typeof w === "string" && w.trim().length > 0)
-      .map((w) => w.trim().slice(0, MAX_GUESSED_WORD_LENGTH))
-      .slice(0, MAX_GUESSED_WORDS)
-    : [];
+  const guessedWords = guessedWordsFrom(body);
 
   const key = await cacheKey("feedback", {
     prompt: SYSTEM_PROMPT,
@@ -598,11 +610,13 @@ async function teacherIeltsFeedback(
   if (countError) return fail(500, "server_error", "Something went wrong. Please try again.");
   const used = count ?? 0;
 
+  const guessedWords = guessedWordsFrom(body);
   const key = await cacheKey("ielts_teacher", {
     prompt: IELTS_SYSTEM_PROMPT,
     effort: IELTS_EFFORT,
     text: text.trim(),
     question,
+    ...(guessedWords.length > 0 ? { guessedWords } : {}),
   });
   const saved = await readCache(admin, key);
   if (saved) {
@@ -620,7 +634,7 @@ async function teacherIeltsFeedback(
 
   let result;
   try {
-    result = await assessIeltsTask2(anthropic, { text, prompt: question, essayType: null, targetBand: null });
+    result = await assessIeltsTask2(anthropic, { text, prompt: question, essayType: null, targetBand: null, guessedWords });
   } catch (error) {
     return claudeError(error);
   }
