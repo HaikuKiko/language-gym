@@ -14,6 +14,7 @@ import { Platform } from 'react-native';
 import type { Level } from '@/data/questions';
 import { matchStudent, type ClassStudent } from '@/lib/classes';
 import type { PreparedPhoto } from '@/lib/photo';
+import { requestTeacherIeltsFeedback, type IeltsFeedback } from '@/lib/ielts';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 import {
   MIN_WORDS,
@@ -57,8 +58,13 @@ const PDF_STEP_TIMEOUT_MS = 60_000;
 export const AREAS = ['Content', 'Organisation', 'Grammar', 'Vocabulary'] as const;
 export type Area = (typeof AREAS)[number];
 
+/** What a class (and its class sets) is marked for. */
+export type Course = 'general' | 'ielts';
+
 export type ClassSet = {
   id: string;
+  /** General English (levels, score out of 10) or IELTS Writing Task 2 (bands). */
+  course: Course;
   created_at: string;
   /** The class it belongs to (missing only on the first sets, made before classes). */
   class_id: string | null;
@@ -99,8 +105,11 @@ export type ClassSetPage = {
   error: string | null;
   transcript: string | null;
   sheet: SheetDetails | null;
-  feedback: WritingFeedback | null;
+  /** General English feedback, or IELTS feedback in an IELTS class set. */
+  feedback: WritingFeedback | IeltsFeedback | null;
   cefr_level: CefrLevel | null;
+  /** IELTS class sets: the overall band. */
+  band: number | null;
   area_levels: Partial<Record<Area, AreaLevel>> | null;
   /**
    * For a student's second (third…) page: the page number of their first
@@ -112,6 +121,11 @@ export type ClassSetPage = {
   /** On a first page: the teacher has checked the reading against the paper. */
   reading_checked: boolean;
 };
+
+/** Whether feedback is IELTS band scores (an IELTS class set). */
+export function isIeltsFeedback(f: WritingFeedback | IeltsFeedback | null | undefined): f is IeltsFeedback {
+  return !!f && (f as IeltsFeedback).track === 'ielts';
+}
 
 /**
  * Whether a page is the first page of a student's writing: it shows the
@@ -332,6 +346,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export async function createClassSet(
   input: {
     classId: string;
+    course: Course;
     title: string;
     className: string;
     level: Level;
@@ -353,6 +368,7 @@ export async function createClassSet(
     .from('class_sets')
     .insert({
       class_id: input.classId,
+      course: input.course,
       title: input.title.trim(),
       class_name: input.className.trim(),
       level: input.level,
@@ -550,7 +566,7 @@ export async function saveReading(
   const edited_text = changed ? (text.trim() === readTranscript(first, pages).trim() ? null : text) : first.edited_text;
   let current = await update(first, { reading_checked: true, edited_text });
   if (changed && current.status === 'done') {
-    current = await update(current, { status: 'waiting', feedback: null, cefr_level: null, area_levels: null });
+    current = await update(current, { status: 'waiting', feedback: null, cefr_level: null, area_levels: null, band: null });
     await markStudent(set, current, pages, onChange);
   }
 }
@@ -656,10 +672,10 @@ async function groupPages(
     let current = page;
     if (wanted !== null) {
       if ((page.continues_page ?? null) !== wanted || page.status !== 'done') {
-        current = await update(page, { continues_page: wanted, status: 'done', error: null, feedback: null, cefr_level: null, area_levels: null });
+        current = await update(page, { continues_page: wanted, status: 'done', error: null, feedback: null, cefr_level: null, area_levels: null, band: null });
       }
     } else if ((page.continues_page ?? null) !== null || (changedFirsts.has(page.page_number) && page.status !== 'waiting')) {
-      current = await update(page, { continues_page: null, status: 'waiting', feedback: null, cefr_level: null, area_levels: null, edited_text: null, reading_checked: false });
+      current = await update(page, { continues_page: null, status: 'waiting', feedback: null, cefr_level: null, area_levels: null, band: null, edited_text: null, reading_checked: false });
     }
     result.push(current);
   }
@@ -687,9 +703,22 @@ export async function markStudent(
       return;
     }
     current = await update(current, { status: 'marking', error: null });
+    const lineByLine = isLineByLine(first, pages);
+    if (set.course === 'ielts') {
+      // IELTS: band scores against the Task 2 question (from the sheet, or typed in).
+      const response = await requestTeacherIeltsFeedback(
+        current.sheet?.task || set.task,
+        lineByLine ? joinLines(text) : text,
+        guessedWords(first, pages),
+      );
+      // The class's target band is added when the feedback is shown (it may change).
+      const f = response.feedback;
+      await update(current, { status: 'done', feedback: f, band: f.overall_band, cefr_level: null, area_levels: null });
+      return;
+    }
     const response = await requestFeedback({
       // Read line by line: sent as running text, so lines don't look like paragraphs.
-      text: isLineByLine(first, pages) ? joinLines(text) : text,
+      text: lineByLine ? joinLines(text) : text,
       level: set.level,
       task: current.sheet?.task || set.task,
       focusGrammar: current.sheet?.grammar_focus || set.grammar_focus,

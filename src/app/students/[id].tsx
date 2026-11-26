@@ -9,8 +9,8 @@ import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatScore, scoreFor } from '@/lib/class-scores';
-import { AREAS } from '@/lib/class-sets';
+import { pageResult, targetLabel } from '@/lib/class-scores';
+import { AREAS, isIeltsFeedback } from '@/lib/class-sets';
 import { loadStudentHistory, renameStudent, type ClassStudent, type HistoryEntry, type SchoolClass } from '@/lib/classes';
 import { errorMessage } from '@/lib/supabase';
 
@@ -68,7 +68,6 @@ function StudentRouteScreen() {
     );
   }
 
-  const target = schoolClass?.target_level ?? null;
 
   return (
     <Screen>
@@ -98,7 +97,7 @@ function StudentRouteScreen() {
             <Button label="Change name" variant="secondary" onPress={() => setEditing(true)} />
           </View>
         )}
-        {target && <Pill label={`Class target ${target}`} tone="accent" />}
+        {schoolClass && <Pill label={`Class ${targetLabel(schoolClass).toLowerCase()}`} tone="accent" />}
       </View>
 
       {error && <ThemedText themeColor="warning">{error}</ThemedText>}
@@ -108,7 +107,8 @@ function StudentRouteScreen() {
         <ThemedText themeColor="textSecondary">No marked writing yet.</ThemedText>
       )}
       {history.map(({ page, set }) => {
-        const score = target ? scoreFor(page.area_levels, target) : null;
+        const result = pageResult(page, schoolClass);
+        const ielts = isIeltsFeedback(page.feedback) ? page.feedback : null;
         return (
           <Pressable
             key={page.id}
@@ -124,8 +124,20 @@ function StudentRouteScreen() {
                   {new Date(set.created_at).toLocaleDateString()}
                 </ThemedText>
               </View>
-              {score !== null && <ThemedText style={styles.score}>{formatScore(score)}</ThemedText>}
+              {result && <ThemedText style={styles.score}>{result.big}</ThemedText>}
             </View>
+            {ielts && (
+              <View style={styles.areas}>
+                {ielts.criteria.map((c) => (
+                  <View key={c.code} style={styles.area}>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {c.code.toUpperCase()}
+                    </ThemedText>
+                    <ThemedText type="smallBold">{c.band}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            )}
             {page.area_levels && (
               <View style={styles.areas}>
                 {AREAS.map((a) => (

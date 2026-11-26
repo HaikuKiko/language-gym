@@ -110,11 +110,22 @@ export async function loadAssignedPrompts(): Promise<WritingPrompt[]> {
  * Teacher marking: any Task 2 essay against any question (or, with no
  * question, the question is worked out from the essay). No course needed.
  */
-export async function requestTeacherIeltsFeedback(question: string, text: string): Promise<IeltsResponse> {
+export async function requestTeacherIeltsFeedback(
+  question: string,
+  text: string,
+  /** Words guessed when reading handwriting: never corrected. */
+  guessedWords: string[] = [],
+): Promise<IeltsResponse> {
   const client = requireSupabase();
   await ensureSignedIn();
   const { data, error } = await client.functions.invoke('assess-writing', {
-    body: { track: 'ielts', teacher: true, question: question.trim(), text },
+    body: {
+      track: 'ielts',
+      teacher: true,
+      question: question.trim(),
+      text,
+      ...(guessedWords.length > 0 ? { guessed_words: guessedWords } : {}),
+    },
   });
   if (error) {
     if (error instanceof FunctionsHttpError) {

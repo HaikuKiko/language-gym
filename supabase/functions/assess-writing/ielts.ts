@@ -273,6 +273,8 @@ export type IeltsInput = {
   minWords?: number;
   targetBand?: number | null;
   effort?: "low" | "medium" | "high";
+  /** Words that were hard to read in the handwriting and were guessed (they may be misread). */
+  guessedWords?: string[];
 };
 
 export type IeltsResult =
@@ -289,6 +291,11 @@ function buildUserMessage(input: IeltsInput, wordCount: number, minWords: number
     `Essay type: ${input.essayType ? ESSAY_TYPE_NOTES[input.essayType] : "(not given: work it out from the question)"}`,
     `Word count: ${wordCount} (limit: at least ${minWords}${wordCount < minWords ? "; this essay is UNDER the limit" : ""})`,
     `Student's target band: ${input.targetBand ?? "(none given)"}`,
+    ...(input.guessedWords?.length
+      ? [
+        `Words that were hard to read in the handwriting and were guessed: ${input.guessedWords.map((w) => `"${w}"`).join(", ")}. They may be misread, so never correct a guessed word itself (its spelling, form or choice): it could be the reading, not the student. Do not count them as mistakes in the bands either. You may still correct the words around them.`,
+      ]
+      : []),
     "",
     "<student_essay>",
     input.text.trim(),

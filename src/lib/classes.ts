@@ -4,8 +4,8 @@
  * student, so each student's writing can be followed over time. Tables
  * classes and class_students (supabase/updates/2026-11-24-classes.sql).
  */
-import type { TargetLevel } from '@/lib/class-scores';
-import { studentKey, type Area, type ClassSet, type ClassSetPage } from '@/lib/class-sets';
+import { IELTS_PLACEHOLDER_LEVEL, type TargetLevel } from '@/lib/class-scores';
+import { studentKey, type Area, type ClassSet, type ClassSetPage, type Course } from '@/lib/class-sets';
 import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
 import type { AreaLevel } from '@/lib/writing';
 
@@ -24,7 +24,11 @@ export type SchoolClass = {
   id: string;
   created_at: string;
   name: string;
+  /** General English (target level) or IELTS Writing Task 2 (target band). */
+  course: Course;
   target_level: TargetLevel;
+  /** IELTS classes: the band the class aims for, e.g. 6.5. */
+  target_band: number | null;
 };
 
 export type ClassStudent = {
@@ -55,12 +59,19 @@ export async function loadClasses(): Promise<(SchoolClass & { studentCount: numb
   }));
 }
 
-export async function createClass(name: string, target: TargetLevel): Promise<SchoolClass> {
+export async function createClass(
+  name: string,
+  target: { course: 'general'; level: TargetLevel } | { course: 'ielts'; band: number },
+): Promise<SchoolClass> {
   const client = requireSupabase();
   await ensureSignedIn();
   const { data, error } = await client
     .from('classes')
-    .insert({ name: name.trim(), target_level: target })
+    .insert(
+      target.course === 'ielts'
+        ? { name: name.trim(), course: 'ielts', target_level: IELTS_PLACEHOLDER_LEVEL, target_band: target.band }
+        : { name: name.trim(), course: 'general', target_level: target.level },
+    )
     .select('*')
     .single();
   if (error) {
@@ -69,7 +80,10 @@ export async function createClass(name: string, target: TargetLevel): Promise<Sc
   return data as SchoolClass;
 }
 
-export async function updateClass(id: string, changes: Partial<Pick<SchoolClass, 'name' | 'target_level'>>) {
+export async function updateClass(
+  id: string,
+  changes: Partial<Pick<SchoolClass, 'name' | 'target_level' | 'target_band'>>,
+) {
   const { error } = await requireSupabase().from('classes').update(changes).eq('id', id);
   if (error) throw new Error('The class could not be saved.');
 }

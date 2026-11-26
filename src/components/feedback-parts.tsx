@@ -185,7 +185,9 @@ export function LineMarkedWriting({
   marked,
   guessed = [],
   pageLines,
+  title = 'Their writing, line by line (as on the paper)',
 }: {
+  title?: string;
   text: string;
   marked: MarkedText;
   guessed?: string[];
@@ -243,7 +245,7 @@ export function LineMarkedWriting({
   }
 
   return (
-    <Section title="Their writing, line by line (as on the paper)">
+    <Section title={title}>
       <ThemedView type="backgroundElement" style={styles.studentText}>
         {lines.map((line, i) => {
           const pageStart = pageLines.length > 1 && line.label && line.number === 1;

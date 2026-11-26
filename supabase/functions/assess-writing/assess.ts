@@ -235,10 +235,10 @@ const JOIN_LINES =
  * How lines are copied for a class set: line by line, as on the paper, so the
  * teacher can find each correction on the page by its line number.
  */
-const LINE_BY_LINE =
+export const LINE_BY_LINE =
   "- Copy the writing line by line, exactly as it is laid out on the page: each handwritten line is one line in the transcript, ending where the student's line ends, even in the middle of a sentence. If a word is split over two lines with a hyphen, write the whole word at the end of the first line. Put one empty line between paragraphs (where the student left a gap, indented, or clearly started a new paragraph); never leave an empty line anywhere else.";
 
-function transcribePrompt(lineRule: string): string {
+export function transcribePrompt(lineRule: string): string {
   return `You turn a photo of a language learner's English writing (usually handwriting) into typed text, so that their teacher's feedback tool can assess it.
 
 Copy exactly what the student wrote. This is essential: keep every spelling, grammar and punctuation mistake as written, and never correct, improve or complete anything, even obvious slips.
@@ -257,6 +257,13 @@ ${lineRule}
 }
 
 export const TRANSCRIBE_PROMPT = transcribePrompt(JOIN_LINES);
+
+/**
+ * A teacher's photos read line by line (one essay over several pages): as
+ * TRANSCRIBE_PROMPT, but keeping the lines of the paper, each page starting on a new line.
+ */
+export const TRANSCRIBE_LINES_PROMPT = `${transcribePrompt(LINE_BY_LINE)}
+- Keeping the lines matters more than joining sentences across pages: start each new page on a new line, with no empty line between pages unless a new paragraph starts there.`;
 
 /** A page of a class set: the transcript plus what is filled in on the printed sheet. */
 export const SheetSchema = TranscriptSchema.extend({
@@ -321,6 +328,7 @@ export async function transcribeSheet(
 export async function transcribeImage(
   client: Anthropic,
   images: { data: string; mediaType: ImageMediaType }[],
+  system: string = TRANSCRIBE_PROMPT,
 ): Promise<
   | { ok: true; transcript: Transcript; usage: { input_tokens: number; output_tokens: number } }
   | { ok: false; reason: "refused" | "too_long" | "unreadable"; detail?: string }
@@ -328,7 +336,7 @@ export async function transcribeImage(
   const response = await client.messages.parse({
     model: MODEL,
     max_tokens: 4000 + 2000 * images.length,
-    system: TRANSCRIBE_PROMPT,
+    system,
     messages: [
       {
         role: "user",

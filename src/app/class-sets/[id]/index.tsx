@@ -11,7 +11,7 @@ import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatScore, scoreFor } from '@/lib/class-scores';
+import { pageResult, targetLabel } from '@/lib/class-scores';
 import { loadClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import {
   deleteClassSet,
@@ -151,8 +151,9 @@ function ClassSetRouteScreen() {
         </ThemedText>
         <ThemedText type="subtitle">{set.title || 'Class set'}</ThemedText>
         <View style={styles.pills}>
+          {set.course === 'ielts' && <Pill label="IELTS Writing Task 2" />}
           {schoolClass ? (
-            <Pill label={`Target ${schoolClass.target_level}`} tone="accent" />
+            <Pill label={targetLabel(schoolClass)} tone="accent" />
           ) : (
             <Pill label={`Feedback for ${set.level}`} tone="accent" />
           )}
@@ -190,7 +191,7 @@ function ClassSetRouteScreen() {
       {firsts.map((page) => {
         const count = pagesOf(page, pages).length;
         const named = !needsName(page);
-        const score = schoolClass ? scoreFor(page.area_levels, schoolClass.target_level) : null;
+        const result = page.status === 'done' ? pageResult(page, schoolClass) : null;
         const guesses = guessedWords(page, pages);
         const check = page.status !== 'done' && page.transcript !== null && needsChecking(page, pages);
         const orange = !named || check;
@@ -198,7 +199,7 @@ function ClassSetRouteScreen() {
           <Pressable
             key={page.id}
             accessibilityRole="button"
-            accessibilityLabel={`${pageTitle(page)}${page.cefr_level ? `, level ${page.cefr_level}` : ''}`}
+            accessibilityLabel={`${pageTitle(page)}${result ? `, ${result.big} ${result.small}` : ''}`}
             onPress={() =>
               router.push({ pathname: '/class-sets/[id]/[page]', params: { id: set.id, page: String(page.page_number) } })
             }
@@ -239,15 +240,13 @@ function ClassSetRouteScreen() {
                 </ThemedText>
               )}
             </View>
-            {page.status === 'done' && score !== null ? (
+            {result ? (
               <View style={styles.scoreBox}>
-                <ThemedText style={styles.score}>{formatScore(score)}</ThemedText>
+                <ThemedText style={styles.score}>{result.big}</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {page.cefr_level}
+                  {result.small}
                 </ThemedText>
               </View>
-            ) : page.status === 'done' && page.cefr_level ? (
-              <Pill label={page.cefr_level} tone="accent" />
             ) : page.status === 'waiting' && page.transcript !== null ? null : (
               <ThemedText type="small" themeColor="textSecondary">
                 {STATUS_TEXT[page.status]}

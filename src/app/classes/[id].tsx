@@ -10,7 +10,14 @@ import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { TARGET_LEVELS, formatScore, scoreFor, type TargetLevel } from '@/lib/class-scores';
+import {
+  IELTS_TARGET_BANDS,
+  TARGET_LEVELS,
+  formatBandValue,
+  pageResult,
+  targetLabel,
+  type TargetLevel,
+} from '@/lib/class-scores';
 import type { ClassSet, ClassSetPage } from '@/lib/class-sets';
 import { addStudents, loadClass, updateClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import { errorMessage } from '@/lib/supabase';
@@ -57,9 +64,9 @@ function ClassRouteScreen() {
     }
   }
 
-  async function setTarget(target: TargetLevel) {
+  async function setTarget(target: { target_level: TargetLevel } | { target_band: number }) {
     if (!data) return;
-    await updateClass(data.schoolClass.id, { target_level: target }).catch((e) => setError(errorMessage(e)));
+    await updateClass(data.schoolClass.id, target).catch((e) => setError(errorMessage(e)));
     setEditingTarget(false);
     load();
   }
@@ -98,7 +105,8 @@ function ClassRouteScreen() {
         </ThemedText>
         <ThemedText type="subtitle">{schoolClass.name}</ThemedText>
         <View style={styles.chips}>
-          <Pill label={`Target ${schoolClass.target_level}`} tone="accent" />
+          {schoolClass.course === 'ielts' && <Pill label="IELTS Writing Task 2" />}
+          <Pill label={targetLabel(schoolClass)} tone="accent" />
           <Pill label={`${students.length} students`} />
           {!editingTarget && (
             <Button label="Change target" variant="secondary" onPress={() => setEditingTarget(true)} />
@@ -106,9 +114,23 @@ function ClassRouteScreen() {
         </View>
         {editingTarget && (
           <View style={styles.chips}>
-            {TARGET_LEVELS.map((l) => (
-              <Chip key={l} label={l} selected={l === schoolClass.target_level} onPress={() => setTarget(l)} />
-            ))}
+            {schoolClass.course === 'ielts'
+              ? IELTS_TARGET_BANDS.map((b) => (
+                  <Chip
+                    key={b}
+                    label={formatBandValue(b)}
+                    selected={b === schoolClass.target_band}
+                    onPress={() => setTarget({ target_band: b })}
+                  />
+                ))
+              : TARGET_LEVELS.map((l) => (
+                  <Chip
+                    key={l}
+                    label={l}
+                    selected={l === schoolClass.target_level}
+                    onPress={() => setTarget({ target_level: l })}
+                  />
+                ))}
           </View>
         )}
       </View>
@@ -129,7 +151,7 @@ function ClassRouteScreen() {
         )}
         {students.map((s) => {
           const last = latest.get(s.id);
-          const score = last ? scoreFor(last.area_levels, schoolClass.target_level) : null;
+          const result = last ? pageResult(last, schoolClass) : null;
           return (
             <Pressable
               key={s.id}
@@ -139,8 +161,10 @@ function ClassRouteScreen() {
               <ThemedText type="smallBold" style={styles.flex}>
                 {s.name}
               </ThemedText>
-              {score !== null ? (
-                <ThemedText type="smallBold">{formatScore(score)} / 10</ThemedText>
+              {result ? (
+                <ThemedText type="smallBold">
+                  {schoolClass.course === 'ielts' ? `Band ${result.big}` : `${result.big} / 10`}
+                </ThemedText>
               ) : (
                 <ThemedText type="small" themeColor="textSecondary">
                   no writing yet

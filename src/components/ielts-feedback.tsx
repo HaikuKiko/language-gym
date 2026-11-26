@@ -6,6 +6,8 @@ import { Button } from '@/components/button';
 import {
   Bullet,
   CorrectionNotes,
+  correctionLines,
+  LineMarkedWriting,
   MarkedWriting,
   NumberedCard,
   Section,
@@ -20,7 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { CRITERION_SHORT, formatBand, type IeltsResponse } from '@/lib/ielts';
 import { ieltsReportHtml } from '@/lib/report-html';
 import { ieltsReport } from '@/lib/share-report';
-import { markCorrections } from '@/lib/writing';
+import { markCorrections, withoutGuessCorrections } from '@/lib/writing';
 
 /** IELTS Task 2 band scores and feedback, for students and for teacher marking. */
 export function IeltsFeedbackView({
@@ -34,6 +36,8 @@ export function IeltsFeedbackView({
   essayTitle = 'Your essay',
   showUsage = true,
   showHome = true,
+  guessedWords = [],
+  pageLines,
 }: {
   response: IeltsResponse;
   text: string;
@@ -51,10 +55,20 @@ export function IeltsFeedbackView({
   showUsage?: boolean;
   /** "Back to home" (the teacher page): not on students' screens. */
   showHome?: boolean;
+  /** Words guessed when reading the handwriting, in pink (never marked as mistakes). */
+  guessedWords?: string[];
+  /**
+   * The essay was copied line by line from the paper: how many lines each
+   * page has. Then it is shown with line numbers and the corrections written
+   * in, and each note says which line it is on.
+   */
+  pageLines?: number[];
 }) {
   const theme = useTheme();
   const f = response.feedback;
-  const marked = markCorrections(text, f.corrections, f.paragraphing.new_paragraph_before);
+  // A guessed word on its own is never a mistake: it may be our misreading.
+  const corrections = withoutGuessCorrections(f.corrections, guessedWords);
+  const marked = markCorrections(text, corrections, f.paragraphing.new_paragraph_before);
   const [open, setOpen] = useState(f.criteria[0]?.code ?? null);
   const openCriterion = f.criteria.find((c) => c.code === open) ?? null;
   const onTarget = f.target_band !== null && f.overall_band >= f.target_band;
@@ -166,8 +180,27 @@ export function IeltsFeedbackView({
         </Section>
       )}
 
-      <MarkedWriting marked={marked} title={essayTitle} />
-      <CorrectionNotes marked={marked} />
+      {pageLines ? (
+        <>
+          <LineMarkedWriting
+            title={`${essayTitle}, line by line (as on the paper)`}
+            text={text}
+            marked={marked}
+            guessed={guessedWords}
+            pageLines={pageLines}
+          />
+          <CorrectionNotes
+            marked={marked}
+            title="Corrections to copy onto the paper"
+            lineLabels={correctionLines(text, marked, pageLines)}
+          />
+        </>
+      ) : (
+        <>
+          <MarkedWriting marked={marked} title={essayTitle} guessed={guessedWords} />
+          <CorrectionNotes marked={marked} />
+        </>
+      )}
       {f.paragraphing.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
       {extra}

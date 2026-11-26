@@ -10,6 +10,7 @@ import { Screen } from '@/components/screen';
 import { TeacherOnly } from '@/components/teacher-only';
 import { ThemedText } from '@/components/themed-text';
 import { MarkedTextInput } from '@/components/marked-text-input';
+import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,6 +28,7 @@ import {
   knownStudentNames,
   fullTranscript,
   guessedWords,
+  isIeltsFeedback,
   isLineByLine,
   loadClassSet,
   pageLineCounts,
@@ -238,19 +240,40 @@ function ClassSetPageRouteScreen() {
     );
   }
 
+  const pageLines = isLineByLine(page, allParts) ? pageLineCounts(page, allParts) : undefined;
+  const footer = (
+    <>
+      <Button label="Check the reading" variant="secondary" onPress={() => setChecking(true)} />
+      {back}
+    </>
+  );
+
+  if (isIeltsFeedback(page.feedback)) {
+    return (
+      <IeltsFeedbackView
+        // The class's target band now (it may have changed since marking).
+        response={{ feedback: { ...page.feedback, target_band: schoolClass?.target_band ?? null }, remainingToday: 0 }}
+        text={text}
+        guessedWords={guesses}
+        pageLines={pageLines}
+        header={header}
+        extra={footer}
+        subtitle="Class writing"
+        essayTitle="The essay"
+        showUsage={false}
+        showHome={false}
+      />
+    );
+  }
+
   return (
     <WritingFeedbackView
       response={{ feedback: page.feedback, remainingToday: 0 }}
       text={text}
       guessedWords={guesses}
-      pageLines={isLineByLine(page, allParts) ? pageLineCounts(page, allParts) : undefined}
+      pageLines={pageLines}
       header={header}
-      footer={
-        <>
-          <Button label="Check the reading" variant="secondary" onPress={() => setChecking(true)} />
-          {back}
-        </>
-      }
+      footer={footer}
       showUsage={false}
       reportTitle={`Writing feedback: ${pageTitle(page)}`}
     />
@@ -566,6 +589,7 @@ function NameEditor({ page, onRenamed }: { page: ClassSetPage; onRenamed: (page:
         ) : null}
       </View>
       {page.status === 'done' && page.cefr_level ? <Pill label={`Level ${page.cefr_level}`} tone="accent" /> : null}
+      {page.status === 'done' && page.band != null ? <Pill label={`Band ${page.band.toFixed(1)}`} tone="accent" /> : null}
     </View>
   );
 }

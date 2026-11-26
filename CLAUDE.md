@@ -104,6 +104,14 @@ Things agreed for later: `BACKLOG.md`.
   drops a correction of a guessed word alone, `withoutGuessCorrections`). The feedback shows
   `LineMarkedWriting` (numbered lines, per page; guessed words pink; corrections crossed out + green) and
   "Corrections to copy onto the paper" with "Line N". Older sets keep the paragraph view.
+  **IELTS class sets** (26 Nov 2026): `classes.course` is 'general' or 'ielts'; an IELTS class has
+  `target_band` (its `target_level` is the placeholder 'B2'). `class_sets.course` follows the class; an
+  IELTS set is marked with `requestTeacherIeltsFeedback` (question = sheet task or the set's task, with
+  guessed words) and saves the IeltsFeedback in `feedback` + the overall band in `class_set_pages.band`
+  (`isIeltsFeedback`). Lists use `pageResult`/`targetLabel` (`class-scores.ts`): score out of 10 or band.
+  The page shows `IeltsFeedbackView` with the class's target band, line by line like General English.
+  "Mark an IELTS essay" reads photos line by line too (`useWritingDraft` `lineByLine`, request
+  `line_by_line`), sends guessed words, and shows the same line view.
   **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set
   reads and marks only the first student; "Do the next student" does one more each tap (no "Mark all").
   Set it to false when the owner has finished testing.
