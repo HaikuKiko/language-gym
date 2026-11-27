@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useSavedState } from '@/core/app/use-saved-state';
 import type { PreparedPhoto } from '@/core/media/photo';
 import { errorMessage } from '@/core/app/supabase';
-import { anchorsFrom, guessAnchorsFrom, markCorrections, type Correction } from '@/core/marking/marks';
+import { anchorsFrom, guessAnchorsFrom, guessesStillIn, markCorrections, type Correction } from '@/core/marking/marks';
 import { readPhoto, type PhotoReading, type TextMarks } from '@/core/marking/photo-reading';
 
 /**
@@ -90,6 +90,8 @@ export function useWritingDraft(
     text,
     setText,
     photo,
+    /** Words guessed from the photo that are still in the text: send them with the marking and show them in pink. */
+    guessed: guessesStillIn(text, photo?.guessedWords ?? []),
     pagePhotos,
     guesses,
     marks,

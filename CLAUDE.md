@@ -141,7 +141,8 @@ Things agreed for later: `BACKLOG.md`.
   guessed words: `guessParts`, `withoutGuessCorrections`), **`guessed.tsx` (`Guessed`, `GuessedText`, `GuessedWordsList`:
   the pink guessed words everywhere; change the look only here)**, `photo-reading.ts` (`readPhoto`, `writingProblem`),
   `feedback-parts.tsx` (marked writing, line view, corrections, `WritingWithCorrections`, `BulletSection`, `usageText`),
-  `marked-text-input`, `photo-note`, `photo-pages`, `writing-box`, `use-writing-draft`, `report-html.ts` (PDF building
+  `marked-text-input`, `photo-note`, `photo-pages`, `writing-box`, `use-writing-draft` (`draft.guessed`: send these with
+  every marking and pass them to the feedback view), `report-html.ts` (PDF building
   blocks + CSS, guessed words pink), `report-pdf.ts`, `share-report-button.tsx`. `app/share.ts` (share menu / copy /
   email link). `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
   + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
