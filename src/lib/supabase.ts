@@ -1,6 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Guest sign-ins are limited per internet address, so when a whole hall of
+ * phones on the school wifi joins at once, some may be asked to wait. Those
+ * phones try again by themselves for up to this long before showing an error.
+ */
+const SIGN_IN_RETRY_FOR_MS = 90_000;
+/** First wait before trying again; it doubles each time, up to SIGN_IN_RETRY_MAX_GAP_MS. */
+const SIGN_IN_RETRY_FIRST_GAP_MS = 2_000;
+const SIGN_IN_RETRY_MAX_GAP_MS = 15_000;
+
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
@@ -36,7 +46,17 @@ export async function ensureSignedIn(): Promise<string> {
   const { data: existing } = await client.auth.getSession();
   if (existing.session) return existing.session.user.id;
 
-  const { data, error } = await client.auth.signInAnonymously();
+  const giveUpAt = Date.now() + SIGN_IN_RETRY_FOR_MS;
+  let gap = SIGN_IN_RETRY_FIRST_GAP_MS;
+  let { data, error } = await client.auth.signInAnonymously();
+  // "Too many sign-ins from this address": wait a little (plus a random bit,
+  // so the phones don't all try again at the same moment) and try again.
+  while (error?.status === 429 && Date.now() + gap < giveUpAt) {
+    await new Promise((resolve) => setTimeout(resolve, gap + Math.random() * 1000));
+    gap = Math.min(gap * 2, SIGN_IN_RETRY_MAX_GAP_MS);
+    ({ data, error } = await client.auth.signInAnonymously());
+  }
+  if (error?.status === 429) throw new Error('Lots of people are joining at once. Please wait a minute and try again.');
   if (error) throw new Error(error.message);
   if (!data.user) throw new Error('Could not sign in as a guest.');
   return data.user.id;

@@ -40,6 +40,8 @@ const WORD_GAME_TAPS = 3;
 const WORD_GAME_MS = 30_000;
 /** Same as REFRESH_INTERVAL_MS in src/hooks/use-live-session.ts. */
 const REFRESH_INTERVAL_MS = 5_000;
+/** Same as SIGN_IN_RETRY_FOR_MS in src/lib/supabase.ts. */
+const SIGN_IN_RETRY_FOR_MS = 90_000;
 /** Saved guest logins, so reruns don't sign in again. */
 const LOGINS_FILE = process.env.LOGINS_FILE ?? 'load-test-logins.json';
 
@@ -100,7 +102,7 @@ function newClient() {
 
 // --- Guest logins ----------------------------------------------------------
 const saved = existsSync(LOGINS_FILE) ? JSON.parse(readFileSync(LOGINS_FILE, 'utf8')) : [];
-const signIn = { ok: 0, reused: 0, limited: 0, failed: 0 };
+const signIn = { ok: 0, reused: 0, limited: 0, failed: 0, waited: 0 };
 
 async function login(index) {
   const client = newClient();
@@ -114,7 +116,16 @@ async function login(index) {
     }
   }
   // Marked, so the clean-up SQL can find (only) these pretend guests.
-  const { data, error } = await client.auth.signInAnonymously({ options: { data: { load_test: true } } });
+  // Like the app (ensureSignedIn): on "too many sign-ins", wait and try again.
+  const giveUpAt = Date.now() + SIGN_IN_RETRY_FOR_MS;
+  let gap = 2_000;
+  let { data, error } = await client.auth.signInAnonymously({ options: { data: { load_test: true } } });
+  while (error?.status === 429 && Date.now() + gap < giveUpAt) {
+    signIn.waited++;
+    await sleep(gap + Math.random() * 1000);
+    gap = Math.min(gap * 2, 15_000);
+    ({ data, error } = await client.auth.signInAnonymously({ options: { data: { load_test: true } } }));
+  }
   if (error) {
     if (error.status === 429) signIn.limited++;
     else signIn.failed++;
@@ -204,6 +215,11 @@ async function student(index, code, login) {
           const cards = Array.from({ length: wordTaps }, (_, k) => index * 10 + k);
           const { error } = await client.from('participants').update({ got_cards: cards }).eq('id', me.id);
           if (error) errors.push(`${name} got-it: ${error.message}`);
+          // Like finishCard in word-game.ts: every word is also logged.
+          const { error: logError } = await client
+            .from('session_events')
+            .insert({ session_id: session.id, participant_id: me.id, kind: 'card_done', data: { load_test: true } });
+          if (logError) errors.push(`${name} event: ${logError.message}`);
         }, Math.random() * WORD_GAME_MS);
       }
       wordTaps = 0.5; // started
@@ -254,7 +270,7 @@ async function main() {
   for (let i = 1; i <= phones; i++) logins.push(await login(i));
   writeFileSync(LOGINS_FILE, JSON.stringify(saved, null, 1));
   const ready = logins.filter(Boolean);
-  log(`Guest sign-ins: ${signIn.ok} new, ${signIn.reused} reused, ${signIn.limited} refused by the rate limit, ${signIn.failed} other failures.`);
+  log(`Guest sign-ins: ${signIn.ok} new, ${signIn.reused} reused, ${signIn.limited} refused by the rate limit, ${signIn.failed} other failures (${signIn.waited} waits).`);
   if (ready.length === 0) throw new Error('No phones could sign in.');
 
   const code = String(100000 + Math.floor(Math.random() * 900000));

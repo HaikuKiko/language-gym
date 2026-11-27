@@ -6,9 +6,6 @@
 name: Load test
 
 on:
-  push:
-    branches: [claude/project-thread-t9jwv3]
-    paths: [scripts/load-test.mjs, .github/workflows/load-test.yml]
   workflow_dispatch:
     inputs:
       phones:
@@ -32,3 +29,6 @@ jobs:
       - name: Pretend phones joining over 30 seconds
         working-directory: /tmp/lt
         run: node load-test.mjs ${{ inputs.phones || '50' }}
+      - name: The same, but everyone scanning the QR code at once
+        working-directory: /tmp/lt
+        run: node load-test.mjs ${{ inputs.phones || '50' }} burst
