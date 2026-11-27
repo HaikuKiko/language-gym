@@ -20,6 +20,7 @@ const REFRESH_INTERVAL_MS = 5000;
  */
 const LIVE_STUDENT_UPDATES_UP_TO = 20;
 const BIG_GROUP_REFRESH_MS = 2000;
+const STUDENT_LIVE_DELAY_MS = 5000;
 /** Stop waiting for the first connection after this long and offer "Try again". */
 const CONNECT_TIMEOUT_MS = 15_000;
 
@@ -73,19 +74,31 @@ export function useLiveSession(code: string) {
 
       // Students' changes (joining, taps): live while the group is small (see
       // LIVE_STUDENT_UPDATES_UP_TO); always live on the teacher's screen.
-      let studentChannel: ReturnType<typeof client.channel> | null = client
-        .channel(`session-students-${session.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'participants',
-            filter: `session_id=eq.${session.id}`,
-          },
-          () => reloadStudents(),
-        )
-        .subscribe();
+      // A student's phone waits STUDENT_LIVE_DELAY_MS before listening, so
+      // when a whole hall scans the QR code at once, the phones see the big
+      // group first and never start listening.
+      let studentChannel: ReturnType<typeof client.channel> | null = null;
+      const listenToStudents = () =>
+        client
+          .channel(`session-students-${session.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'participants',
+              filter: `session_id=eq.${session.id}`,
+            },
+            () => reloadStudents(),
+          )
+          .subscribe();
+      if (isHost) studentChannel = listenToStudents();
+      const listenLater = isHost
+        ? undefined
+        : setTimeout(async () => {
+            await reloadStudents();
+            if (!cancelled && !bigGroup) studentChannel = listenToStudents();
+          }, STUDENT_LIVE_DELAY_MS);
       let bigGroup = false;
       const reloadStudents = async () => {
         const latest = await fetchParticipants(session.id).catch(() => null);
@@ -118,6 +131,7 @@ export function useLiveSession(code: string) {
 
       cleanUp = () => {
         clearInterval(interval);
+        clearTimeout(listenLater);
         client.removeChannel(channel);
         if (studentChannel) client.removeChannel(studentChannel);
       };
