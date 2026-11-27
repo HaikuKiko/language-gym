@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { GameAwards } from '@/components/game-awards';
 import { JoinCodeHero } from '@/components/join-code-hero';
 import { Pill } from '@/components/pill';
+import { PretendStudentsPanel } from '@/components/pretend-students-panel';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -23,6 +24,7 @@ import {
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
+import { usePretendStudents } from '@/lib/pretend-students';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import {
@@ -50,6 +52,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
   const now = useNow();
   const theme = useTheme();
   const backend = useSessionBackend();
+  const pretend = usePretendStudents(session, participants);
   const game = WORD_GAMES[kind];
   const [error, setError] = useState<string | null>(null);
 
@@ -174,6 +177,9 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
             </View>
           )}
         </ThemedView>
+        {!backend.demo && (
+          <PretendStudentsPanel wordGame onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />
+        )}
         <View style={styles.chips}>
           <Pill label={`Level ${session.level}`} />
           <Pill label={`Groups of about ${size}`} />

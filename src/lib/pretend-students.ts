@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { LiveParticipant, LiveSession } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
-import { groupProgress, wordGameKind } from '@/lib/word-game';
+import { finishCard, groupProgress, wordGameKind } from '@/lib/word-game';
 
 // ===========================================================================
 // Settings
@@ -43,6 +43,28 @@ type Pretend = { id: string; client: SupabaseClient };
 
 export function isPretendName(name: string): boolean {
   return name.endsWith(PRETEND_SUFFIX);
+}
+
+/** Word games: a pretend student's taps, saved with their own guest login (like their own phone). */
+function cardBackend(p: Pretend) {
+  return {
+    recordCard: async (me: LiveParticipant, card: number, guessed: boolean) => {
+      const column = guessed ? 'got_cards' : 'skipped_cards';
+      const current = (guessed ? me.got_cards : me.skipped_cards) ?? [];
+      if (current.includes(card)) return;
+      const { error } = await p.client
+        .from('participants')
+        .update({ [column]: [...current, card] })
+        .eq('id', me.id);
+      if (error) throw new Error(error.message);
+    },
+    logEvent: async (sessionId: string, participantId: string | null, kind: string, data: Record<string, unknown>) => {
+      const { error } = await p.client
+        .from('session_events')
+        .insert({ session_id: sessionId, participant_id: participantId, kind, data });
+      if (error) throw new Error(error.message);
+    },
+  };
 }
 
 /** Joins one pretend student to the session as their own anonymous guest. */
@@ -142,14 +164,11 @@ export function usePretendStudents(session: LiveSession, participants: readonly 
         const card = group.card;
         tapWhenDue(`card:${group.index}:${card}`, GUESS_MIN_MS, GUESS_MAX_MS, async () => {
           const row = participantsRef.current.find((p) => p.id === tapper.id);
-          const guessed = Math.random() >= SKIP_CHANCE;
-          const column = guessed ? 'got_cards' : 'skipped_cards';
-          const current = (guessed ? row?.got_cards : row?.skipped_cards) ?? [];
-          if (current.includes(card)) return;
-          return tapper.client
-            .from('participants')
-            .update({ [column]: [...current, card] })
-            .eq('id', tapper.id);
+          if (!row) return;
+          // Explain It: someone else in the group guessed it.
+          const others = group.members.filter((m) => m.id !== group.player?.id);
+          const guesser = others[Math.floor(Math.random() * others.length)]?.id ?? null;
+          await finishCard(cardBackend(tapper), s, game, group, row, Math.random() >= SKIP_CHANCE, guesser);
         });
       }
     }, CHECK_EVERY_MS);

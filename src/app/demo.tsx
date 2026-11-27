@@ -25,6 +25,9 @@ import { LiveStudentScreen } from '@/screens/live-student-screen';
 
 /** The pretend students, in the order they join. */
 const DEMO_NAMES = ['Ana', 'Ben', 'Chen', 'Dara'];
+/** How many pretend students the viewer can choose (fewer phones are easier to follow). */
+const DEMO_STUDENT_CHOICES = [2, 3] as const;
+const DEFAULT_DEMO_STUDENTS = 2;
 /** Time between pretend students joining. */
 const JOIN_EVERY_MS = 250;
 /** A pretend pair taps "We found each other!" between these times after a round starts. */
@@ -57,6 +60,8 @@ type DemoParams = {
   game?: string;
   /** Word games: the group size. */
   size?: string;
+  /** How many pretend students (2 or 3). */
+  students?: string;
 };
 
 /** A session kept only on this device: never saved, so it never mixes with real ones. */
@@ -105,13 +110,22 @@ function demoSession(params: DemoParams): LiveSession {
  * the students' phones together (or as tabs on a narrow screen).
  */
 export default function DemoRoute() {
-  const theme = useTheme();
   const params = useLocalSearchParams<DemoParams>();
+  const fromLink = Number(params.students);
+  const [count, setCount] = useState<number>(
+    (DEMO_STUDENT_CHOICES as readonly number[]).includes(fromLink) ? fromLink : DEFAULT_DEMO_STUDENTS,
+  );
+  // A new count starts the demo again from the beginning.
+  return <Demo key={count} params={params} count={count} onCount={setCount} />;
+}
+
+function Demo({ params, count, onCount }: { params: DemoParams; count: number; onCount: (n: number) => void }) {
+  const theme = useTheme();
   const { width } = useWindowDimensions();
   const [session, setSession] = useState<LiveSession>(() => demoSession(params));
   const [participants, setParticipants] = useState<LiveParticipant[]>([]);
   const game = wordGameKind(session);
-  const names = game ? GAME_DEMO_NAMES : DEMO_NAMES;
+  const names = useMemo(() => (game ? GAME_DEMO_NAMES : DEMO_NAMES).slice(0, count), [game, count]);
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
   const [tab, setTab] = useState<string>('teacher');
@@ -289,6 +303,20 @@ export default function DemoRoute() {
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
             <Text style={[styles.bannerText, styles.end]}>End demo</Text>
           </Pressable>
+          <View style={styles.countRow}>
+            <Text style={styles.bannerText}>Pretend students:</Text>
+            {DEMO_STUDENT_CHOICES.map((n) => (
+              <Pressable
+                key={n}
+                accessibilityRole="button"
+                accessibilityState={{ selected: n === count }}
+                accessibilityLabel={`Start again with ${n} pretend students`}
+                onPress={() => onCount(n)}
+                style={[styles.countChip, n === count && styles.countChipOn]}>
+                <Text style={[styles.countText, n === count && styles.countTextOn]}>{n}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         {sideBySide ? (
@@ -346,6 +374,32 @@ const styles = StyleSheet.create({
   },
   end: {
     textDecorationLine: 'underline',
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  countChip: {
+    minWidth: 40,
+    alignItems: 'center',
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#111',
+    backgroundColor: '#fff',
+  },
+  countChipOn: {
+    backgroundColor: '#111',
+  },
+  countText: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: '#111',
+  },
+  countTextOn: {
+    color: '#fff',
   },
   tabs: {
     flexDirection: 'row',

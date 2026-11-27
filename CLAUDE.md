@@ -77,8 +77,13 @@ Things agreed for later: `BACKLOG.md`.
   **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
   turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
   `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
-  `useSessionBackend()` for every change). Four pretend students join, find each other and tap; teacher screen +
-  phones side by side (tabs when narrow). Never saved.
+  `useSessionBackend()` for every change). 2 or 3 pretend students (chips in the banner, param `students`) join, find each other and tap;
+  teacher screen + phones side by side (tabs when narrow). Never saved.
+  **Pretend students in a real session** (`src/lib/pretend-students.ts`, `components/pretend-students-panel.tsx`,
+  in the lobby of Talk Rounds and word games): "Add pretend students: 1, 2, 3" adds made-up "Name (pretend)"
+  students, each its own anonymous guest run from the teacher's page, so the owner can test with their own
+  phone. They tap "found" only when their whole group is pretend; word games tap via `finishCard`.
+  Follow-up ticks are also logged to `session_events` as `follow_up_asked`.
 - **Word games** (27 Nov 2026, dashboard "🔥 Word games" → `/word-game?game=hot-seat|explain-it`):
   `src/lib/word-game.ts` (settings constants at the top, names in `WORD_GAMES`), `src/data/word-cards.ts`
   (our own cards, 60 per level: word + 4 banned words; never the board game's name or cards),
