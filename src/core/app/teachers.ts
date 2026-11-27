@@ -5,8 +5,7 @@
  * teachers. Class writing is for signed-in teachers only. See
  * supabase/functions/teacher-account.
  */
-import { FunctionsHttpError } from '@supabase/supabase-js';
-
+import { callFunction } from '@/core/app/functions';
 import { ensureSignedIn, requireSupabase, signInWithProvider } from '@/core/app/supabase';
 
 // ===========================================================================
@@ -92,16 +91,7 @@ export async function signOutTeacher(): Promise<void> {
 }
 
 async function call(body: Record<string, unknown>): Promise<void> {
-  const client = requireSupabase();
-  await ensureSignedIn();
-  const { error } = await client.functions.invoke('teacher-account', { body });
-  if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const details = await (error.context as Response).json().catch(() => null);
-      if (details && typeof details.message === 'string') throw new Error(details.message);
-    }
-    throw new Error('The teacher account could not be saved. Please try again.');
-  }
+  await callFunction('teacher-account', body, 'The teacher account could not be saved. Please try again.');
 }
 
 /** Makes this device's user the first teacher, then signs in with the new login. */
