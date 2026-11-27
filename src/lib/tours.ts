@@ -4,20 +4,22 @@
  * (safety rules) and the Media kit (slideshow).
  */
 import { countWords } from '@/core/app/text';
+import type { PreparedPhoto } from '@/core/media/photo';
 import type { Slide } from '@/core/media/slideshow';
+import type { Recording } from '@/core/media/use-audio-recorder';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { distanceM, isWithin, nearest, type Fix, type LatLng } from '@/core/place/geo';
 import type { Level } from '@/core/content/levels';
 
 export type TaskKind = 'photo' | 'write' | 'audio' | 'video' | 'talk';
 
-/** What each kind of task is called, and whether it works yet (recording comes in a later step). */
+/** What each kind of task is called, and whether it works yet (video comes in a later step). */
 export const TASK_KINDS: Record<TaskKind, { icon: string; label: string; ready: boolean }> = {
   photo: { icon: '📷', label: 'Photo', ready: true },
   write: { icon: '✍️', label: 'Writing', ready: true },
-  audio: { icon: '🎧', label: 'Sound recording', ready: false },
+  audio: { icon: '🎧', label: 'Sound recording', ready: true },
   video: { icon: '🎥', label: 'Video', ready: false },
-  talk: { icon: '🎤', label: 'Talk to a person', ready: false },
+  talk: { icon: '🎤', label: 'Talk to a person', ready: true },
 };
 
 /** What students read out before recording a person (they tap "They said yes" first). */
@@ -59,7 +61,13 @@ export type Tour = {
 };
 
 /** A group's work on one task. */
-export type TaskWork = { text?: string; photoUri?: string };
+export type TaskWork = { text?: string; photoUri?: string; audioUri?: string };
+
+/** The photo or recording behind a task's work, for uploading (live tours). */
+export type TaskFiles = { photo?: PreparedPhoto; audio?: Recording };
+
+/** Longest sound recording, in seconds. */
+export const AUDIO_MAX_SECONDS = 60;
 /** All of a group's work: stop id → task id → work. */
 export type TourWork = Record<string, Record<string, TaskWork>>;
 
@@ -67,6 +75,7 @@ export function isTaskDone(task: TourTask, work: TaskWork | undefined): boolean 
   if (!work) return false;
   if (task.kind === 'photo') return Boolean(work.photoUri);
   if (task.kind === 'write') return countWords(work.text ?? '') > 0;
+  if (task.kind === 'audio' || task.kind === 'talk') return Boolean(work.audioUri);
   return false;
 }
 
@@ -134,6 +143,9 @@ export function tourSlides(tour: Tour, work: TourWork, order: string[]): Slide[]
       title: stop.name,
       imageUri: photo ? stopWork[photo.id]?.photoUri : undefined,
       texts,
+      sounds: stop.tasks
+        .filter((t) => (t.kind === 'audio' || t.kind === 'talk') && stopWork[t.id]?.audioUri)
+        .map((t) => ({ label: t.kind === 'talk' ? '🎤 Our interview' : '🎧 What it sounds like', uri: stopWork[t.id]?.audioUri as string })),
     });
   }
   return slides;

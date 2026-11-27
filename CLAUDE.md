@@ -126,7 +126,15 @@ Things agreed for later: `BACKLOG.md`.
   under 18 → whole group; under-18 groups share their newest place with the adults (no trail, deleted at the end) and
   must stay within `MAX_FROM_ADULT_M` (100 m) of a supervising adult (any number of teachers + helper adults, never
   adult students); stops and talk-to-a-person tasks open only with an adult near; they may talk to adults only,
-  voice only unless the teacher allows video. Next: live runs (tables, join, live places), route builder, recording.
+  voice only unless the teacher allows video.
+  **Live tours** (27 Nov): dashboard "🗺️ GPS tours" → `/tour` (route, under 18 yes/no) → a live session with flags
+  `tour:<id>` + `under-18`|`adults` (`src/lib/tour-live.ts`); `session/[code]` shows `screens/tour-host-live.tsx` /
+  `tour-student-live.tsx`. Each student phone = one group (its name). Work = `session_events` kind `tour_work`
+  ({stop, task, text?, photo?, audio?}; newest per field wins; `fetchTourWork`), photos/recordings in the private
+  bucket `tour-media` (`<session>/<participant>/<file>`, members only). Places: `participants.live_place`,
+  `sessions.host_place` (newest only, `core/place/shared-place.ts`, cleared by `clear_tour_places` at the end).
+  Teacher screen re-reads work every `TOUR_WORK_REFRESH_MS`. Not yet: helper adults' phones, route builder, video,
+  deleting tour media after 30 days (storage files are not removed with the session).
 - **Core (`src/core/`)**: the shared toolkit, in kits (plan: `shared-code-plan.md` in project files). **Put anything
   another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",
   IELTS). `ui/` (App basics, look): `theme.ts` (colours, `Spacing`), `use-theme`, Button, Chip, Pill, Screen,
@@ -150,7 +158,9 @@ Things agreed for later: `BACKLOG.md`.
   every marking and pass them to the feedback view), `report-html.ts` (PDF building
   blocks + CSS, guessed words pink), `report-pdf.ts`, `share-report-button.tsx`. `app/share.ts` (share menu / copy /
   email link). `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
-  + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
+  + OpenStreetMap from cdnjs, web only; `shared-place.ts`: share the newest place in a live session). `media/` also:
+  `storage.ts` (upload to a private bucket, cached signed links), `use-audio-recorder.ts` (MediaRecorder),
+  `audio-player.tsx`. `classes/safety-rules.ts`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (General English feedback request; photo reading is in `core/marking`),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
@@ -212,7 +222,7 @@ Things agreed for later: `BACKLOG.md`.
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
   enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions, contact_messages,
-  classes, class_students, class_sets, class_set_pages, teachers, session_events, saved_names (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
+  classes, class_students, class_sets, class_set_pages, teachers, session_events, saved_names (+ storage buckets `shared-essay-photos`, `class-set-photos`, `tour-media`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool

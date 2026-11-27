@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
@@ -29,12 +29,16 @@ export function TourTeacherScreen({
   groups,
   adults,
   onEnd,
+  children,
 }: {
   tour: Tour;
   rules: SafetyRules;
   groups: TourGroupStatus[];
   adults: SupervisingAdult[];
-  onEnd: () => void;
+  /** The demo's End button; a live tour puts its own (with "Are you sure?") in `children`. */
+  onEnd?: () => void;
+  /** Shown above the End button (live tours: join QR, slideshows, code words). */
+  children?: ReactNode;
 }) {
   const theme = useTheme();
   const adultPlaces = useMemo(() => adults.map((a) => a.at), [adults]);
@@ -111,7 +115,10 @@ export function TourTeacherScreen({
           </View>
         ))}
       </View>
-      <Button label="End the tour (location switches off on every phone)" variant="secondary" onPress={onEnd} />
+      {children}
+      {onEnd ? (
+        <Button label="End the tour (location switches off on every phone)" variant="secondary" onPress={onEnd} />
+      ) : null}
     </View>
   );
 }
