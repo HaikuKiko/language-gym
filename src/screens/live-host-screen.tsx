@@ -8,6 +8,8 @@ import { GrammarCard } from '@/components/grammar-card';
 import { JoinCodeHero } from '@/core/live/join-code-hero';
 import { LateJoinQr } from '@/core/live/late-join-qr';
 import { LobbyButtons, StudentRoster } from '@/core/live/lobby';
+import { PretendStudentsPanel } from '@/components/pretend-students-panel';
+import { usePretendStudents } from '@/lib/pretend-students';
 import { useHostActions } from '@/core/live/use-host-actions';
 import { ErrorNote } from '@/core/ui/notice';
 import { LiveTimer } from '@/core/live/live-timer';
@@ -54,6 +56,7 @@ export function LiveHostScreen({
   const theme = useTheme();
   const backend = useSessionBackend();
   const { save, remove, error } = useHostActions({ backend, session, participants, onSession, onParticipants });
+  const pretend = usePretendStudents(session, participants);
 
   // Automatic mode: this screen moves the session on when the clock runs out.
   const playing = session.status === 'playing';
@@ -112,6 +115,8 @@ export function LiveHostScreen({
         <JoinCodeHero code={session.code} demo={backend.demo} />
 
         <StudentRoster participants={participants} onRemove={remove} />
+
+        {!backend.demo && <PretendStudentsPanel onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />}
 
         <View style={styles.pills}>
           {friending && <Pill label={PRODUCT_NAME} tone="accent" />}

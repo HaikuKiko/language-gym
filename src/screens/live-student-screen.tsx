@@ -33,6 +33,8 @@ import { errorMessage } from '@/core/app/supabase';
 const FOLLOW_UPS = ['Why?', 'What happened next?', 'How did you feel?', 'Can you give an example?', 'Tell me more about…'];
 /** Taking turns: how long "Swap!" shows when the next turn starts. */
 const SWAP_NOTICE_MS = 4000;
+/** session_events kind for a follow-up question a student tapped as asked. */
+const FOLLOW_UP_ASKED = 'follow_up_asked';
 /**
  * Follow-up questions: always light with dark text, in dark mode too, so they
  * are easy to read on a phone in class. A tapped one ("asked") turns green.
@@ -78,11 +80,17 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   const [askedLocal, setAskedLocal] = useState<string[] | null>(null);
   const askedNow = askedLocal ?? me.asked_follow_ups ?? [];
 
-  async function tapFollowUp(key: string) {
+  async function tapFollowUp(key: string, text: string) {
     const before = askedNow;
-    setAskedLocal(before.includes(key) ? before.filter((k) => k !== key) : [...before, key]);
+    const adding = !before.includes(key);
+    setAskedLocal(adding ? [...before, key] : before.filter((k) => k !== key));
     try {
       await backend.toggleFollowUp({ ...me, asked_follow_ups: before }, key);
+      // For awards ("Most follow-up questions"); an undo is not logged.
+      if (adding) {
+        const [round, turn, number] = key.split('.').map(Number);
+        backend.logEvent(session.id, me.id, FOLLOW_UP_ASKED, { round, turn, number, text }).catch(() => {});
+      }
     } catch (e) {
       setAskedLocal(before);
       setTapError(errorMessage(e));
@@ -312,7 +320,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: asked }}
                     accessibilityLabel={`${f} ${asked ? '(asked, tap to undo)' : '(tap when you have asked it)'}`}
-                    onPress={() => tapFollowUp(key)}
+                    onPress={() => tapFollowUp(key, f)}
                     style={({ pressed }) => [
                       styles.followChip,
                       asked

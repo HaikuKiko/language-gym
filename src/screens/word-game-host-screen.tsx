@@ -7,6 +7,8 @@ import { GameAwards } from '@/components/game-awards';
 import { JoinCodeHero } from '@/core/live/join-code-hero';
 import { LateJoinQr } from '@/core/live/late-join-qr';
 import { LobbyButtons, StudentRoster } from '@/core/live/lobby';
+import { PretendStudentsPanel } from '@/components/pretend-students-panel';
+import { usePretendStudents } from '@/lib/pretend-students';
 import { useHostActions } from '@/core/live/use-host-actions';
 import { ErrorNote } from '@/core/ui/notice';
 import { Pill } from '@/core/ui/pill';
@@ -71,6 +73,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     onSession,
     onParticipants,
   });
+  const pretend = usePretendStudents(session, participants);
 
   const { names: teams, reload: reloadTeams } = useTeamNames(session);
 
@@ -180,6 +183,9 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         {title}
         <JoinCodeHero code={session.code} demo={backend.demo} />
         <StudentRoster participants={participants} onRemove={remove} />
+        {!backend.demo && (
+          <PretendStudentsPanel wordGame onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />
+        )}
         <View style={styles.chips}>
           <Pill label={`Level ${session.level}`} />
           <Pill label={`Groups of about ${size}`} />
