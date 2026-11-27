@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 /**
  * Guest sign-ins are limited per internet address, so when a whole hall of
@@ -22,7 +23,11 @@ export const supabase =
           storage: AsyncStorage,
           persistSession: true,
           autoRefreshToken: true,
+          // Off, because join links carry ?code=… (a join code, not a sign-in
+          // code). Google sign-in comes back with #access_token=…, which
+          // finishProviderSignIn reads instead.
           detectSessionInUrl: false,
+          flowType: 'implicit',
         },
       })
     : null;
@@ -42,6 +47,7 @@ export function requireSupabase() {
  */
 export async function ensureSignedIn(): Promise<string> {
   const client = requireSupabase();
+  await finishProviderSignIn();
 
   const { data: existing } = await client.auth.getSession();
   if (existing.session) return existing.session.user.id;
@@ -64,4 +70,78 @@ export async function ensureSignedIn(): Promise<string> {
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+}
+
+/** Sign-in providers set up in Supabase (Authentication → Sign In / Providers). */
+export type SignInProvider = 'google';
+
+/**
+ * Opens the provider's sign-in page (web only). It comes back to the same page
+ * with the session in the address (#access_token=…), which ensureSignedIn picks up.
+ */
+export async function signInWithProvider(provider: SignInProvider): Promise<void> {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    throw new Error('Signing in with Google works in the web browser.');
+  }
+  const redirectTo = window.location.href.split('#')[0];
+  const { error } = await requireSupabase().auth.signInWithOAuth({
+    provider,
+    options: { redirectTo, queryParams: { prompt: 'select_account' } },
+  });
+  if (error) throw new Error(friendlySignInError(error.message));
+}
+
+/** The message from the last provider sign-in that went wrong (read once). */
+let providerSignInError: string | null = null;
+export function takeProviderSignInError(): string | null {
+  const message = providerSignInError;
+  providerSignInError = null;
+  return message;
+}
+
+function friendlySignInError(message: string): string {
+  if (/provider is not enabled|unsupported provider/i.test(message)) {
+    return 'Google sign-in is not switched on yet (Supabase → Authentication → Providers → Google).';
+  }
+  return message;
+}
+
+/**
+ * The sign-in result in the address after coming back from Google, taken out
+ * as soon as the app loads (before the router copies the address), so the
+ * tokens never stay in the address bar or browser history.
+ */
+let returnedHash = takeSignInHash();
+
+function takeSignInHash(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  const hash = window.location.hash;
+  if (!hash.includes('access_token=') && !hash.includes('error=')) return null;
+  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+  return hash;
+}
+
+let finishing: Promise<void> | null = null;
+
+/** After coming back from Google: saves the session from the address. */
+function finishProviderSignIn(): Promise<void> {
+  const hash = returnedHash;
+  if (!hash) return finishing ?? Promise.resolve();
+  returnedHash = null;
+  finishing = (async () => {
+    const params = new URLSearchParams(hash.slice(1));
+    const error = params.get('error_description') ?? params.get('error');
+    if (error) {
+      providerSignInError = friendlySignInError(error);
+      return;
+    }
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (!access_token || !refresh_token) return;
+    const { error: sessionError } = await requireSupabase().auth.setSession({ access_token, refresh_token });
+    if (sessionError) providerSignInError = friendlySignInError(sessionError.message);
+  })().finally(() => {
+    finishing = null;
+  });
+  return finishing;
 }
