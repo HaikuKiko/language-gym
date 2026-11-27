@@ -2,14 +2,14 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   IELTS_TARGET_BANDS,
   TARGET_LEVELS,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/class-scores';
 import { loadClassSets, type ClassSet, type Course } from '@/lib/class-sets';
 import { createClass, loadClasses, type SchoolClass } from '@/lib/classes';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /** Class writing: the teacher's classes, and each class's marked writing. */
 function ClassWritingRouteScreen() {

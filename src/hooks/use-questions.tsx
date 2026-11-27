@@ -5,7 +5,7 @@ import { BUILT_IN_FUN_QUESTIONS, type CustomSet, type FunQuestion } from '@/data
 import { BUILT_IN_QUESTIONS, LEVELS, type Level, type Question } from '@/data/questions';
 import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/core/app/supabase';
 
 /** Give up on the database after this long and use the built-in content. */
 const LOAD_TIMEOUT_MS = 6000;

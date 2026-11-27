@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import { loadScript, loadStylesheet } from '@/core/app/load-script';
 import type { LatLng } from '@/core/place/geo';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 /**
  * Place kit: a map (Leaflet with OpenStreetMap, free, loaded from cdnjs) with

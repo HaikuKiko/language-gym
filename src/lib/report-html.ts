@@ -4,7 +4,7 @@
  * mistakes underlined. Used for the PDF and for printing. Each top-level
  * block is a `.blk`, so the PDF never cuts a card in half.
  */
-import { Colors } from '@/constants/theme';
+import { Colors } from '@/core/ui/theme';
 import { CRITERION_SHORT, formatBand, type IeltsFeedback } from '@/lib/ielts';
 import { markCorrections, type MarkedText, type WritingFeedback } from '@/lib/writing';
 

@@ -2,13 +2,13 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { createElement } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { FooterLinks } from '@/components/footer-links';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/core/ui/button';
+import { FooterLinks } from '@/core/ui/footer-links';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { LANDING_VIDEO_URL, PRODUCT_NAME, PRODUCT_SENTENCE } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { CODE_LENGTH } from '@/lib/live-session';
 
 const STEPS = [

@@ -2,16 +2,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/data/questions';
 import { cardsForLevel, WORD_CARDS } from '@/data/word-cards';
 import { createSession } from '@/lib/live-session';
 import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import {
   DEFAULT_GAME_MINUTES,
   GAME_MINUTES,

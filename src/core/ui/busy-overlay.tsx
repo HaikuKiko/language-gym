@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, StyleSheet, Text, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 /**
  * A screen-covering "working on it" card while a photo is read or writing is

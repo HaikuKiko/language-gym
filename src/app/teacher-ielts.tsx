@@ -1,18 +1,19 @@
+import { countWords } from '@/core/app/text';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
 import { CalibrationCard } from '@/components/calibration-card';
 import { ShareCalibrationCard } from '@/components/share-calibration-card';
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { WritingBox } from '@/components/writing-box';
-import { Spacing } from '@/constants/theme';
-import { useSavedState } from '@/hooks/use-saved-state';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useSavedState } from '@/core/app/use-saved-state';
+import { useTheme } from '@/core/ui/use-theme';
 import { useWritingDraft } from '@/hooks/use-writing-draft';
 import { aiMarking, linkCalibration } from '@/lib/calibration';
 import {
@@ -22,10 +23,9 @@ import {
   requestTeacherIeltsFeedback,
   type IeltsResponse,
 } from '@/lib/ielts';
-import { pickPhoto } from '@/lib/photo';
-import { errorMessage, supabase } from '@/lib/supabase';
+import { pickPhoto } from '@/core/media/photo';
+import { errorMessage, supabase } from '@/core/app/supabase';
 import {
-  countWords,
   guessesStillIn,
   joinLines,
   readPhoto,

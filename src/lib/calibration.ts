@@ -4,7 +4,7 @@
  * the AI and the teachers are. Rows live in the calibration_marks table.
  */
 import { formatBand, type IeltsFeedback } from '@/lib/ielts';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export const CODES = ['tr', 'cc', 'lr', 'gra'] as const;
 export type Code = (typeof CODES)[number];

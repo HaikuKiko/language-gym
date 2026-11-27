@@ -3,18 +3,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { WritingFeedbackView } from '@/components/writing-feedback';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { formatScore, levelStep, scoreFor } from '@/lib/class-scores';
 import {
   addStudents,
@@ -43,7 +43,7 @@ import {
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import { guessAnchorsFrom } from '@/lib/writing';
 
 // ===========================================================================

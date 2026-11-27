@@ -21,7 +21,7 @@ import { cardsForLevel, WORD_CARDS, type WordCard } from '@/data/word-cards';
 import type { LiveParticipant, LiveSession } from '@/lib/live-session';
 import type { Participant } from '@/lib/round-robin';
 import { shuffle } from '@/lib/session';
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase } from '@/core/app/supabase';
 
 // ===========================================================================
 // Settings

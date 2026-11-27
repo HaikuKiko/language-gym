@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 type ChipProps = {
   label: string;

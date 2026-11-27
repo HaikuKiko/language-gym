@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type TextStyle } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 import type { Week } from '@/data/weeks';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 type Segment = { text: string; mark: 'a' | 'b' | null };
 

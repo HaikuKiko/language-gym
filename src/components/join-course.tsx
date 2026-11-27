@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { joinCourse } from '@/lib/account';
-import { errorMessage } from '@/lib/supabase';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { joinCourse } from '@/core/app/account';
+import { errorMessage } from '@/core/app/supabase';
 
 const IELTS_TARGETS = ['5.5', '6.0', '6.5', '7.0', '7.5'];
 

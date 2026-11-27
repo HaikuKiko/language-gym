@@ -2,19 +2,19 @@ import { router } from 'expo-router';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar } from '@/components/avatar';
-import { Button } from '@/components/button';
+import { Avatar } from '@/core/ui/avatar';
+import { Button } from '@/core/ui/button';
 import { GameAwards } from '@/components/game-awards';
 import { JoinCodeHero } from '@/components/join-code-hero';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { GameClock, WordCardView } from '@/components/word-card-view';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
 import { useTeamNames } from '@/hooks/use-team-names';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   endSession,
   formatCode,
@@ -25,7 +25,7 @@ import {
   type LiveSession,
 } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import {
   EXTRA_TIME_MS,
   TEAM_NAME,

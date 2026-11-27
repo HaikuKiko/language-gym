@@ -2,15 +2,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { RoundSettingsForm } from '@/components/round-settings-form';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 import { createSession } from '@/lib/live-session';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /**
  * The teacher chooses the settings and gets a join code for the class.

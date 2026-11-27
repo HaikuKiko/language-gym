@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 /** A thin horizontal bar; `fraction` runs from 0 (empty) to 1 (full). */
 export function ProgressBar({ fraction }: { fraction: number }) {

@@ -2,13 +2,13 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { errorMessage } from '@/lib/supabase';
-import { currentTeacher, signInTeacher, teacherCount, type Teacher } from '@/lib/teachers';
+import { Button } from '@/core/ui/button';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { errorMessage } from '@/core/app/supabase';
+import { currentTeacher, signInTeacher, teacherCount, type Teacher } from '@/core/app/teachers';
 
 /** The signed-in teacher (undefined while checking, null when not a teacher). */
 export function useTeacher() {

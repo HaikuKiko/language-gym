@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { PhotoNote } from '@/components/photo-note';
 import { PhotoPages } from '@/components/photo-pages';
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '@/core/ui/themed-text';
 import type { WritingDraft } from '@/hooks/use-writing-draft';
 
 /**

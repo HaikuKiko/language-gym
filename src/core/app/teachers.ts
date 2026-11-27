@@ -6,7 +6,7 @@
  */
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 // ===========================================================================
 // Settings

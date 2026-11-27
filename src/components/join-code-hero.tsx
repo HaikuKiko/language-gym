@@ -1,10 +1,10 @@
 import { type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ExternalLink } from '@/components/external-link';
+import { ExternalLink } from '@/core/ui/external-link';
 import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { formatCode } from '@/lib/live-session';
 
 /** The big join code and QR code on the teacher's screen before a session starts. */

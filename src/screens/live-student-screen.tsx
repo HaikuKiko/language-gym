@@ -2,17 +2,17 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { GrammarHint } from '@/components/grammar-card';
 import { LiveTimer } from '@/components/live-timer';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 import { findWeek } from '@/data/weeks';
-import { useNow } from '@/hooks/use-now';
+import { useNow } from '@/core/app/use-now';
 import { useCustomSets, useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   findingStatus,
   isFriending,
@@ -26,7 +26,7 @@ import {
 } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 // ===========================================================================
 // Settings

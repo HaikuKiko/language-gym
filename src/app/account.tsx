@@ -2,14 +2,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { JoinCourse } from '@/components/join-course';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   CODE_LENGTH,
   EMAIL_SIGN_IN,
@@ -27,8 +27,8 @@ import {
   startSignIn,
   usesPin,
   type Account,
-} from '@/lib/account';
-import { errorMessage } from '@/lib/supabase';
+} from '@/core/app/account';
+import { errorMessage } from '@/core/app/supabase';
 
 type Step =
   | { kind: 'save' }

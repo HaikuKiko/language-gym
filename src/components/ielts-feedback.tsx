@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import {
   Bullet,
   CorrectionNotes,
@@ -13,12 +13,12 @@ import {
   Section,
   ParagraphNote,
 } from '@/components/feedback-parts';
-import { Screen } from '@/components/screen';
+import { Screen } from '@/core/ui/screen';
 import { ShareReportButton } from '@/components/share-report-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { CRITERION_SHORT, formatBand, type IeltsResponse } from '@/lib/ielts';
 import { ieltsReportHtml } from '@/lib/report-html';
 import { ieltsReport } from '@/lib/share-report';

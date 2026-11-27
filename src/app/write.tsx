@@ -1,26 +1,26 @@
+import { countWords } from '@/core/app/text';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { WritingBox } from '@/components/writing-box';
 import { WritingFeedbackView } from '@/components/writing-feedback';
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
-import { useSavedState } from '@/hooks/use-saved-state';
-import { useTheme } from '@/hooks/use-theme';
+import { useSavedState } from '@/core/app/use-saved-state';
+import { useTheme } from '@/core/ui/use-theme';
 import { useWritingDraft } from '@/hooks/use-writing-draft';
-import { errorMessage, supabase } from '@/lib/supabase';
+import { errorMessage, supabase } from '@/core/app/supabase';
 import {
   MAX_WORDS,
   MIN_WORDS,
-  countWords,
   requestFeedback,
   writingProblem,
   type WritingResponse,

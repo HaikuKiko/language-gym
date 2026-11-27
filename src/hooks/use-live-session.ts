@@ -6,7 +6,7 @@ import {
   type LiveParticipant,
   type LiveSession,
 } from '@/lib/live-session';
-import { ensureSignedIn, errorMessage, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, errorMessage, requireSupabase } from '@/core/app/supabase';
 
 /** How often to re-read the session, as a safety net behind live updates. */
 const REFRESH_INTERVAL_MS = 5000;

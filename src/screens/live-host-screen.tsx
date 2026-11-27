@@ -2,24 +2,24 @@ import { router, type Href } from 'expo-router';
 import { useEffect, useEffectEvent, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Avatar } from '@/components/avatar';
+import { Button } from '@/core/ui/button';
+import { Avatar } from '@/core/ui/avatar';
 import { GrammarCard } from '@/components/grammar-card';
 import { JoinCodeHero } from '@/components/join-code-hero';
 import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
 import { LiveTimer } from '@/components/live-timer';
-import { Pill } from '@/components/pill';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Pill } from '@/core/ui/pill';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { WeekFocus } from '@/components/week-focus';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
 import { findWeek } from '@/data/weeks';
 import { useCustomSets, useQuestions, useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   beginDiscussion,
   endSession,
@@ -44,7 +44,7 @@ import {
 } from '@/lib/live-session';
 import { groupsForRound, type Group } from '@/lib/round-robin';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
 
 /** Size of the small QR code for late joiners, beside the round number. */

@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Pill } from '@/components/pill';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { countWords } from '@/core/app/text';
+import { Button } from '@/core/ui/button';
+import { Notice } from '@/core/ui/notice';
+import { Pill } from '@/core/ui/pill';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { Slideshow } from '@/core/media/slideshow';
 import { distanceM, formatDistance, warmth, warmthWords, type Fix, type LatLng } from '@/core/place/geo';
-import { useTheme } from '@/hooks/use-theme';
-import { pickPhoto } from '@/lib/photo';
+import { useTheme } from '@/core/ui/use-theme';
+import { pickPhoto } from '@/core/media/photo';
 import {
   CONSENT_SCRIPT,
   TASK_KINDS,
@@ -18,7 +20,6 @@ import {
   isTaskDone,
   stopAccess,
   tourSlides,
-  wordCount,
   type TaskWork,
   type Tour,
   type TourStop,
@@ -339,7 +340,7 @@ function TaskView({
             style={[styles.input, styles.writing, { color: theme.text, borderColor: theme.border }]}
           />
           <ThemedText type="small" themeColor="textSecondary" style={styles.right}>
-            {wordCount(work?.text ?? '')}
+            {countWords(work?.text ?? '')}
             {task.wordTarget ? ` / about ${task.wordTarget} words` : ' words'}
           </ThemedText>
         </>
@@ -376,23 +377,6 @@ function TaskView({
   );
 }
 
-function Notice({ text, tone = 'info' }: { text: string; tone?: 'info' | 'danger' }) {
-  const theme = useTheme();
-  return (
-    <View
-      style={[
-        styles.notice,
-        tone === 'danger'
-          ? { backgroundColor: theme.markABg, borderColor: theme.warning }
-          : { backgroundColor: theme.accentSoft, borderColor: theme.border },
-      ]}>
-      <ThemedText type="small" themeColor={tone === 'danger' ? 'markA' : 'text'}>
-        {text}
-      </ThemedText>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   column: { gap: Spacing.three },
   gapOne: { gap: Spacing.one },
@@ -416,7 +400,6 @@ const styles = StyleSheet.create({
   number: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   task: { borderWidth: 1, borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
   locked: { opacity: 0.5 },
-  notice: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.two },
   photo: { width: '100%', aspectRatio: 4 / 3, borderRadius: Spacing.two },
   input: { borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.two, fontSize: 16 },
   writing: { minHeight: 110, textAlignVertical: 'top' },

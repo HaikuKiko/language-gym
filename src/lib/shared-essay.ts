@@ -9,8 +9,8 @@
 import { getAppAddress } from '@/components/join-qr-code';
 import { aiMarking, type AiMarking } from '@/lib/calibration';
 import type { IeltsFeedback } from '@/lib/ielts';
-import type { PreparedPhoto } from '@/lib/photo';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import type { PreparedPhoto } from '@/core/media/photo';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 // ===========================================================================
 // Settings

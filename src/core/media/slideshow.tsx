@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-import { Button } from '@/components/button';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 
 /**
  * Media kit: a click-through slideshow (a group presenting its project). Each

@@ -7,7 +7,7 @@ import { findFunQuestions, type CustomSet, type FunQuestion } from '@/data/fun-q
 import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
 import { groupsForRound, uniqueRoundCount, type Group, type Participant } from '@/lib/round-robin';
 import { shuffle, type RoundSettings } from '@/lib/session';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export const CODE_LENGTH = 6;
 
