@@ -6,6 +6,7 @@ import { Button } from '@/components/button';
 import { Avatar } from '@/components/avatar';
 import { GrammarCard } from '@/components/grammar-card';
 import { JoinCodeHero } from '@/components/join-code-hero';
+import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
 import { LiveTimer } from '@/components/live-timer';
 import { Pill } from '@/components/pill';
 import { ProgressBar } from '@/components/progress-bar';
@@ -45,6 +46,9 @@ import { groupsForRound, type Group } from '@/lib/round-robin';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
+
+/** Size of the small QR code for late joiners, beside the round number. */
+const LATE_JOIN_QR_SIZE = 88;
 
 type LiveHostScreenProps = {
   session: LiveSession;
@@ -249,16 +253,31 @@ export function LiveHostScreen({
   const rosterIds = new Set(session.roster.map((p) => p.id));
   const waiting = participants.filter((p) => !rosterIds.has(p.id));
   const question = friending ? null : questionForRound(session, questions, session.level);
+  // Students who arrive late scan this and join from the next round.
+  const lateJoinAddress = backend.demo ? null : getAppAddress();
+  const lateJoinLink = lateJoinAddress ? joinUrl(lateJoinAddress, session.code) : null;
 
   return (
     <Screen>
       {header(backend.demo ? 'Demo' : `Join code ${formatCode(session.code)}`)}
 
       <View style={styles.section}>
-        <ThemedText type="subtitle">
-          Round {session.round + 1} of {session.round_count}
-        </ThemedText>
-        <WeekFocus level={session.level} week={session.week} friending={friending} customName={custom?.name} />
+        <View style={styles.roundRow}>
+          <View style={styles.roundTitle}>
+            <ThemedText type="subtitle">
+              Round {session.round + 1} of {session.round_count}
+            </ThemedText>
+            <WeekFocus level={session.level} week={session.week} friending={friending} customName={custom?.name} />
+          </View>
+          {lateJoinLink && (
+            <View style={styles.lateJoin}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Late? Scan to join
+              </ThemedText>
+              <JoinQrCode url={lateJoinLink} code={formatCode(session.code)} size={LATE_JOIN_QR_SIZE} />
+            </View>
+          )}
+        </View>
         <View style={styles.steps}>
           {Array.from({ length: session.round_count }, (_, i) => (
             <View
@@ -538,6 +557,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  roundRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
+  },
+  roundTitle: {
+    flex: 1,
+    gap: Spacing.two,
+  },
+  lateJoin: {
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   steps: {
     flexDirection: 'row',
