@@ -15,7 +15,10 @@ export function PretendStudentsPanel({
   busy,
   error,
   wordGame = false,
+  doing,
 }: {
+  /** What the pretend students do, e.g. "answer the questions" (instead of the default). */
+  doing?: string;
   /** Word games: the pretend students guess words instead of finding partners. */
   wordGame?: boolean;
   onAdd: (count: number) => void;
@@ -28,7 +31,7 @@ export function PretendStudentsPanel({
       <ThemedText type="smallBold">Testing on your own?</ThemedText>
       <ThemedText type="small" themeColor="textSecondary">
         Join with your phone (scan the code), then add pretend students. They join and{' '}
-        {wordGame ? 'take their turns with the words' : 'find their partner'} by themselves while this page is open.
+        {doing ?? (wordGame ? 'take their turns with the words' : 'find their partner')} by themselves while this page is open.
       </ThemedText>
       <View style={styles.row}>
         <ThemedText type="small">{busy ? 'Adding…' : 'Add pretend students:'}</ThemedText>
