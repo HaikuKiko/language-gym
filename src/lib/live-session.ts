@@ -98,6 +98,10 @@ export type LiveParticipant = {
   joined_at: string;
   /** The round in which this student tapped "We found each other!". */
   found_round?: number | null;
+  /** Word games: the cards (numbered per group) this student marked as guessed. */
+  got_cards?: number[] | null;
+  /** Word games: the cards this student skipped. */
+  skipped_cards?: number[] | null;
 };
 
 type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
@@ -116,14 +120,15 @@ export function sessionFlags(settings: RoundSettings): string[] {
   ];
 }
 
-export async function createSession(settings: RoundSettings): Promise<LiveSession> {
+/** Creates a session; `extraFlags` are added to its flags (e.g. for the word games). */
+export async function createSession(settings: RoundSettings, extraFlags: string[] = []): Promise<LiveSession> {
   const client = requireSupabase();
   await ensureSignedIn();
 
   const base = {
     level: settings.level,
     // An older column, now used for flags (see isRoundRobin).
-    categories: sessionFlags(settings),
+    categories: [...sessionFlags(settings), ...extraFlags],
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
     auto_advance: settings.autoAdvance,

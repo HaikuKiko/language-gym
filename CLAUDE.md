@@ -79,6 +79,15 @@ Things agreed for later: `BACKLOG.md`.
   `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
   `useSessionBackend()` for every change). Four pretend students join, find each other and tap; teacher screen +
   phones side by side (tabs when narrow). Never saved.
+- **Word games** (27 Nov 2026, dashboard "🔥 Word games" → `/word-game?game=hot-seat|explain-it`):
+  `src/lib/word-game.ts` (settings constants at the top, names in `WORD_GAMES`), `src/data/word-cards.ts`
+  (our own cards, 60 per level: word + 4 banned words; never the board game's name or cards),
+  `screens/word-game-host-screen.tsx`, `word-game-student-screen.tsx`, `components/word-card-view.tsx`.
+  Same sessions/participants tables and join flow; flags `word-game:<kind>`, `group-size:N`, `groups:G`
+  (fixed at start). **Hot Seat**: one guesser per group, the rest see the word. **Explain It**: only the
+  explainer sees it. Groups go at their own pace: "Got it"/"Skip" (saved on the tapper's own row as
+  `got_cards`/`skipped_cards`, card numbers within the group) gives a new word and the next person the turn.
+  One game clock (`round_minutes`); most words guessed wins. Late joiners are added to a group by the host screen.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).

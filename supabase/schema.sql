@@ -3144,3 +3144,8 @@ from unnest(string_to_array($fu$1|Where did you learn that?|What would you like 
 39|Why?|What is the most important festival?|How do you feel about it?
 40|Why?|What would you do at midnight?|Who would you go with?$fu$, E'\n')) as d(line)
 where t.id = split_part(d.line, '|', 1)::bigint;
+
+-- Word games (Hot Seat, Explain It): each student's "Got it" / "Skip" taps,
+-- as card numbers within their group. Students update their own row.
+alter table public.participants add column if not exists got_cards integer[] not null default '{}';
+alter table public.participants add column if not exists skipped_cards integer[] not null default '{}';

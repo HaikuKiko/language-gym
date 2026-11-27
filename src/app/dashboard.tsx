@@ -78,6 +78,11 @@ function Dashboard() {
           disabled={!configured}
           onPress={() => router.push({ pathname: '/host', params: { mode: 'friending' } })}
         />
+        <Button
+          label="🔥 Word games (Hot Seat, Explain It)"
+          disabled={!configured}
+          onPress={() => router.push('/word-game')}
+        />
         <Button label="Host a session" variant="secondary" disabled={!configured} onPress={() => router.push('/host')} />
         <Button label="Use one shared screen instead" variant="secondary" onPress={() => router.push('/single')} />
       </View>
