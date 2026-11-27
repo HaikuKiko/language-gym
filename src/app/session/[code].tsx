@@ -6,7 +6,7 @@ import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { friendlyConnectionMessage } from '@/core/app/connection';
-import { useLiveSession } from '@/hooks/use-live-session';
+import { useLiveSession } from '@/core/live/use-live-session';
 import { LiveHostScreen } from '@/screens/live-host-screen';
 import { LiveStudentScreen } from '@/screens/live-student-screen';
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';

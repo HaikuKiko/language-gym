@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
-import { getAppAddress } from '@/components/join-qr-code';
+import { getAppAddress } from '@/core/live/join-qr-code';
 import { Screen } from '@/core/ui/screen';
 import { TeacherOnly } from '@/core/app/teacher-only';
 import { ThemedText } from '@/core/ui/themed-text';
@@ -11,7 +11,7 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
 import { loadContactMessages, type ContactMessage } from '@/core/app/contact';
-import { findMyOpenSession } from '@/lib/live-session';
+import { findMyOpenSession } from '@/core/live/session';
 import { WORD_GAMES, fetchMyPastGames, type PastGame } from '@/lib/word-game';
 import { NOT_CONFIGURED_MESSAGE, supabase } from '@/core/app/supabase';
 

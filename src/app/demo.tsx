@@ -6,12 +6,13 @@ import { Chip } from '@/core/ui/chip';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
-import { LEVELS, type Level } from '@/data/questions';
+import { LEVELS, type Level } from '@/core/content/levels';
 import { useTheme } from '@/core/ui/use-theme';
-import { sessionFlags, type LiveParticipant, type LiveSession } from '@/lib/live-session';
-import { groupsForRound } from '@/lib/round-robin';
+import { type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { sessionFlags } from '@/lib/talk-rounds';
+import { groupsForRound } from '@/core/live/groups';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';
-import type { SessionEvent } from '@/lib/session-events';
+import type { SessionEvent } from '@/core/live/events';
 import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
 import {
   GUESS_WRONG,

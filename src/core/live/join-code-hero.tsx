@@ -2,10 +2,10 @@ import { type Href } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ExternalLink } from '@/core/ui/external-link';
-import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
+import { JoinQrCode, getAppAddress, joinUrl } from '@/core/live/join-qr-code';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { formatCode } from '@/lib/live-session';
+import { formatCode } from '@/core/live/session';
 
 /** The big join code and QR code on the teacher's screen before a session starts. */
 export function JoinCodeHero({ code, demo = false }: { code: string; demo?: boolean }) {

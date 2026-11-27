@@ -1,5 +1,6 @@
-import type { Level, Question } from '@/data/questions';
-import type { Participant } from '@/lib/round-robin';
+import type { Level } from '@/core/content/levels';
+import type { Question } from '@/data/questions';
+import type { Participant } from '@/core/live/groups';
 
 /** How the rounds are run; shared by the single-screen and phone versions. */
 export type RoundSettings = {

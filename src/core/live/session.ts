@@ -1,14 +1,14 @@
 /**
- * Phone sessions: the host creates a session and gets a join code, students
- * join with that code, and every phone follows the same session row in
- * Supabase. See supabase/schema.sql for the tables.
+ * Live classroom sessions (Live classroom kit): the teacher creates a session
+ * and gets a join code, students join with that code, and every phone follows
+ * the same session row in Supabase. Any activity (Talk Rounds, word games, …)
+ * is a session with its own flags; see supabase/schema.sql for the tables.
  */
-import { findFunQuestions, type CustomSet, type FunQuestion } from '@/data/fun-questions';
-import { LEVELS, findQuestions, type Level, type Question } from '@/data/questions';
-import { groupsForRound, uniqueRoundCount, type Group, type Participant } from '@/lib/round-robin';
-import { shuffle, type RoundSettings } from '@/lib/session';
+import type { Level } from '@/core/content/levels';
+import type { Participant } from '@/core/live/groups';
 import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
+/** How many digits a join code has. */
 export const CODE_LENGTH = 6;
 
 export type LiveSession = {
@@ -39,57 +39,6 @@ export type LiveSession = {
   found_ids?: string[];
 };
 
-const ROUND_ROBIN = 'round-robin';
-const FRIENDING = 'speed-friending';
-/** Flag for speed friending with turns (one talks, one asks, then swap). */
-const TAKE_TURNS = 'take-turns';
-/** Flag prefix for a custom question set: `custom:<set id>`. */
-const CUSTOM = 'custom:';
-
-/** True when the number of rounds is worked out from the class size at the start. */
-export function isRoundRobin(session: LiveSession): boolean {
-  return session.categories?.includes(ROUND_ROBIN) ?? false;
-}
-
-/** Speed friending: fun get-to-know-you questions, with no grammar point. */
-export function isFriending(session: LiveSession): boolean {
-  return session.categories?.includes(FRIENDING) ?? false;
-}
-
-/** Speed friending with turns: one person talks while their partner asks, then they swap. */
-export function isTakingTurns(session: LiveSession): boolean {
-  return isFriending(session) && (session.categories?.includes(TAKE_TURNS) ?? false);
-}
-
-/**
- * Taking turns: whose turn it is in a group, from how much of the round has
- * gone. The round is split equally; in turn k, person k talks and the next
- * person in the group asks them their own question.
- */
-export function turnFor(
-  session: LiveSession,
-  groupSize: number,
-  now: number,
-): { turn: number; turns: number; turnMs: number; leftMs: number; sinceStartMs: number } {
-  const total = session.round_minutes * 60_000;
-  const turns = Math.max(1, groupSize);
-  const turnMs = total / turns;
-  const elapsed = Math.min(total, Math.max(0, total - remainingMs(session, now)));
-  const turn = Math.min(turns - 1, Math.floor(elapsed / turnMs));
-  return { turn, turns, turnMs, leftMs: Math.max(0, (turn + 1) * turnMs - elapsed), sinceStartMs: elapsed - turn * turnMs };
-}
-
-/** Speed friending with a custom question set: its id (null for the usual questions). */
-export function customSetId(session: LiveSession): string | null {
-  const flag = session.categories?.find((c) => c.startsWith(CUSTOM));
-  return flag ? flag.slice(CUSTOM.length) : null;
-}
-
-/** Rounds needed for everyone to talk to everyone once (at least 1). */
-export function roundRobinRounds(studentCount: number): number {
-  return Math.max(1, uniqueRoundCount(studentCount));
-}
-
 export type LiveParticipant = {
   id: string;
   session_id: string;
@@ -110,31 +59,46 @@ export type LiveParticipant = {
   asked_follow_ups?: string[] | null;
 };
 
-type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
+/** What the host may change on a session. */
+export type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
+
+/** True when the session has this flag. */
+export function hasFlag(session: LiveSession, flag: string): boolean {
+  return session.categories?.includes(flag) ?? false;
+}
+
+/** The value of a `prefix<value>` flag, e.g. `custom:<set id>`; null when there is none. */
+export function flagValue(session: LiveSession, prefix: string): string | null {
+  const flag = session.categories?.find((c) => c.startsWith(prefix));
+  return flag ? flag.slice(prefix.length) : null;
+}
 
 // ---------------------------------------------------------------------------
 // Talking to Supabase
 // ---------------------------------------------------------------------------
 
-/** The session's flags (kept in the "categories" column) for these settings. */
-export function sessionFlags(settings: RoundSettings): string[] {
-  return [
-    ...(settings.roundRobin ? [ROUND_ROBIN] : []),
-    ...(settings.mode === 'friending' ? [FRIENDING] : []),
-    ...(settings.mode === 'friending' && settings.customSetId ? [CUSTOM + settings.customSetId] : []),
-    ...(settings.mode === 'friending' && settings.takeTurns ? [TAKE_TURNS] : []),
-  ];
-}
+export type NewSession = {
+  level: Level;
+  /** Talk Rounds: the week's theme; null for any. */
+  week: number | null;
+  /** How long a round (or a whole game) lasts. */
+  roundMinutes: number;
+  roundCount: number;
+  /** Automatic: the teacher's screen moves on when the clock runs out. */
+  autoAdvance: boolean;
+  /** What kind of activity this is and its options (kept in the "categories" column). */
+  flags: string[];
+};
 
-/** Creates a session; `extraFlags` are added to its flags (e.g. for the word games). */
-export async function createSession(settings: RoundSettings, extraFlags: string[] = []): Promise<LiveSession> {
+/** Creates a session with a new join code. */
+export async function createSession(settings: NewSession): Promise<LiveSession> {
   const client = requireSupabase();
   await ensureSignedIn();
 
   const base = {
     level: settings.level,
-    // An older column, now used for flags (see isRoundRobin).
-    categories: [...sessionFlags(settings), ...extraFlags],
+    // An older column, now used for flags (see hasFlag).
+    categories: settings.flags,
     round_minutes: settings.roundMinutes,
     round_count: settings.roundCount,
     auto_advance: settings.autoAdvance,
@@ -185,7 +149,6 @@ export async function fetchParticipants(sessionId: string): Promise<LiveParticip
   return data as LiveParticipant[];
 }
 
-/** Adds this device to the session, or renames it if it has already joined. */
 /**
  * A session this device is still part of (as a student or the host) that has
  * not finished and started in the last 12 hours, so the start page can offer
@@ -233,6 +196,7 @@ export class HostDeviceError extends Error {
   }
 }
 
+/** Adds this device to the session, or renames it if it has already joined. */
 export async function joinSession(code: string, name: string): Promise<LiveSession> {
   const client = requireSupabase();
   const userId = await ensureSignedIn();
@@ -268,20 +232,6 @@ export async function removeParticipant(participantId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-/** A student taps "We found each other!": marks their own row for this round. */
-export async function markFound(participantId: string, round: number): Promise<void> {
-  const { error } = await requireSupabase().from('participants').update({ found_round: round }).eq('id', participantId);
-  if (error) throw new Error(error.message);
-}
-
-/** Take turns: a student taps a follow-up they asked (again to undo). Saved on their own row. */
-export async function toggleFollowUp(me: LiveParticipant, key: string): Promise<void> {
-  const current = me.asked_follow_ups ?? [];
-  const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
-  const { error } = await requireSupabase().from('participants').update({ asked_follow_ups: next }).eq('id', me.id);
-  if (error) throw new Error(error.message);
-}
-
 /**
  * Saves changes to the session (host only). With `onlyIfUnmoved`, the change
  * is skipped when the session has already moved to another round or stage,
@@ -302,66 +252,21 @@ export async function updateSession(
 }
 
 // ---------------------------------------------------------------------------
-// Session steps (what to save for each thing the host can do)
+// Steps every activity uses
 // ---------------------------------------------------------------------------
 
 export function rosterFrom(participants: LiveParticipant[]): Participant[] {
   return participants.map((p) => ({ id: p.id, name: p.name }));
 }
 
-/** How long the talking lasts. Finding a partner has no time limit. */
+/** How long a round lasts (or a whole game, for the word games). */
 export function stageDurationMs(session: LiveSession): number {
   return session.round_minutes * 60 * 1000;
 }
 
-function timestampAfter(now: number, ms: number): string {
+/** A time `ms` from `now`, as saved in the session. */
+export function timestampAfter(now: number, ms: number): string {
   return new Date(now + ms).toISOString();
-}
-
-/**
- * Every round starts with finding partners, with no clock: the question
- * appears once every pair has found each other (see beginDiscussion).
- */
-function roundStart(): SessionChanges {
-  return { stage: 'changeover', ends_at: null, remaining_ms: null, found_ids: [] };
-}
-
-export function startSession(
-  session: LiveSession,
-  participants: LiveParticipant[],
-  now: number,
-): SessionChanges {
-  return {
-    status: 'playing',
-    round: 0,
-    roster: rosterFrom(participants),
-    ...(isRoundRobin(session) ? { round_count: roundRobinRounds(participants.length) } : {}),
-    ...roundStart(),
-  };
-}
-
-/** Moves to the next round, or finishes the session after the last one. */
-export function nextRound(
-  session: LiveSession,
-  participants: LiveParticipant[],
-  now: number,
-): SessionChanges {
-  if (session.round + 1 >= session.round_count) return endSession();
-  return {
-    round: session.round + 1,
-    // Picks up anyone who joined or was removed during the last round.
-    roster: rosterFrom(participants),
-    ...roundStart(),
-  };
-}
-
-/** Everyone has found their partner (or the host starts anyway): show the question and start the clock. */
-export function beginDiscussion(session: LiveSession, now: number): SessionChanges {
-  return {
-    stage: 'discussion',
-    ends_at: timestampAfter(now, stageDurationMs(session)),
-    remaining_ms: null,
-  };
 }
 
 export function startTimer(session: LiveSession, now: number): SessionChanges {
@@ -376,85 +281,13 @@ export function resetTimer(session: LiveSession): SessionChanges {
   return { ends_at: null, remaining_ms: stageDurationMs(session) };
 }
 
-/** The host marks a pair as found (or not), e.g. when a phone is flat. */
-export function setGroupFound(session: LiveSession, group: Group, found: boolean): SessionChanges {
-  const ids = new Set(session.found_ids ?? []);
-  for (const p of group) {
-    if (found) ids.add(p.id);
-    else ids.delete(p.id);
-  }
-  return { found_ids: [...ids] };
-}
-
 export function endSession(): SessionChanges {
   return { status: 'finished', ends_at: null, remaining_ms: 0 };
-}
-
-// ---------------------------------------------------------------------------
-// Reading the session
-// ---------------------------------------------------------------------------
-
-export type GroupStatus = { group: Group; found: boolean };
-
-/**
- * Which pairs (or groups of three) have found each other this round. A group
- * is found when any member tapped the button this round or the host marked
- * it; someone with no partner counts as found.
- */
-export function findingStatus(session: LiveSession, participants: LiveParticipant[]) {
-  const tapped = new Set(participants.filter((p) => p.found_round === session.round).map((p) => p.id));
-  const marked = new Set(session.found_ids ?? []);
-  const groups: GroupStatus[] = groupsForRound(session.roster, session.round).map((group) => ({
-    group,
-    found: group.length < 2 || group.some((p) => tapped.has(p.id) || marked.has(p.id)),
-  }));
-  const ready = groups.filter((g) => g.found).length;
-  return { groups, ready, total: groups.length, allFound: groups.length > 0 && ready === groups.length };
 }
 
 export function remainingMs(session: LiveSession, now: number): number {
   if (session.ends_at) return Math.max(0, Date.parse(session.ends_at) - now);
   return session.remaining_ms ?? 0;
-}
-
-/**
- * Conversation practice: the question everyone discusses this round. Every
- * phone works this out the same way, so the whole class is on the same
- * question, with a new one each round.
- */
-export function questionForRound(
-  session: LiveSession,
-  questions: readonly Question[],
-  level: Level,
-): { text: string } | null {
-  const pool = findQuestions(questions, level, session.week);
-  if (pool.length === 0) return null;
-  const ordered = shuffle(pool, session.seed + LEVELS.indexOf(level));
-  return ordered[session.round % ordered.length];
-}
-
-/**
- * Speed friending: each student has their own question to ask their partner.
- * The questions are shuffled once per session; a student's question moves one
- * step along the list each round, starting from their place in the roster, so
- * partners have different questions and nobody gets the same one twice until
- * the list runs out.
- */
-export function questionForStudent(
-  session: LiveSession,
-  funQuestions: readonly FunQuestion[],
-  participantId: string,
-  customSets: readonly CustomSet[] = [],
-): { text: string; followUps?: string[] } | null {
-  // A custom set: its questions, the same at every level.
-  const custom = customSets.find((s) => s.id === customSetId(session));
-  const pool: { text: string; followUps?: string[] }[] = custom
-    ? custom.questions.map((text, i) => ({ text, followUps: custom.followUps?.[i] }))
-    : findFunQuestions(funQuestions, session.level, session.week);
-  if (pool.length === 0) return null;
-  const seat = Math.max(0, session.roster.findIndex((p) => p.id === participantId));
-  const ordered = shuffle(pool, session.seed + LEVELS.indexOf(session.level));
-  return ordered[(seat + session.round) % ordered.length];
 }
 
 export function formatCode(code: string): string {

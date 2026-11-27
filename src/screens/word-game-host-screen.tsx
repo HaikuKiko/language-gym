@@ -1,11 +1,14 @@
 import { router } from 'expo-router';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar } from '@/core/ui/avatar';
 import { Button } from '@/core/ui/button';
 import { GameAwards } from '@/components/game-awards';
-import { JoinCodeHero } from '@/components/join-code-hero';
+import { JoinCodeHero } from '@/core/live/join-code-hero';
+import { LateJoinQr } from '@/core/live/late-join-qr';
+import { LobbyButtons, StudentRoster } from '@/core/live/lobby';
+import { useHostActions } from '@/core/live/use-host-actions';
+import { ErrorNote } from '@/core/ui/notice';
 import { Pill } from '@/core/ui/pill';
 import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
@@ -14,16 +17,7 @@ import { GameClock, WordCardView } from '@/components/word-card-view';
 import { Spacing } from '@/core/ui/theme';
 import { useNow } from '@/core/app/use-now';
 import { useTeamNames } from '@/hooks/use-team-names';
-import { useTheme } from '@/core/ui/use-theme';
-import {
-  endSession,
-  formatCode,
-  pauseTimer,
-  remainingMs,
-  startTimer,
-  type LiveParticipant,
-  type LiveSession,
-} from '@/lib/live-session';
+import { endSession, formatCode, pauseTimer, remainingMs, startTimer, type LiveParticipant, type LiveSession } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/core/app/supabase';
 import {
@@ -52,20 +46,9 @@ type Props = {
 /** The teacher's screen for a word game: join code, then every group's progress, then the results. */
 export function WordGameHostScreen({ kind, session, participants, onSession, onParticipants }: Props) {
   const now = useNow();
-  const theme = useTheme();
   const backend = useSessionBackend();
   const game = WORD_GAMES[kind];
-  const [error, setError] = useState<string | null>(null);
-
-  async function save(changes: Parameters<typeof backend.updateSession>[1]) {
-    try {
-      const saved = await backend.updateSession(session, changes);
-      if (saved) onSession(saved);
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }
+  const { save, remove, error, setError } = useHostActions({ backend, session, participants, onSession, onParticipants });
 
   const { names: teams, reload: reloadTeams } = useTeamNames(session);
 
@@ -80,16 +63,6 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     await save(startWordGame(session, participants, Date.now()));
     // The start time, from the database's clock, for timing the first words.
     await backend.logEvent(session.id, null, GAME_STARTED, {}).catch(() => {});
-  }
-
-  async function remove(participant: LiveParticipant) {
-    try {
-      await backend.removeParticipant(participant.id);
-      onParticipants(participants.filter((p) => p.id !== participant.id));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
   }
 
   const playing = session.status === 'playing';
@@ -115,12 +88,6 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
   useEffect(() => {
     if (lateIds) addLate();
   }, [lateIds]);
-
-  const errorText = error && (
-    <ThemedText type="small" themeColor="warning" style={styles.centered}>
-      {error}
-    </ThemedText>
-  );
 
   const title = (
     <View style={styles.topBar}>
@@ -155,38 +122,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
       <Screen>
         {title}
         <JoinCodeHero code={session.code} demo={backend.demo} />
-        <ThemedView type="backgroundElement" style={styles.card}>
-          <View style={styles.rowBetween}>
-            <ThemedText type="smallBold">Students</ThemedText>
-            <Pill label={String(participants.length)} tone="accent" />
-          </View>
-          {participants.length === 0 ? (
-            <ThemedText themeColor="textSecondary" style={styles.centered}>
-              Waiting for students to join…
-            </ThemedText>
-          ) : (
-            <View style={styles.chips}>
-              {participants.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${p.name}`}
-                  onPress={() => remove(p)}
-                  style={({ pressed }) => [
-                    styles.student,
-                    { backgroundColor: theme.background },
-                    pressed && styles.pressed,
-                  ]}>
-                  <Avatar id={p.id} name={p.name} size={28} />
-                  <ThemedText type="small">{p.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    ✕
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </ThemedView>
+        <StudentRoster participants={participants} onRemove={remove} />
         <View style={styles.chips}>
           <Pill label={`Level ${session.level}`} />
           <Pill label={`Groups of about ${size}`} />
@@ -196,16 +132,14 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         <ThemedText type="small" themeColor="textSecondary">
           {game.summary}
         </ThemedText>
-        <View style={styles.section}>
-          <Button label="Start the game" disabled={participants.length < 2} onPress={start} />
-          {participants.length < 2 && (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              At least two students need to join before you can start.
-            </ThemedText>
-          )}
-          <Button label="Cancel game" variant="secondary" onPress={() => save(endSession())} />
-          {errorText}
-        </View>
+        <LobbyButtons
+          studentCount={participants.length}
+          startLabel="Start the game"
+          cancelLabel="Cancel game"
+          onStart={start}
+          onCancel={() => save(endSession())}
+          error={error}
+        />
       </Screen>
     );
   }
@@ -218,7 +152,10 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     <Screen>
       {title}
       <ThemedView type="backgroundElement" style={[styles.card, styles.clockCard]}>
-        <GameClock session={session} now={now} large />
+        <View style={styles.clockRow}>
+          <GameClock session={session} now={now} large />
+          <LateJoinQr code={session.code} demo={backend.demo} />
+        </View>
         <View style={styles.buttons}>
           <Button
             label={running ? 'Pause' : 'Resume'}
@@ -258,7 +195,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
 
       <View style={styles.section}>
         <Button label="End the game now" variant="secondary" onPress={() => save(endSession())} />
-        {errorText}
+        <ErrorNote message={error} />
       </View>
     </Screen>
   );
@@ -279,6 +216,13 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
+  clockRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.four,
+  },
   clockCard: {
     alignItems: 'center',
     gap: Spacing.three,
@@ -294,19 +238,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
-  student: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.one,
-    paddingLeft: Spacing.one,
-    paddingRight: Spacing.three,
-    borderRadius: Spacing.four,
-    minHeight: 36,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   buttons: {
     flexDirection: 'row',
     gap: Spacing.two,
@@ -319,8 +250,5 @@ const styles = StyleSheet.create({
   group: {
     flexGrow: 1,
     flexBasis: 260,
-  },
-  centered: {
-    textAlign: 'center',
   },
 });

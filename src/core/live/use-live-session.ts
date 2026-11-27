@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import {
-  fetchParticipants,
-  fetchSessionByCode,
-  type LiveParticipant,
-  type LiveSession,
-} from '@/lib/live-session';
+import { fetchParticipants, fetchSessionByCode, type LiveParticipant, type LiveSession } from '@/core/live/session';
 import { ensureSignedIn, errorMessage, requireSupabase } from '@/core/app/supabase';
 
 /** How often to re-read the session, as a safety net behind live updates. */

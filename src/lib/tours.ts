@@ -7,7 +7,7 @@ import { countWords } from '@/core/app/text';
 import type { Slide } from '@/core/media/slideshow';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { distanceM, isWithin, nearest, type Fix, type LatLng } from '@/core/place/geo';
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 
 export type TaskKind = 'photo' | 'write' | 'audio' | 'video' | 'talk';
 

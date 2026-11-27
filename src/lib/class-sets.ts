@@ -13,7 +13,7 @@ import { loadScript } from '@/core/app/load-script';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 import { matchStudent, type ClassStudent } from '@/lib/classes';
 import type { PreparedPhoto } from '@/core/media/photo';
 import { requestTeacherIeltsFeedback, type IeltsFeedback } from '@/lib/ielts';

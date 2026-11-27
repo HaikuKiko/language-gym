@@ -16,10 +16,10 @@
  * works out each group's progress from those, so two people tapping at the
  * same moment for the same card count once.
  */
-import { LEVELS } from '@/data/questions';
+import { LEVELS } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS, type WordCard } from '@/data/word-cards';
-import type { LiveParticipant, LiveSession } from '@/lib/live-session';
-import type { Participant } from '@/lib/round-robin';
+import type { LiveParticipant, LiveSession } from '@/core/live/session';
+import type { Participant } from '@/core/live/groups';
 import { shuffle } from '@/lib/session';
 import { requireSupabase } from '@/core/app/supabase';
 

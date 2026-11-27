@@ -3,9 +3,9 @@
  * a game from the record of every word (session_events). Every phone and the
  * teacher's screen work them out the same way.
  */
-import type { LiveSession } from '@/lib/live-session';
-import type { Participant } from '@/lib/round-robin';
-import type { SessionEvent } from '@/lib/session-events';
+import type { LiveSession } from '@/core/live/session';
+import type { Participant } from '@/core/live/groups';
+import type { SessionEvent } from '@/core/live/events';
 import {
   CARD_DONE,
   GAME_STARTED,

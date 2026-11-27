@@ -54,8 +54,8 @@ Things agreed for later: `BACKLOG.md`.
   `session_by_code` RPC). Sessions (and names, by cascade) are deleted nightly after 30 days (pg_cron
   job `delete-old-sessions` → `delete_old_sessions(30)`; keep it equal to `RETENTION_DAYS`).
 - **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
-  `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
-  components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
+  `src/lib/talk-rounds.ts` (its own flags, rounds and questions, on top of the Live classroom kit), `session.ts`,
+  `src/hooks/use-questions.tsx`, components `round-settings-form`, `grammar-card`.
   Questions table: 1,488 rows (levels × themes, 15 each); defaults: Automatic, 2 minutes, round robin.
   Two modes (flag in `sessions.categories`): **Speed friending** (dashboard "🎉 Speed friending" →
   `/host?mode=friending`; questions per level A1–C2 × 8 fun themes × 10 in
@@ -76,7 +76,7 @@ Things agreed for later: `BACKLOG.md`.
   and "🔄 Swap!" for `SWAP_NOTICE_MS`. To roll back completely: revert the "Take turns" PR.
   **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
   turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
-  `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
+  `src/lib/session-backend.tsx`, built on `core/live/backend.tsx`, swaps Supabase for local state; the host and student screens use
   `useSessionBackend()` for every change). Four pretend students join, find each other and tap; teacher screen +
   phones side by side (tabs when narrow). Never saved.
 - **Word games** (27 Nov 2026, dashboard "🔥 Word games" → `/word-game?game=hot-seat|explain-it`):
@@ -94,7 +94,7 @@ Things agreed for later: `BACKLOG.md`.
   **Hints, points and awards** (part 1 of 3, 27 Nov): every card has an easy-English meaning
   (`src/data/word-hints.ts`), opened with "💡 Don't know this word?". Every word guessed/skipped and every hint
   is logged to the shared table **`session_events`** (session_id, participant_id, kind, data jsonb, created_at;
-  helpers `src/lib/session-events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
+  helpers `src/core/live/events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
   `follow_up_asked`) via `finishCard` in `word-game.ts`. Explain It asks the explainer "Who guessed it?".
   `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
   Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
@@ -120,7 +120,13 @@ Things agreed for later: `BACKLOG.md`.
   `connection.ts` (friendly "no internet" message), `supabase.ts`, `teachers.ts` + `teacher-only.tsx` (teacher
   login), `account.ts` (student code + PIN), `contact.ts`, `text.ts` (`countWords`), `use-now`, `use-countdown`,
   `use-saved-state`, `load-script.ts` (cdnjs loader; pdf.js uses it). `media/`: `photo.ts` (pick photos),
-  `slideshow.tsx`. `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
+  `slideshow.tsx`. `content/levels.ts` (CEFR `LEVELS`). `live/` (Live classroom kit, any activity students join on
+  their phones): `session.ts` (sessions + participants, join codes, create/join/update, flags `hasFlag`/`flagValue`,
+  timer steps), `groups.ts` (round robin), `ready-check.ts` ("We found each other!"), `turns.ts` (take turns),
+  `events.ts` (`session_events`), `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase
+  or demo; apps add their own actions), `use-host-actions.ts` (save/remove/error), `lobby.tsx` (`StudentRoster`,
+  `LobbyButtons`, `StudentLobby`), `leave.ts`, `join-code-hero`, `join-qr-code`, **`late-join-qr.tsx` (put
+  `LateJoinQr` on every teacher screen while an activity runs)**, `live-timer`. `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
   + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:

@@ -2,7 +2,8 @@ import { usePathname } from 'expo-router';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
 import { BUILT_IN_FUN_QUESTIONS, type CustomSet, type FunQuestion } from '@/data/fun-questions';
-import { BUILT_IN_QUESTIONS, LEVELS, type Level, type Question } from '@/data/questions';
+import { LEVELS, type Level } from '@/core/content/levels';
+import { BUILT_IN_QUESTIONS, type Question } from '@/data/questions';
 import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
 import { supabase } from '@/core/app/supabase';
