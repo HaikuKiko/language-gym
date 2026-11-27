@@ -149,15 +149,6 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
       (a, b) => b.guessed - a.guessed || (a.guessSeconds ?? 0) - (b.guessSeconds ?? 0),
     ).map((p) => ({ id: p.id, text: `${p.name}: ${p.guessed} ${p.guessed === 1 ? 'word' : 'words'}, ${secs(p.guessSeconds)}` })),
   });
-  // Explain It: who each explainer works best with (most words guessed together).
-  const pairs = new Map<string, number[]>();
-  for (const c of cards) if (c.result === 'got' && c.guesser_id) add(pairs, `${c.player_id}>${c.guesser_id}`, c.seconds);
-  const bestWith = (id: string) => {
-    const mine = [...pairs.entries()].filter(([key]) => key.startsWith(`${id}>`));
-    if (kind !== 'explain-it' || mine.length === 0) return '';
-    const [key, times] = mine.sort((a, b) => b[1].length - a[1].length || (avg(a[1]) ?? 0) - (avg(b[1]) ?? 0))[0];
-    return times.length > 1 ? ` (best with ${nameOf(key.split('>')[1])})` : '';
-  };
   awards.push({
     title: kind === 'hot-seat' ? 'Best describers' : 'Best explainers',
     emoji: '🗣️',
@@ -167,9 +158,28 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
       (a, b) => b.explained - a.explained || (a.explainSeconds ?? 0) - (b.explainSeconds ?? 0),
     ).map((p) => ({
       id: p.id,
-      text: `${p.name}: ${p.explained} ${p.explained === 1 ? 'word' : 'words'}, ${secs(p.explainSeconds)}${bestWith(p.id)}`,
+      text: `${p.name}: ${p.explained} ${p.explained === 1 ? 'word' : 'words'}, ${secs(p.explainSeconds)}`,
     })),
   });
+
+  // Explain It: an explainer and a guesser who get through words quickly together.
+  if (kind === 'explain-it') {
+    const pairs = new Map<string, number[]>();
+    for (const c of cards) if (c.result === 'got' && c.guesser_id) add(pairs, `${c.player_id}>${c.guesser_id}`, c.seconds);
+    awards.push({
+      title: 'Strong pairs',
+      emoji: '🤝',
+      lines: [...pairs.entries()]
+        .sort((a, b) => b[1].length - a[1].length || (avg(a[1]) ?? 0) - (avg(b[1]) ?? 0))
+        .slice(0, AWARD_PLACES)
+        .map(([key, times]) => {
+          const [from, to] = key.split('>');
+          return {
+            text: `${nameOf(from)} explains, ${nameOf(to)} guesses: ${times.length} ${times.length === 1 ? 'word' : 'words'}, ${secs(avg(times))}`,
+          };
+        }),
+    });
+  }
 
   awards.push({
     title: 'No hints needed',

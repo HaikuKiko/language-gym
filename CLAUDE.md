@@ -97,7 +97,7 @@ Things agreed for later: `BACKLOG.md`.
   helpers `src/lib/session-events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
   `follow_up_asked`) via `finishCard` in `word-game.ts`. Explain It asks the explainer "Who guessed it?".
   `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
-  Fastest guessers, Best explainers/describers with "best with", No hints needed; teacher also sees Hardest
+  Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
   words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
   reopens past games (`fetchMyPastGames`). Planned next: part 2 typing the answer + team names; part 3
   rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
