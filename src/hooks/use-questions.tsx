@@ -1,12 +1,13 @@
 import { usePathname } from 'expo-router';
 import { createContext, use, useEffect, useState, type ReactNode } from 'react';
 
-import { BUILT_IN_FUN_QUESTIONS, type CustomSet, type FunQuestion } from '@/data/fun-questions';
+import { BUILT_IN_FUN_QUESTIONS, type FunQuestion } from '@/data/fun-questions';
 import { LEVELS, type Level } from '@/core/content/levels';
 import { BUILT_IN_QUESTIONS, type Question } from '@/data/questions';
 import { WEEK_QUESTIONS } from '@/data/week-questions';
 import { BUILT_IN_WEEKS, type Week } from '@/data/weeks';
 import { supabase } from '@/core/app/supabase';
+import { loadCustomSets, textList, type CustomSet } from '@/core/content/custom-sets';
 
 /** Give up on the database after this long and use the built-in content. */
 const LOAD_TIMEOUT_MS = 6000;
@@ -149,11 +150,6 @@ async function loadWeeks(): Promise<Week[] | null> {
   return weeks.length > 0 ? weeks : null;
 }
 
-/** A list of strings from a text[] column (anything else: empty). */
-function textList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && v.trim() !== '') : [];
-}
-
 /** Speed friending's questions from the friending_questions table (null if missing or empty). */
 async function loadFunQuestions(): Promise<FunQuestion[] | null> {
   if (!supabase) return null;
@@ -172,27 +168,6 @@ async function loadFunQuestions(): Promise<FunQuestion[] | null> {
       : [],
   );
   return questions.length > 0 ? questions : null;
-}
-
-/** The custom question sets with their questions, in a fixed order (so every phone agrees). */
-async function loadCustomSets(): Promise<CustomSet[]> {
-  if (!supabase) return [];
-  const [{ data: sets }, { data: questions }] = await Promise.all([
-    supabase.from('custom_question_sets').select('id, name, description').eq('active', true).order('created_at'),
-    supabase.from('custom_questions').select('set_id, text, follow_ups').eq('active', true).order('id').limit(5000),
-  ]);
-  return (sets ?? [])
-    .map((s) => {
-      const own = (questions ?? []).filter((q) => q.set_id === s.id);
-      return {
-        id: String(s.id),
-        name: String(s.name),
-        description: String(s.description ?? ''),
-        questions: own.map((q) => String(q.text)),
-        followUps: own.map((q) => textList(q.follow_ups)),
-      };
-    })
-    .filter((s) => s.questions.length > 0);
 }
 
 async function loadContent(): Promise<Content> {

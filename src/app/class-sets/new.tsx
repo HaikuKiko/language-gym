@@ -8,6 +8,7 @@ import { Chip } from '@/core/ui/chip';
 import { ProgressBar } from '@/core/ui/progress-bar';
 import { Screen } from '@/core/ui/screen';
 import { TeacherOnly } from '@/core/app/teacher-only';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
@@ -238,11 +239,7 @@ function NewClassSetRouteScreen() {
             Uses {pages.length} photo readings and up to {pages.length} {ielts ? 'IELTS markings' : 'feedback checks'}.
           </ThemedText>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <Button label="Back" variant="secondary" onPress={() => router.replace('/class-sets')} />
       </View>
 

@@ -8,6 +8,7 @@ import { StudentLobby } from '@/core/live/lobby';
 import { GrammarHint } from '@/components/grammar-card';
 import { LiveTimer } from '@/core/live/live-timer';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
@@ -225,11 +226,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               Only one of you needs to tap.
             </ThemedText>
-            {tapError && (
-              <ThemedText type="small" themeColor="warning" style={styles.centered}>
-                {tapError}
-              </ThemedText>
-            )}
+            <ErrorNote message={tapError} />
           </>
         )}
       </Screen>

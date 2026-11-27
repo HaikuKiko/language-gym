@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
 import { Chip } from '@/core/ui/chip';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { joinCourse } from '@/core/app/account';
@@ -54,11 +55,7 @@ export function JoinCourse({
         </>
       )}
       <Button label={busy ? 'Joining…' : `Join ${trackName}`} disabled={busy} onPress={join} />
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }

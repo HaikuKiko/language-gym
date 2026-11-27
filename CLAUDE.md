@@ -116,11 +116,12 @@ Things agreed for later: `BACKLOG.md`.
   another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",
   IELTS). `ui/` (App basics, look): `theme.ts` (colours, `Spacing`), `use-theme`, Button, Chip, Pill, Screen,
   ThemedText/View, Avatar, ProgressBar, BusyOverlay, ExternalLink, AppLoading, FooterLinks, `notice.tsx` (`Notice`,
-  `ErrorNote`). `app/` (App basics, logic): `error-boundary.tsx` (no white screens; `_layout` re-exports it),
+  `ErrorNote`: use it for every red error line), `confirm-button.tsx` (`ConfirmButton`: any "Are you sure?" step). `app/` (App basics, logic): `error-boundary.tsx` (no white screens; `_layout` re-exports it),
   `connection.ts` (friendly "no internet" message), `supabase.ts`, `teachers.ts` + `teacher-only.tsx` (teacher
   login), `account.ts` (student code + PIN), `contact.ts`, `text.ts` (`countWords`), `use-now`, `use-countdown`,
   `use-saved-state`, `load-script.ts` (cdnjs loader; pdf.js uses it). `media/`: `photo.ts` (pick photos),
-  `slideshow.tsx`. `content/levels.ts` (CEFR `LEVELS`). `live/` (Live classroom kit, any activity students join on
+  `slideshow.tsx`. `content/` (Content kit): `levels.ts` (CEFR `LEVELS`), `shuffle.ts` (`shuffle` with a seed, `pickForSeat`:
+  each person their own item, no repeats), `custom-sets.ts` (custom sets: type + loading). `live/` (Live classroom kit, any activity students join on
   their phones): `session.ts` (sessions + participants, join codes, create/join/update, flags `hasFlag`/`flagValue`,
   timer steps), `groups.ts` (round robin), `ready-check.ts` ("We found each other!"), `turns.ts` (take turns),
   `events.ts` (`session_events`), `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase

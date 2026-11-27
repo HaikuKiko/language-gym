@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import { Chip } from '@/core/ui/chip';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/core/content/levels';
@@ -132,11 +133,7 @@ export default function WordGameSetupRoute() {
 
       <View style={styles.section}>
         <Button label={busy ? 'Creating…' : 'Create game'} disabled={busy} onPress={create} />
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <Button
           label="Try the demo first (pretend students)"
           variant="secondary"

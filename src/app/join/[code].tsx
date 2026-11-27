@@ -5,6 +5,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import { FooterLinks } from '@/core/ui/footer-links';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { PRODUCT_NAME } from '@/constants/product';
@@ -111,11 +112,7 @@ export default function JoinRoute() {
             )}
           </View>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning">
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} align="left" />
         {!configured && (
           <ThemedText type="small" themeColor="warning">
             {NOT_CONFIGURED_MESSAGE}

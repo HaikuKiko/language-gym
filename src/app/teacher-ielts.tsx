@@ -9,6 +9,7 @@ import { ShareCalibrationCard } from '@/components/share-calibration-card';
 import { Button } from '@/core/ui/button';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { WritingBox } from '@/components/writing-box';
 import { Spacing } from '@/core/ui/theme';
@@ -215,11 +216,7 @@ export default function TeacherIeltsRoute() {
             {problem}
           </ThemedText>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Marked by an AI (Claude) as a guide, not an official IELTS result. The essay is only saved if you add your own marks.
         </ThemedText>

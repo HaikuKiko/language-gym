@@ -5,6 +5,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import { FooterLinks } from '@/core/ui/footer-links';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
@@ -81,11 +82,7 @@ export default function ContactRoute() {
         style={[inputStyle, styles.message]}
       />
       <Button label={busy ? 'Sending…' : 'Send'} disabled={busy || !emailOk} onPress={send} />
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
       <ThemedText type="small" themeColor="textSecondary">
         We only use your email to reply and to keep you posted. Ask us any time and we&apos;ll delete it.
       </ThemedText>
