@@ -40,9 +40,10 @@ const WORD_GAME_TAPS = 3;
 const WORD_GAME_MS = 30_000;
 /** Same as REFRESH_INTERVAL_MS in src/hooks/use-live-session.ts. */
 const REFRESH_INTERVAL_MS = 5_000;
-/** Same as LIVE_STUDENT_UPDATES_UP_TO and BIG_GROUP_REFRESH_MS there. */
+/** Same as LIVE_STUDENT_UPDATES_UP_TO, BIG_GROUP_REFRESH_MS and STUDENT_LIVE_DELAY_MS there. */
 const LIVE_STUDENT_UPDATES_UP_TO = 20;
 const BIG_GROUP_REFRESH_MS = 2_000;
+const STUDENT_LIVE_DELAY_MS = 5_000;
 /** Same as SIGN_IN_RETRY_FOR_MS in src/lib/supabase.ts. */
 const SIGN_IN_RETRY_FOR_MS = 90_000;
 /** Saved guest logins, so reruns don't sign in again. */
@@ -244,7 +245,11 @@ async function student(index, code, login) {
     }
   };
   const channel = connectLive(name, client, session.id, (s) => react(s, true), null);
-  studentChannel = connectLive(name, client, session.id, null, reloadParticipants);
+  // Like the app: wait STUDENT_LIVE_DELAY_MS, then listen only if the group is small.
+  const listenLater = setTimeout(async () => {
+    await reloadParticipants();
+    if (!bigGroup && !done) studentChannel = connectLive(name, client, session.id, null, reloadParticipants);
+  }, STUDENT_LIVE_DELAY_MS);
   await reloadParticipants();
   let lastStudents = Date.now();
   let lastSession = Date.now();
@@ -266,6 +271,7 @@ async function student(index, code, login) {
     else if (seenAny.has(v)) sessionMissed.pollOnly++;
   }
   clearInterval(poll);
+  clearTimeout(listenLater);
   await client.removeChannel(channel);
   if (studentChannel) await client.removeChannel(studentChannel);
 }
