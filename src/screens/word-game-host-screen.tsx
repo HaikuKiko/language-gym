@@ -119,7 +119,14 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         {title}
         <ThemedText type="subtitle">Game over!</ThemedText>
         {progress.length > 0 && <Results progress={progress} />}
-        <Button label="Back to the dashboard" onPress={() => router.replace('/dashboard')} />
+        {backend.demo ? (
+          <Button
+            label="Back to the setup"
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/word-game'))}
+          />
+        ) : (
+          <Button label="Back to the dashboard" onPress={() => router.replace('/dashboard')} />
+        )}
       </Screen>
     );
   }
@@ -147,7 +154,11 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${p.name}`}
                   onPress={() => remove(p)}
-                  style={({ pressed }) => [styles.student, { backgroundColor: theme.background }, pressed && styles.pressed]}>
+                  style={({ pressed }) => [
+                    styles.student,
+                    { backgroundColor: theme.background },
+                    pressed && styles.pressed,
+                  ]}>
                   <Avatar id={p.id} name={p.name} size={28} />
                   <ThemedText type="small">{p.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
@@ -163,7 +174,9 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
           <Pill label={`Groups of about ${size}`} />
           <Pill label={`${session.round_minutes} min game`} />
         </View>
-        <ThemedText type="small" themeColor="textSecondary">{game.summary}</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {game.summary}
+        </ThemedText>
         <View style={styles.section}>
           <Button
             label="Start the game"
@@ -196,7 +209,11 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
             label={running ? 'Pause' : 'Resume'}
             onPress={() => save(running ? pauseTimer(session, Date.now()) : startTimer(session, Date.now()))}
           />
-          <Button label="+1 minute" variant="secondary" onPress={() => save(addTime(session, Date.now(), EXTRA_TIME_MS))} />
+          <Button
+            label="+1 minute"
+            variant="secondary"
+            onPress={() => save(addTime(session, Date.now(), EXTRA_TIME_MS))}
+          />
         </View>
       </ThemedView>
 
@@ -234,8 +251,13 @@ export function Results({ progress, myGroup }: { progress: GroupProgress[]; myGr
           key={group.index}
           style={[
             styles.result,
-            { backgroundColor: place === 1 ? theme.successSoft : theme.backgroundElement },
-            group.index === myGroup && { borderColor: theme.accent, borderWidth: 2 },
+            {
+              backgroundColor: place === 1 ? theme.successSoft : theme.backgroundElement,
+            },
+            group.index === myGroup && {
+              borderColor: theme.accent,
+              borderWidth: 2,
+            },
           ]}>
           <ThemedText type="smallBold">
             {medals[place - 1] ?? `${place}.`} Group {group.index + 1}

@@ -88,6 +88,9 @@ Things agreed for later: `BACKLOG.md`.
   explainer sees it. Groups go at their own pace: "Got it"/"Skip" (saved on the tapper's own row as
   `got_cards`/`skipped_cards`, card numbers within the group) gives a new word and the next person the turn.
   One game clock (`round_minutes`); most words guessed wins. Late joiners are added to a group by the host screen.
+  **Demo** ("Try the demo first" on the setup screen → `/demo?game=…&level=…&minutes=2`): the same `demo.tsx`,
+  6 pretend students in 2 groups of 3; each group taps "Got it" (or skips, `SKIP_CHANCE`) a few seconds after
+  each word appears. The word-game screens send taps through `useSessionBackend().recordCard`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).

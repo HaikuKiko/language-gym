@@ -22,6 +22,9 @@ import {
   type WordGameKind,
 } from '@/lib/word-game';
 
+/** The demo is short, whatever game length is chosen. */
+const DEMO_MINUTES = 2;
+
 /** The teacher sets up a word game (Hot Seat or Explain It) and gets a join code. */
 export default function WordGameSetupRoute() {
   const params = useLocalSearchParams<{ game?: string }>();
@@ -55,7 +58,10 @@ export default function WordGameSetupRoute() {
         },
         wordGameFlags(kind, groupSize),
       );
-      router.replace({ pathname: '/session/[code]', params: { code: session.code } });
+      router.replace({
+        pathname: '/session/[code]',
+        params: { code: session.code },
+      });
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
@@ -90,7 +96,8 @@ export default function WordGameSetupRoute() {
           ))}
         </View>
         <ThemedText type="small" themeColor="textSecondary">
-          {cardsForLevel(WORD_CARDS, level).length} words at {level}. Every group gets different words of the same level.
+          {cardsForLevel(WORD_CARDS, level).length} words at {level}. Every group gets different words of the same
+          level.
         </ThemedText>
       </View>
 
@@ -122,6 +129,17 @@ export default function WordGameSetupRoute() {
             {error}
           </ThemedText>
         )}
+        <Button
+          label="Try the demo first (pretend students)"
+          variant="secondary"
+          onPress={() =>
+            router.push({
+              pathname: '/demo',
+              // The demo always has two groups of 3 pretend students.
+              params: { game: kind, level, minutes: String(DEMO_MINUTES) },
+            })
+          }
+        />
         <Button label="Back" variant="secondary" onPress={() => router.replace('/dashboard')} />
       </View>
     </Screen>
