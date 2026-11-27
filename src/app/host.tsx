@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import { RoundSettingsForm } from '@/components/round-settings-form';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
@@ -61,11 +62,7 @@ export default function HostRoute() {
           disabled={busy}
           onPress={create}
         />
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         {friending && (
           <Button
             label="Try the demo first (pretend students)"

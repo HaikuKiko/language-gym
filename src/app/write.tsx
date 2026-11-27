@@ -7,6 +7,7 @@ import { BusyOverlay } from '@/core/ui/busy-overlay';
 import { Button } from '@/core/ui/button';
 import { Chip } from '@/core/ui/chip';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { WritingBox } from '@/components/writing-box';
 import { WritingFeedbackView } from '@/components/writing-feedback';
@@ -155,11 +156,7 @@ export default function WriteRoute() {
             {problem}
           </ThemedText>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Your writing and photos are checked by an AI (Claude) and are not saved. The feedback
           may contain mistakes; ask your teacher if something is unclear.

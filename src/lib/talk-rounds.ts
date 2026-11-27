@@ -18,9 +18,11 @@ import {
   type LiveSession,
   type SessionChanges,
 } from '@/core/live/session';
-import { findFunQuestions, type CustomSet, type FunQuestion } from '@/data/fun-questions';
+import { type CustomSet } from '@/core/content/custom-sets';
+import { findFunQuestions, type FunQuestion } from '@/data/fun-questions';
 import { findQuestions, type Question } from '@/data/questions';
-import { shuffle, type RoundSettings } from '@/lib/session';
+import { pickForSeat, shuffle } from '@/core/content/shuffle';
+import { type RoundSettings } from '@/lib/session';
 
 const ROUND_ROBIN = 'round-robin';
 const FRIENDING = 'speed-friending';
@@ -172,9 +174,7 @@ export function questionForStudent(
   const pool: { text: string; followUps?: string[] }[] = custom
     ? custom.questions.map((text, i) => ({ text, followUps: custom.followUps?.[i] }))
     : findFunQuestions(funQuestions, session.level, session.week);
-  if (pool.length === 0) return null;
-  const seat = Math.max(0, session.roster.findIndex((p) => p.id === participantId));
-  const ordered = shuffle(pool, session.seed + LEVELS.indexOf(session.level));
-  return ordered[(seat + session.round) % ordered.length];
+  const seat = session.roster.findIndex((p) => p.id === participantId);
+  return pickForSeat(pool, session.seed + LEVELS.indexOf(session.level), seat, session.round);
 }
 

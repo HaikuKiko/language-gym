@@ -10,6 +10,7 @@ import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { JoinCourse } from '@/components/join-course';
 import { ProgressBar } from '@/core/ui/progress-bar';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { WritingBox } from '@/components/writing-box';
@@ -288,11 +289,7 @@ export default function IeltsRoute() {
             {problem}
           </ThemedText>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Your essay is marked by an AI (Claude) and is not saved on our server. Your draft is kept on
           this device only.

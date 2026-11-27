@@ -5,10 +5,12 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from
 
 import { BusyOverlay } from '@/core/ui/busy-overlay';
 import { Button } from '@/core/ui/button';
+import { ConfirmButton } from '@/core/ui/confirm-button';
 import { Chip } from '@/core/ui/chip';
 import { Pill } from '@/core/ui/pill';
 import { Screen } from '@/core/ui/screen';
 import { TeacherOnly } from '@/core/app/teacher-only';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { MarkedTextInput } from '@/components/marked-text-input';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
@@ -370,11 +372,7 @@ function ReadingCheck({
       {marked && (
         <Button label="Cancel" variant="secondary" disabled={busy} onPress={() => onDone(false)} />
       )}
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }
@@ -396,13 +394,10 @@ function ReadAgain({
   students: ClassStudent[];
   onDone: () => void;
 }) {
-  const theme = useTheme();
-  const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function run() {
-    setAsking(false);
     setBusy(true);
     setError(null);
     try {
@@ -420,27 +415,17 @@ function ReadAgain({
   const readings = pageCount === 1 ? '1 photo reading' : `${pageCount} photo readings`;
   return (
     <View style={styles.readAgain}>
-      {asking ? (
-        <View style={[styles.readAgainBox, { backgroundColor: theme.markABg }]}>
-          <ThemedText type="small">
-            Read the {pageCount === 1 ? 'page' : 'pages'} and mark again from scratch? This uses {readings} and 1{' '}
-            {set.course === 'ielts' ? 'IELTS marking' : 'feedback check'}. Any changes you made to the reading are
-            replaced.
-          </ThemedText>
-          <View style={styles.readAgainButtons}>
-            <Button label="Yes, read and mark again" onPress={run} />
-            <Button label="Cancel" variant="secondary" onPress={() => setAsking(false)} />
-          </View>
-        </View>
-      ) : (
-        <Button
-          label={busy ? 'Reading and marking again…' : 'Read and mark again'}
-          variant="secondary"
-          disabled={busy}
-          onPress={() => setAsking(true)}
-        />
-      )}
-      {error && <ThemedText type="small" themeColor="warning">{error}</ThemedText>}
+      <ConfirmButton
+        label="Read and mark again"
+        busyLabel="Reading and marking again…"
+        busy={busy}
+        detail={`Read the ${pageCount === 1 ? 'page' : 'pages'} and mark again from scratch? This uses ${readings} and 1 ${
+          set.course === 'ielts' ? 'IELTS marking' : 'feedback check'
+        }. Any changes you made to the reading are replaced.`}
+        yesLabel="Yes, read and mark again"
+        onConfirm={run}
+      />
+      <ErrorNote message={error} align="left" />
       <BusyOverlay
         visible={busy}
         title="Reading and marking again…"
@@ -583,11 +568,7 @@ function StudentPicker({
         <Button label="Add as a new student" variant="secondary" disabled={!newName.trim()} onPress={addNew} />
         {current && <Button label="Cancel" variant="secondary" onPress={() => setChoosing(false)} />}
       </View>
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }
@@ -670,16 +651,6 @@ function NameEditor({ page, onRenamed }: { page: ClassSetPage; onRenamed: (page:
 
 const styles = StyleSheet.create({
   readAgain: {
-    gap: Spacing.two,
-  },
-  readAgainBox: {
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  readAgainButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   check: {

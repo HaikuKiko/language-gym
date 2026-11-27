@@ -6,6 +6,7 @@ import { Button } from '@/core/ui/button';
 import { JoinCourse } from '@/components/join-course';
 import { Pill } from '@/core/ui/pill';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
@@ -106,11 +107,7 @@ export default function AccountRoute() {
 
   const messages = (
     <>
-      {error && (
-        <ThemedText type="small" themeColor="warning" style={styles.centered}>
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} />
       {notice && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           {notice}

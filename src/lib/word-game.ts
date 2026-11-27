@@ -20,7 +20,7 @@ import { LEVELS } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS, type WordCard } from '@/data/word-cards';
 import type { LiveParticipant, LiveSession } from '@/core/live/session';
 import type { Participant } from '@/core/live/groups';
-import { shuffle } from '@/lib/session';
+import { shuffle } from '@/core/content/shuffle';
 import { requireSupabase } from '@/core/app/supabase';
 
 // ===========================================================================

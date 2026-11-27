@@ -7,6 +7,7 @@ import { leaveSession } from '@/core/live/leave';
 import { StudentLobby } from '@/core/live/lobby';
 import { GameAwards } from '@/components/game-awards';
 import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { GameClock, WordCardView } from '@/components/word-card-view';
 import { Spacing } from '@/core/ui/theme';
@@ -285,11 +286,7 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
         </View>
       )}
 
-      {error && (
-        <ThemedText type="small" themeColor="warning" style={styles.centered}>
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} />
     </Screen>
   );
 }

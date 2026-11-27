@@ -23,10 +23,10 @@ export function Notice({ text, tone = 'info' }: { text: string; tone?: 'info' | 
 }
 
 /** A short red line under a button when something went wrong; nothing when there is no message. */
-export function ErrorNote({ message }: { message: string | null | undefined }) {
+export function ErrorNote({ message, align = 'center' }: { message: string | null | undefined; align?: 'center' | 'left' }) {
   if (!message) return null;
   return (
-    <ThemedText type="small" themeColor="warning" style={styles.centered}>
+    <ThemedText type="small" themeColor="warning" style={align === 'center' ? styles.centered : undefined}>
       {message}
     </ThemedText>
   );

@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import { Screen } from '@/core/ui/screen';
 import { TeacherSignIn, useTeacher } from '@/core/app/teacher-only';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
@@ -190,22 +191,14 @@ function AccountForm({
         secureTextEntry
         style={inputStyle}
       />
-      {problem && (
-        <ThemedText type="small" themeColor="warning">
-          {problem}
-        </ThemedText>
-      )}
+      <ErrorNote message={problem} align="left" />
       <Button
         label={busy ? 'Saving…' : buttonLabel}
         disabled={busy || !name.trim() || !username.trim() || !password || password !== again || !!problem}
         onPress={save}
       />
       {message && <ThemedText type="small">{message}</ThemedText>}
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }

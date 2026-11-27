@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
+import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
@@ -105,11 +106,7 @@ export function ShareCalibrationCard({
           )}
         </>
       )}
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }
