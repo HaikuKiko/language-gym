@@ -12,6 +12,9 @@ import { LiveStudentScreen } from '@/screens/live-student-screen';
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';
 import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { wordGameKind } from '@/lib/word-game';
+import { tourOf } from '@/lib/tour-live';
+import { TourHostLive } from '@/screens/tour-host-live';
+import { TourStudentLive } from '@/screens/tour-student-live';
 
 /** A phone session: shows the host's controls or the student's view. */
 export default function LiveSessionRoute() {
@@ -45,6 +48,19 @@ export default function LiveSessionRoute() {
 
   const { session, participants, userId } = state;
   const game = wordGameKind(session);
+  const tour = tourOf(session);
+
+  if (session.host_id === userId && tour) {
+    return (
+      <TourHostLive
+        tour={tour}
+        session={session}
+        participants={participants}
+        onSession={applySession}
+        onParticipants={applyParticipants}
+      />
+    );
+  }
 
   if (session.host_id === userId && game) {
     return (
@@ -87,6 +103,8 @@ export default function LiveSessionRoute() {
       </Screen>
     );
   }
+
+  if (tour) return <TourStudentLive tour={tour} session={session} me={me} />;
 
   if (game) return <WordGameStudentScreen kind={game} session={session} participants={participants} me={me} />;
 
