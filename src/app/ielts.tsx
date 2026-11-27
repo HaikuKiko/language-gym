@@ -162,6 +162,7 @@ export default function IeltsRoute() {
       <IeltsFeedbackView
         response={result}
         text={text}
+        guessedWords={draft.guessed}
         subtitle={`${prompt.essayType ? `${ESSAY_TYPE_NAMES[prompt.essayType]} essay · ` : ''}${prompt.topic}`}
         onImprove={() => setResult(null)}
         showHome={false}
@@ -176,7 +177,7 @@ export default function IeltsRoute() {
     setBusy(true);
     setError(null);
     try {
-      const response = await requestIeltsFeedback(prompt.id, text);
+      const response = await requestIeltsFeedback(prompt.id, text, draft.guessed);
       timer.pause();
       setResult(response);
       draft.showMistakes(response.feedback.corrections);
