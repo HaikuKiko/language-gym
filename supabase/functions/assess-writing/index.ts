@@ -32,7 +32,7 @@
  *            teacher + line_by_line: true keeps the lines of the paper (returns line_by_line: true).
  * Feedback also takes focus_grammar (e.g. from a class set's sheet) when no week is given,
  *            and guessed_words (hard-to-read words from handwriting: never corrected);
- *            teacher IELTS marking takes guessed_words too. every_mistake: true (class sets) lists
+ *            IELTS feedback (student and teacher) takes guessed_words too. every_mistake: true (class sets) lists
  *            every mistake (up to MAX_TEACHER_CORRECTIONS); teacher IELTS marking always does.
  * fresh: true (photo readings, General English feedback, teacher IELTS marking) skips the saved
  *            result and asks again; the new result replaces the saved one.
@@ -514,6 +514,7 @@ async function ieltsFeedback(
   if (words > IELTS_MAX_WORDS) {
     return fail(400, "too_long", `Please write ${IELTS_MAX_WORDS} words or fewer.`);
   }
+  const guessedWords = guessedWordsFrom(body);
 
   const used = await usedToday(admin, userId, "feedback");
   if (used === null) return fail(500, "server_error", "Something went wrong. Please try again.");
@@ -530,6 +531,8 @@ async function ieltsFeedback(
     essayType,
     minWords: prompt.min_words,
     targetBand,
+    // Only when there are some, so earlier saved results still match.
+    ...(guessedWords.length > 0 ? { guessedWords } : {}),
   });
   const saved = await readCache(admin, key);
   if (saved) {
@@ -552,6 +555,7 @@ async function ieltsFeedback(
       essayType,
       minWords: prompt.min_words,
       targetBand,
+      ...(guessedWords.length > 0 ? { guessedWords } : {}),
     });
   } catch (error) {
     return claudeError(error);

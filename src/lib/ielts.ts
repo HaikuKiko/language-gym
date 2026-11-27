@@ -145,12 +145,21 @@ export async function requestTeacherIeltsFeedback(
   };
 }
 
-export async function requestIeltsFeedback(promptId: number, text: string): Promise<IeltsResponse> {
+export async function requestIeltsFeedback(
+  promptId: number,
+  text: string,
+  guessedWords: string[] = [],
+): Promise<IeltsResponse> {
   const client = requireSupabase();
   await ensureSignedIn();
 
   const { data, error } = await client.functions.invoke('assess-writing', {
-    body: { track: 'ielts', prompt_id: promptId, text },
+    body: {
+      track: 'ielts',
+      prompt_id: promptId,
+      text,
+      ...(guessedWords.length > 0 ? { guessed_words: guessedWords } : {}),
+    },
   });
 
   if (error) {
