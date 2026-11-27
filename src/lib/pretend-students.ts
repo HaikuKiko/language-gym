@@ -149,6 +149,16 @@ export function usePretendStudents(session: LiveSession, participants: readonly 
         return;
       }
 
+      // Mixed groups: each pretend student taps "We found each other!" in their new group.
+      if (s.stage === 'changeover') {
+        for (const p of mine) {
+          if (!s.roster.some((r) => r.id === p.id)) continue;
+          tapWhenDue(`regroup:${s.round}:${p.id}`, FIND_MIN_MS, FIND_MAX_MS, async () =>
+            p.client.from('participants').update({ found_round: s.round }).eq('id', p.id),
+          );
+        }
+        return;
+      }
       if (s.ends_at === null) return;
       for (const group of groupProgress(s, participantsRef.current)) {
         if (!group.player) continue;

@@ -15,6 +15,8 @@ import { errorMessage } from '@/core/app/supabase';
 import {
   DEFAULT_GAME_MINUTES,
   GAME_MINUTES,
+  MIX_MINUTES,
+  roundCountFor,
   GROUP_SIZES,
   WORD_GAMES,
   isWordGameKind,
@@ -33,6 +35,10 @@ export default function WordGameSetupRoute() {
   const [groupSize, setGroupSize] = useState<number>(WORD_GAMES[kind].defaultGroupSize);
   const [minutes, setMinutes] = useState<number>(DEFAULT_GAME_MINUTES);
   const [typing, setTyping] = useState(false);
+  const [mix, setMix] = useState(0);
+  // Only mixes that give at least two rounds in a game this long.
+  const mixChoices = MIX_MINUTES.filter((m) => roundCountFor(minutes, m) >= 2);
+  const mixNow = mixChoices.some((m) => m === mix) ? mix : 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = WORD_GAMES[kind];
@@ -52,7 +58,7 @@ export default function WordGameSetupRoute() {
         roundMinutes: minutes,
         roundCount: 1,
         autoAdvance: true,
-        flags: wordGameFlags(kind, groupSize, typing),
+        flags: wordGameFlags(kind, groupSize, typing, mixNow),
       });
       router.replace({
         pathname: '/session/[code]',
@@ -119,6 +125,21 @@ export default function WordGameSetupRoute() {
       </View>
 
       <View style={styles.section}>
+        <ThemedText type="smallBold">Mix the groups</ThemedText>
+        <View style={styles.chips}>
+          <Chip label="Never" selected={mixNow === 0} onPress={() => setMix(0)} />
+          {mixChoices.map((m) => (
+            <Chip key={m} label={`Every ${m} min`} selected={m === mixNow} onPress={() => setMix(m)} />
+          ))}
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          {mixNow
+            ? `Every ${mixNow} minutes everyone moves to a new group (${roundCountFor(minutes, mixNow)} rounds). The app keeps apart people who were together before, and the clock waits while they find each other. Points follow each student.`
+            : 'The groups stay the same for the whole game.'}
+        </ThemedText>
+      </View>
+
+      <View style={styles.section}>
         <ThemedText type="smallBold">How guessers answer</ThemedText>
         <View style={styles.chips}>
           <Chip label="🗣️ Say it" selected={!typing} onPress={() => setTyping(false)} />
@@ -141,7 +162,13 @@ export default function WordGameSetupRoute() {
             router.push({
               pathname: '/demo',
               // The demo always has two groups of 3 pretend students.
-              params: { game: kind, level, minutes: String(DEMO_MINUTES), typing: typing ? '1' : '0' },
+              params: {
+                game: kind,
+                level,
+                minutes: String(DEMO_MINUTES),
+                typing: typing ? '1' : '0',
+                mix: mixNow ? '1' : '0',
+              },
             })
           }
         />

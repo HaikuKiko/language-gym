@@ -59,10 +59,12 @@ const GUESS_MAX_MS = 9000;
 /** Word games: how often a pretend group skips a word instead of guessing it. */
 const SKIP_CHANCE = 0.2;
 /** Word games: names the pretend teams give themselves, a few seconds into the game. */
-const DEMO_TEAM_NAMES = ['The Owls', 'Rocket Squad', 'Word Wizards'];
+const DEMO_TEAM_NAMES = ['The Owls', 'Rocket Squad', 'Word Wizards', 'Quick Foxes'];
 const TEAM_NAME_AFTER_MS = 6000;
 /** Word games with typing: how often a pretend guesser makes a spelling mistake first. */
 const MISSPELL_CHANCE = 0.3;
+/** Word games with "Mix the groups": new groups every minute, so the 2-minute demo has 2 rounds. */
+const DEMO_MIX_MINUTES = 1;
 /** Screens at least this wide show the teacher screen and the phones side by side. */
 const SIDE_BY_SIDE_WIDTH = 1000;
 
@@ -82,6 +84,8 @@ type DemoParams = {
   typing?: string;
   /** How many pretend students (2 or 3). */
   students?: string;
+  /** Word games: "1" to mix the groups. */
+  mix?: string;
 };
 
 /** A session kept only on this device: never saved, so it never mixes with real ones. */
@@ -107,7 +111,12 @@ function demoSession(params: DemoParams): LiveSession {
     roster: [],
     seed: Math.floor(Math.random() * 2 ** 31),
     categories: game
-      ? wordGameFlags(game, Number(params.size) || GAME_DEMO_GROUP_SIZE, params.typing === '1')
+      ? wordGameFlags(
+          game,
+          Number(params.size) || GAME_DEMO_GROUP_SIZE,
+          params.typing === '1',
+          params.mix === '1' ? DEMO_MIX_MINUTES : 0,
+        )
       : sessionFlags({
           ...DEFAULT_ROUND_SETTINGS,
           level,
@@ -230,16 +239,18 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
   useEffect(() => {
     if (session.status !== 'playing' || session.stage !== 'changeover') return;
     const round = session.round;
-    const timers = groupsForRound(session.roster, round).map((group) =>
+    // Talk Rounds: one tap per pair. Word games: everyone taps when they find their new group.
+    const tappers = game ? session.roster.map((p) => p.id) : groupsForRound(session.roster, round).map((g) => g[0].id);
+    const timers = tappers.map((id) =>
       setTimeout(
         () => {
-          if (sessionRef.current.round === round) backend.markFound(group[0].id, round);
+          if (sessionRef.current.round === round) backend.markFound(id, round);
         },
         FIND_MIN_MS + Math.random() * (FIND_MAX_MS - FIND_MIN_MS),
       ),
     );
     return () => timers.forEach(clearTimeout);
-  }, [session.status, session.stage, session.round, session.roster, backend]);
+  }, [game, session.status, session.stage, session.round, session.roster, backend]);
 
   // Word games: each pretend group guesses (or skips) its word a few seconds after it appears.
   // A clock checks every half second, so one group's tap never delays another's.
@@ -276,7 +287,7 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
           const word = group.word.word;
           const typo = word.length > 3 ? word.slice(0, -2) + word.slice(-1) : word + 'e';
           const data: GuessWrongData = {
-            round: 0,
+            round: group.round,
             group: group.index,
             card: group.card,
             word,
@@ -296,19 +307,19 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
 
   // Word games: each pretend team names itself a few seconds in.
   useEffect(() => {
-    if (!game || session.status !== 'playing') return;
+    if (!game || session.status !== 'playing' || session.stage !== 'discussion') return;
     const timer = setTimeout(() => {
       groupProgress(sessionRef.current, participantsRef.current).forEach((group) => {
         const data: TeamNameData = {
-          round: 0,
+          round: group.round,
           group: group.index,
-          name: DEMO_TEAM_NAMES[group.index % DEMO_TEAM_NAMES.length],
+          name: DEMO_TEAM_NAMES[(group.index + group.round * 2) % DEMO_TEAM_NAMES.length],
         };
         backend.logEvent(sessionRef.current.id, group.members[0]?.id ?? null, TEAM_NAME, data);
       });
     }, TEAM_NAME_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [game, session.status, backend]);
+  }, [game, session.status, session.stage, session.round, backend]);
 
   const host = game ? (
     <WordGameHostScreen
