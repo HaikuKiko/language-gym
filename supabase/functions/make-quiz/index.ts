@@ -76,9 +76,17 @@ const QuizSchema = z.object({ questions: z.array(QuestionSchema) });
 const SYSTEM_PROMPT = `You write grammar quiz questions for a live class quiz that teenagers and adults play on their phones, like a game show. The students are learners of English at CEFR levels A1 to C2. They studied this grammar in the morning; the quiz in the afternoon checks and practises it.
 
 Question kinds (use a mix, about half "choose"):
-- "choose": a sentence with one gap written as ___ (three underscores). 3 or 4 short options; exactly one is correct. The wrong options are typical learner mistakes with the same grammar (wrong tense, wrong form, wrong word), never silly.
+- "choose": a sentence with one gap written as ___ (three underscores). 4 short options (3 only when there aren't 3 good wrong ones); exactly one is correct.
 - "right-wrong": one sentence, in double quotes, that is either correct or has one mistake in the target grammar. options are exactly ["Right", "Wrong"]. About half are right.
 - "find-mistake": a sentence with exactly one mistake in the target grammar. options are 3 or 4 short parts copied exactly from the sentence (a word or two each), in the order they appear; the answer is the wrong part.
+
+Distractors (the wrong options) matter most. A quiz is only useful if a student who hasn't learnt the grammar can pick a wrong answer:
+- Every wrong option is a real mistake that learners at that level make with THIS grammar point, e.g. for the present simple: "she go", "she going", "she is go"; for past simple vs past continuous: "was walk", "walked" where the continuous is needed, "was walked". Use the typical errors of the level (A1: missing -s, wrong be/do, wrong word order; A2: wrong past form, mixing the two tenses, irregular verbs made regular).
+- Wrong options look like the right one: the same kind of word, about the same length, and from the same verb or word where possible, so the answer can't be guessed from its look or length.
+- Each wrong option must be clearly wrong in that sentence. Check every one: if a teacher could accept it (another tense that also works, an informal form, a different meaning that still makes sense), replace it.
+- No joke or silly options, no options from a different grammar point, no "all of the above", no misspellings as distractors (unless the grammar is about spelling, e.g. -ed or -ing endings).
+- "right-wrong": the wrong sentences contain one of these typical mistakes too, and the right ones look just as natural, so the answer can't be guessed from how odd a sentence looks.
+- "find-mistake": the other parts are correct but look tempting (e.g. a word near the mistake, or another verb).
 
 Rules:
 - Test only the grammar given for each level. Words and topics must suit that level: short sentences, common words, for A1 and A2 very simple.
