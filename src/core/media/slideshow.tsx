@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
 
+import { AudioPlayer } from '@/core/media/audio-player';
 import { Button } from '@/core/ui/button';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
@@ -21,6 +22,8 @@ export type Slide = {
   imageUri?: string;
   /** Paragraphs of text. */
   texts: string[];
+  /** Recordings to play. */
+  sounds?: { label: string; uri: string }[];
 };
 
 const WIDE = 700;
@@ -72,6 +75,12 @@ export function Slideshow({ title, slides, onClose }: { title: string; slides: S
               {t}
             </ThemedText>
           ))}
+          {(slide.sounds ?? []).map((s) => (
+            <View key={s.uri} style={styles.sound}>
+              <ThemedText type="smallBold">{s.label}</ThemedText>
+              <AudioPlayer uri={s.uri} label={s.label} />
+            </View>
+          ))}
         </View>
       </View>
       <View style={styles.dots}>
@@ -104,6 +113,7 @@ const styles = StyleSheet.create({
   words: { gap: Spacing.two },
   heading: { fontSize: 26, lineHeight: 32, fontWeight: 800 },
   text: { fontSize: 18, lineHeight: 27 },
+  sound: { gap: Spacing.one },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.two },
   dot: { width: 9, height: 9, borderRadius: 5 },
   buttons: { flexDirection: 'row', gap: Spacing.two },

@@ -6,6 +6,7 @@
  */
 import type { Level } from '@/core/content/levels';
 import type { Participant } from '@/core/live/groups';
+import type { SharedPlace } from '@/core/place/shared-place';
 import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 /** How many digits a join code has. */
@@ -37,6 +38,8 @@ export type LiveSession = {
   categories?: string[];
   /** Students the host marked as having found their partner this round. */
   found_ids?: string[];
+  /** Outdoor activities: the teacher's newest place (Place kit, shared-place.ts). */
+  host_place?: SharedPlace | null;
 };
 
 export type LiveParticipant = {
@@ -59,6 +62,8 @@ export type LiveParticipant = {
   asked_follow_ups?: string[] | null;
   /** Quizzes: this student's answers, by question number ("0", "1", …): choice and time taken. */
   quiz_answers?: Record<string, { c: number; ms: number }> | null;
+  /** Outdoor activities: this student's newest place, when they share it (no history is kept). */
+  live_place?: SharedPlace | null;
 };
 
 /** What the host may change on a session. */

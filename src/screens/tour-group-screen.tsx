@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { countWords } from '@/core/app/text';
 import { Button } from '@/core/ui/button';
-import { Notice } from '@/core/ui/notice';
+import { ErrorNote, Notice } from '@/core/ui/notice';
 import { Pill } from '@/core/ui/pill';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
@@ -11,8 +11,11 @@ import type { SafetyRules } from '@/core/classes/safety-rules';
 import { Slideshow } from '@/core/media/slideshow';
 import { distanceM, formatDistance, warmth, warmthWords, type Fix, type LatLng } from '@/core/place/geo';
 import { useTheme } from '@/core/ui/use-theme';
+import { AudioPlayer } from '@/core/media/audio-player';
 import { pickPhoto } from '@/core/media/photo';
+import { useAudioRecorder } from '@/core/media/use-audio-recorder';
 import {
+  AUDIO_MAX_SECONDS,
   CONSENT_SCRIPT,
   TASK_KINDS,
   distanceFromAdults,
@@ -20,6 +23,7 @@ import {
   isTaskDone,
   stopAccess,
   tourSlides,
+  type TaskFiles,
   type TaskWork,
   type Tour,
   type TourStop,
@@ -40,7 +44,10 @@ type TourGroupScreenProps = {
   work: TourWork;
   /** Stops in the order the group saved work at them (the slideshow order). */
   visitOrder: string[];
-  onSaveTask: (stopId: string, taskId: string, work: TaskWork) => void;
+  /** Saves a task's work; `files` are the photo or recording to upload (live tours). */
+  onSaveTask: (stopId: string, taskId: string, work: TaskWork, files?: TaskFiles) => void | Promise<void>;
+  /** Extra messages for the group, e.g. "Waiting for your teacher's location". */
+  notices?: string[];
   /** The demo shows each stop's code, so it can be tried away from the place. */
   showCodes?: boolean;
 };
@@ -84,6 +91,9 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
   const warnings = (
     <>
       {positionProblem ? <Notice text={positionProblem} /> : null}
+      {(props.notices ?? []).map((n) => (
+        <Notice key={n} text={n} />
+      ))}
       {tooFar && fromAdult !== null ? (
         <Notice tone="danger" text={`⚠️ Come back towards your teacher. You are ${formatDistance(fromAdult)} away.`} />
       ) : null}
@@ -99,7 +109,8 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
           stop={stop}
           stopNumber={tour.stops.indexOf(stop) + 1}
           {...props}
-          wasOpened={Boolean(opened[stop.id])}
+          // A stop with saved work was opened before (e.g. before a reload), so it stays open.
+          wasOpened={Boolean(opened[stop.id]) || isStopVisited(stop, work)}
           onOpened={() => setOpened((o) => ({ ...o, [stop.id]: true }))}
           onBack={() => setStopId(null)}
         />
@@ -270,7 +281,7 @@ function StopView({
               work={work[stop.id]?.[t.id]}
               rules={rules}
               adultNear={adultNear}
-              onSave={(w) => onSaveTask(stop.id, t.id, w)}
+              onSave={(w, f) => onSaveTask(stop.id, t.id, w, f)}
             />
           ))}
           <Button label="Done here: choose the next place →" onPress={onBack} />
@@ -291,23 +302,51 @@ function TaskView({
   work: TaskWork | undefined;
   rules: SafetyRules;
   adultNear: boolean;
-  onSave: (work: TaskWork) => void;
+  onSave: (work: TaskWork, files?: TaskFiles) => void | Promise<void>;
 }) {
   const theme = useTheme();
   const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState(work?.text ?? '');
+  const [agreed, setAgreed] = useState(false);
+  const recorder = useAudioRecorder(AUDIO_MAX_SECONDS);
   const kind = TASK_KINDS[task.kind];
   const done = isTaskDone(task, work);
+  const savedText = work?.text ?? '';
+  // Work loaded after the screen opened (e.g. after a reload) fills an empty box.
+  useEffect(() => {
+    setDraft((d) => d || savedText);
+  }, [savedText]);
+
+  async function save(next: TaskWork, files?: TaskFiles) {
+    setProblem(null);
+    setBusy(true);
+    try {
+      await onSave(next, files);
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'Could not save. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function takePhoto(source: 'camera' | 'library') {
     setProblem(null);
     try {
       const photo = await pickPhoto(source);
       // Re-saving the photo as a new JPEG also drops its hidden location data.
-      if (photo) onSave({ ...work, photoUri: `data:${photo.mediaType};base64,${photo.base64}` });
+      if (photo) await save({ ...work, photoUri: `data:${photo.mediaType};base64,${photo.base64}` }, { photo });
     } catch (e) {
       setProblem(e instanceof Error ? e.message : 'Could not take the photo. Please try again.');
     }
   }
+
+  async function record() {
+    const recording = await recorder.start();
+    if (recording) await save({ ...work, audioUri: recording.uri }, { audio: recording });
+  }
+
+  const recordable = task.kind === 'audio' || (task.kind === 'talk' && adultNear);
 
   return (
     <View style={[styles.task, { borderColor: done ? theme.success : theme.border }]}>
@@ -320,8 +359,13 @@ function TaskView({
             <Image source={{ uri: work.photoUri }} style={styles.photo} resizeMode="cover" accessibilityLabel="Your photo" />
           ) : null}
           <View style={styles.row}>
-            <Button label={work?.photoUri ? 'Take again' : '📷 Take a photo'} onPress={() => takePhoto('camera')} style={styles.flex} />
-            <Button label="Choose one" variant="secondary" onPress={() => takePhoto('library')} style={styles.flex} />
+            <Button
+              label={busy ? 'Saving…' : work?.photoUri ? 'Take again' : '📷 Take a photo'}
+              disabled={busy}
+              onPress={() => takePhoto('camera')}
+              style={styles.flex}
+            />
+            <Button label="Choose one" variant="secondary" disabled={busy} onPress={() => takePhoto('library')} style={styles.flex} />
           </View>
           <ThemedText type="small" themeColor="textSecondary">
             The location is removed from the photo.
@@ -331,18 +375,31 @@ function TaskView({
       {task.kind === 'write' ? (
         <>
           <TextInput
-            value={work?.text ?? ''}
-            onChangeText={(text) => onSave({ ...work, text })}
+            value={draft}
+            onChangeText={setDraft}
             multiline
             placeholder="Write here…"
             placeholderTextColor={theme.textSecondary}
             accessibilityLabel={task.prompt}
             style={[styles.input, styles.writing, { color: theme.text, borderColor: theme.border }]}
           />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.right}>
-            {countWords(work?.text ?? '')}
-            {task.wordTarget ? ` / about ${task.wordTarget} words` : ' words'}
-          </ThemedText>
+          <View style={styles.rowCentre}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
+              {countWords(draft)}
+              {task.wordTarget ? ` / about ${task.wordTarget} words` : ' words'}
+            </ThemedText>
+            {draft.trim() && draft === savedText ? (
+              <ThemedText type="smallBold" themeColor="successText">
+                Saved ✓
+              </ThemedText>
+            ) : (
+              <Button
+                label={busy ? 'Saving…' : 'Save'}
+                disabled={busy || !draft.trim()}
+                onPress={() => save({ ...work, text: draft })}
+              />
+            )}
+          </View>
         </>
       ) : null}
       {task.kind === 'talk' ? (
@@ -358,21 +415,38 @@ function TaskView({
                 {rules.recordPeople === 'voice' ? ' Voice only, no video.' : ''}
               </ThemedText>
             ) : null}
+            {!agreed && recorder.state !== 'recording' ? (
+              <Button label="✓ They said yes" variant="secondary" onPress={() => setAgreed(true)} />
+            ) : null}
           </>
         ) : (
           <Notice tone="danger" text={`A teacher needs to be within ${rules.maxFromAdultM} m for this task.`} />
         )
       ) : null}
+      {recordable && (task.kind === 'audio' || agreed || work?.audioUri) ? (
+        <>
+          {work?.audioUri && recorder.state !== 'recording' ? <AudioPlayer uri={work.audioUri} label="Your recording" /> : null}
+          {recorder.state === 'unsupported' ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              This browser can&apos;t record sound. Try Chrome or Safari.
+            </ThemedText>
+          ) : recorder.state === 'recording' ? (
+            <Button label={`⏹ Stop (${recorder.seconds} s of ${AUDIO_MAX_SECONDS})`} onPress={recorder.stop} />
+          ) : (
+            <Button
+              label={busy ? 'Saving…' : recorder.state === 'asking' ? 'Starting…' : work?.audioUri ? '🎙 Record again' : '🎙 Start recording'}
+              disabled={busy || recorder.state === 'asking'}
+              onPress={record}
+            />
+          )}
+        </>
+      ) : null}
       {!kind.ready ? (
         <ThemedText type="small" themeColor="textSecondary">
-          Recording comes in the next update. For now, talk about it when you present.
+          Video comes in a later update. For now, talk about it when you present.
         </ThemedText>
       ) : null}
-      {problem ? (
-        <ThemedText type="small" themeColor="warning">
-          {problem}
-        </ThemedText>
-      ) : null}
+      <ErrorNote message={problem ?? recorder.problem} align="left" />
     </View>
   );
 }
@@ -383,6 +457,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
   flex: { flex: 1 },
   row: { flexDirection: 'row', gap: Spacing.two },
+  rowCentre: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
   big: { fontSize: 22, lineHeight: 28, fontWeight: 800 },
   distance: { fontSize: 44, lineHeight: 52, fontWeight: 800, textAlign: 'center' },
   centre: { textAlign: 'center' },

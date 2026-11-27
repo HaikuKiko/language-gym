@@ -12,6 +12,9 @@ import { LiveStudentScreen } from '@/screens/live-student-screen';
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';
 import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { wordGameKind } from '@/lib/word-game';
+import { tourOf } from '@/lib/tour-live';
+import { TourHostLive } from '@/screens/tour-host-live';
+import { TourStudentLive } from '@/screens/tour-student-live';
 import { quizOf } from '@/lib/grammar-quiz';
 import { QuizHostScreen } from '@/screens/quiz-host-screen';
 import { QuizStudentScreen } from '@/screens/quiz-student-screen';
@@ -48,11 +51,24 @@ export default function LiveSessionRoute() {
 
   const { session, participants, userId } = state;
   const game = wordGameKind(session);
+  const tour = tourOf(session);
   const quiz = quizOf(session);
 
   if (session.host_id === userId && quiz) {
     return (
       <QuizHostScreen
+        session={session}
+        participants={participants}
+        onSession={applySession}
+        onParticipants={applyParticipants}
+      />
+    );
+  }
+
+  if (session.host_id === userId && tour) {
+    return (
+      <TourHostLive
+        tour={tour}
         session={session}
         participants={participants}
         onSession={applySession}
@@ -104,6 +120,8 @@ export default function LiveSessionRoute() {
   }
 
   if (quiz) return <QuizStudentScreen session={session} participants={participants} me={me} />;
+  if (tour) return <TourStudentLive tour={tour} session={session} me={me} />;
+
   if (game) return <WordGameStudentScreen kind={game} session={session} participants={participants} me={me} />;
 
   return <LiveStudentScreen session={session} participants={participants} me={me} />;
