@@ -8,6 +8,7 @@
  * bucket (see supabase/updates/2026-11-23-class-sets.sql). Teachers have no
  * accounts yet, so a class set belongs to the device that made it.
  */
+import { loadScript } from '@/core/app/load-script';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
@@ -203,27 +204,10 @@ type PdfPage = {
   render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> };
 };
 
-let pdfJsLoading: Promise<PdfJs> | null = null;
-
-function loadPdfJs(): Promise<PdfJs> {
-  const existing = (globalThis as { pdfjsLib?: PdfJs }).pdfjsLib;
-  if (existing) return Promise.resolve(existing);
-  pdfJsLoading ??= new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = PDF_JS;
-    script.onload = () => {
-      const lib = (globalThis as { pdfjsLib?: PdfJs }).pdfjsLib;
-      if (!lib) return reject(new Error('Could not open PDFs here.'));
-      lib.GlobalWorkerOptions.workerSrc = PDF_JS_WORKER;
-      resolve(lib);
-    };
-    script.onerror = () => {
-      pdfJsLoading = null;
-      reject(new Error('Could not open PDFs here. Check the internet connection and try again.'));
-    };
-    document.head.appendChild(script);
-  });
-  return pdfJsLoading;
+async function loadPdfJs(): Promise<PdfJs> {
+  const lib = await loadScript<PdfJs>(PDF_JS, 'pdfjsLib', 'Could not open PDFs here.');
+  lib.GlobalWorkerOptions.workerSrc = PDF_JS_WORKER;
+  return lib;
 }
 
 /** True where a PDF can be turned into pages (in a browser). */
