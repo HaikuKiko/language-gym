@@ -1,12 +1,11 @@
 import { router, type Href } from 'expo-router';
 import { useEffect, useEffectEvent, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Avatar } from '@/components/avatar';
-import { ExternalLink } from '@/components/external-link';
 import { GrammarCard } from '@/components/grammar-card';
-import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
+import { JoinCodeHero } from '@/components/join-code-hero';
 import { LiveTimer } from '@/components/live-timer';
 import { Pill } from '@/components/pill';
 import { ProgressBar } from '@/components/progress-bar';
@@ -149,42 +148,11 @@ export function LiveHostScreen({
   );
 
   if (session.status === 'lobby') {
-    // The demo has no real join code: pretend students join by themselves.
-    const address = backend.demo ? null : getAppAddress();
-    const link = address ? joinUrl(address, session.code) : null;
-
     return (
       <Screen>
         {header('Waiting for students')}
 
-        <View style={[styles.hero, { backgroundColor: theme.hero }]}>
-          <View style={styles.heroText}>
-            <Text style={[styles.heroLabel, { color: theme.onHeroMuted }]}>Join code</Text>
-            <Text style={[styles.code, { color: theme.onHero }]} selectable>
-              {formatCode(session.code)}
-            </Text>
-            {address && link ? (
-              <View style={styles.heroLines}>
-                <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>
-                  Scan to join, or go to
-                </Text>
-                <ExternalLink href={`${address}/join` as Href & string}>
-                  <Text style={[styles.heroLink, { color: theme.onHero }]}>
-                    {address.replace(/^https?:\/\//, '')}/join
-                  </Text>
-                </ExternalLink>
-                <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>and type the code</Text>
-              </View>
-            ) : (
-              <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>
-                {backend.demo
-                  ? 'In the demo, pretend students join by themselves. Press "Start session" when you are ready.'
-                  : 'Students open the app and enter this code.'}
-              </Text>
-            )}
-          </View>
-          {link && <JoinQrCode url={link} code={formatCode(session.code)} />}
-        </View>
+        <JoinCodeHero code={session.code} demo={backend.demo} />
 
         <ThemedView type="backgroundElement" style={styles.card}>
           <View style={styles.cardHeader}>
@@ -529,48 +497,6 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-  },
-  // The code sits beside the QR code on wide screens and above it on phones.
-  hero: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.four,
-    padding: Spacing.four,
-    borderRadius: 28,
-  },
-  heroText: {
-    flexGrow: 1,
-    flexBasis: 260,
-    gap: Spacing.one,
-  },
-  heroLabel: {
-    fontSize: 14,
-    fontWeight: 700,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  code: {
-    fontSize: 60,
-    lineHeight: 72,
-    fontWeight: 800,
-    letterSpacing: 2,
-    fontVariant: ['tabular-nums'],
-  },
-  heroLines: {
-    alignItems: 'flex-start',
-    gap: Spacing.half,
-  },
-  heroBody: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  heroLink: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 700,
-    textDecorationLine: 'underline',
   },
   card: {
     padding: Spacing.four,
