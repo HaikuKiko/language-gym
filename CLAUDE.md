@@ -213,7 +213,7 @@ Things agreed for later: `BACKLOG.md`.
   the `#access_token` hand-back in `core/app/supabase.ts`) lands on the same user (Supabase links same
   confirmed email). Username + password still work: `signInTeacher` falls back to the function's
   `sign-in` action, which looks up the email. Teachers set their Gmail on `/teacher` (`google` action) or
-  add teachers with a Gmail (password optional). The owner's account `gregory` = gjballvn@gmail.com.
+  add teachers with a Gmail (password optional). The owner's account `gregory` has the owner's Gmail.
 - **IELTS Writing Task 2:** `ielts.tsx`, `teacher-ielts.tsx` (teacher marking, no account),
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
   `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
