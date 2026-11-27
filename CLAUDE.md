@@ -118,7 +118,7 @@ Things agreed for later: `BACKLOG.md`.
   Later: Microsoft Teams logins.
 - **Grammar quizzes** (27 Nov 2026, dashboard "❓ Grammar quizzes" → `/quiz`; replaces Kahoot): the teacher types or
   photographs the week's grammar per level (the afternoon class mixes **A1 and A2**), edge function `make-quiz` (Claude,
-  limits at the top of its index.ts) writes N quizzes and saves them (tables `quiz_sets`, `quiz_questions`; kinds
+  limits at the top of its index.ts; distractor rules: `docs/grammar-quiz-writing-rules.md`) writes N quizzes and saves them (tables `quiz_sets`, `quiz_questions`; kinds
   choose / right-wrong / find-mistake, level label, "why" line). `/quiz/[id]`: check, ✏️ change, 🔄 new question
   (`mode: "remake"`), ✕ remove, seconds per question, "▶ Play Quiz n" (a session with flags `quiz:<set id>`,
   `quiz-number:n`, `quiz-seconds:s`), demo with pretend students (`/demo?quiz=…&number=…`). `src/lib/grammar-quiz.ts`
