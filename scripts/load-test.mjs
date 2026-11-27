@@ -40,6 +40,9 @@ const WORD_GAME_TAPS = 3;
 const WORD_GAME_MS = 30_000;
 /** Same as REFRESH_INTERVAL_MS in src/hooks/use-live-session.ts. */
 const REFRESH_INTERVAL_MS = 5_000;
+/** Same as LIVE_STUDENT_UPDATES_UP_TO and BIG_GROUP_REFRESH_MS there. */
+const LIVE_STUDENT_UPDATES_UP_TO = 20;
+const BIG_GROUP_REFRESH_MS = 2_000;
 /** Same as SIGN_IN_RETRY_FOR_MS in src/lib/supabase.ts. */
 const SIGN_IN_RETRY_FOR_MS = 90_000;
 /** Saved guest logins, so reruns don't sign in again. */
@@ -146,15 +149,16 @@ const tapLatency = []; // student tap -> host sees it (live update)
 const joinMs = [];
 
 function connectLive(name, client, sessionId, onSession, onParticipants) {
-  const channel = client
-    .channel(`session-${sessionId}`)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` }, (p) =>
+  let channel = client.channel(`${onSession ? "session" : "session-students"}-${sessionId}`);
+  if (onSession)
+    channel = channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}` }, (p) =>
       onSession(p.new),
-    )
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'participants', filter: `session_id=eq.${sessionId}` }, (p) =>
+    );
+  if (onParticipants)
+    channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'participants', filter: `session_id=eq.${sessionId}` }, (p) =>
       onParticipants(p),
-    )
-    .subscribe((status, err) => {
+    );
+  channel = channel.subscribe((status, err) => {
       realtime.statuses[status] = (realtime.statuses[status] ?? 0) + 1;
       if (err) realtime.systemErrors.push(`${name}: ${err.message ?? err}`);
     });
@@ -226,15 +230,35 @@ async function student(index, code, login) {
     }
   };
 
-  // Like the app: every participant change makes the phone re-read the list.
-  const reloadParticipants = () =>
-    client.from('participants').select().eq('session_id', session.id).order('joined_at').order('id');
-  const channel = connectLive(name, client, session.id, (s) => react(s, true), reloadParticipants);
+  // Like the app (use-live-session.ts): a student change makes the phone
+  // re-read the list; in a big group the phone stops listening for those and
+  // re-reads every BIG_GROUP_REFRESH_MS instead.
+  let bigGroup = false;
+  let studentChannel = null;
+  const reloadParticipants = async () => {
+    const { data } = await client.from('participants').select().eq('session_id', session.id).order('joined_at').order('id');
+    if (!bigGroup && (data?.length ?? 0) > LIVE_STUDENT_UPDATES_UP_TO) {
+      bigGroup = true;
+      if (studentChannel) client.removeChannel(studentChannel);
+      studentChannel = null;
+    }
+  };
+  const channel = connectLive(name, client, session.id, (s) => react(s, true), null);
+  studentChannel = connectLive(name, client, session.id, null, reloadParticipants);
+  await reloadParticipants();
+  let lastStudents = Date.now();
+  let lastSession = Date.now();
   const poll = setInterval(async () => {
-    reloadParticipants();
+    const now = Date.now();
+    if (now - lastStudents >= (bigGroup ? BIG_GROUP_REFRESH_MS : REFRESH_INTERVAL_MS)) {
+      lastStudents = now;
+      reloadParticipants();
+    }
+    if (now - lastSession < REFRESH_INTERVAL_MS) return;
+    lastSession = now;
     const { data } = await client.rpc('session_by_code', { p_code: code });
     if (data?.[0]) react(data[0], false);
-  }, REFRESH_INTERVAL_MS);
+  }, 500);
 
   while (!done) await sleep(500);
   for (const v of hostWrites.keys()) {
@@ -243,6 +267,7 @@ async function student(index, code, login) {
   }
   clearInterval(poll);
   await client.removeChannel(channel);
+  if (studentChannel) await client.removeChannel(studentChannel);
 }
 const tapTimes = new Map();
 
