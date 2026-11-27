@@ -34,6 +34,13 @@ export const GAME_MINUTES = [5, 10, 15, 20] as const;
 export const DEFAULT_GAME_MINUTES = 10;
 /** "+1 minute" on the teacher's screen. */
 export const EXTRA_TIME_MS = 60_000;
+/** Typing: a guess this many letters away from the word is "Almost! Check your spelling". */
+export const NEAR_MISS_LETTERS = 2;
+/** Typing: words shorter than this only count as "almost" when one letter is wrong. */
+export const NEAR_MISS_MIN_LENGTH = 6;
+/** Team names: the longest name, and how often phones check for a new one. */
+export const TEAM_NAME_MAX_LENGTH = 24;
+export const TEAM_NAME_REFRESH_MS = 5000;
 
 /** The games: names shown to everyone, and their default group size. */
 export const WORD_GAMES = {
@@ -60,14 +67,54 @@ export type WordGameKind = keyof typeof WORD_GAMES;
 const GAME_FLAG = 'word-game:';
 const GROUP_SIZE_FLAG = 'group-size:';
 const GROUPS_FLAG = 'groups:';
+const TYPING_FLAG = 'typing';
 
 export function isWordGameKind(value: unknown): value is WordGameKind {
   return typeof value === 'string' && value in WORD_GAMES;
 }
 
 /** The flags that make a session a word game. */
-export function wordGameFlags(kind: WordGameKind, groupSize: number): string[] {
-  return [GAME_FLAG + kind, GROUP_SIZE_FLAG + groupSize];
+export function wordGameFlags(kind: WordGameKind, groupSize: number, typing = false): string[] {
+  return [GAME_FLAG + kind, GROUP_SIZE_FLAG + groupSize, ...(typing ? [TYPING_FLAG] : [])];
+}
+
+/** Guessers type the word on their phone (spelling counts) instead of saying it. */
+export function isTyping(session: LiveSession): boolean {
+  return session.categories?.includes(TYPING_FLAG) ?? false;
+}
+
+/** A guess or word for comparing: small letters, no accents, only letters and numbers. */
+export function normalizeGuess(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/** How many letters must change to turn one word into the other. */
+function lettersApart(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const here = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = here;
+    }
+  }
+  return row[b.length];
+}
+
+/** Checks a typed guess: right, almost (a spelling mistake), or wrong. */
+export function checkGuess(guess: string, word: string): 'right' | 'almost' | 'wrong' {
+  const g = normalizeGuess(guess);
+  const w = normalizeGuess(word);
+  if (!g) return 'wrong';
+  if (g === w) return 'right';
+  const allowed = w.length >= NEAR_MISS_MIN_LENGTH ? NEAR_MISS_LETTERS : 1;
+  return lettersApart(g, w) <= allowed ? 'almost' : 'wrong';
 }
 
 function flagValue(session: LiveSession, prefix: string): string | null {
@@ -238,6 +285,10 @@ export async function recordCard(me: LiveParticipant, card: number, guessed: boo
 export const GAME_STARTED = 'game_started';
 export const CARD_DONE = 'card_done';
 export const HINT = 'hint';
+/** Typing: a wrong guess (kept for "hard to spell" and Best spellers). */
+export const GUESS_WRONG = 'guess_wrong';
+/** A group names its team (the newest name wins). */
+export const TEAM_NAME = 'team_name';
 
 /** What is saved when a word is guessed or skipped (kind CARD_DONE). */
 export type CardDoneData = {
@@ -257,9 +308,38 @@ export type CardDoneData = {
 /** What is saved when someone opens a word's meaning (kind HINT). */
 export type HintData = { round: number; group: number; card: number; word: string };
 
+/** Typing: a wrong guess (kind GUESS_WRONG). */
+export type GuessWrongData = HintData & { guess: string; almost: boolean };
+
+/** A team name (kind TEAM_NAME); an empty name clears it. */
+export type TeamNameData = { round: number; group: number; name: string };
+
+/** The newest name for each group ("round:group" → name), from the events. */
+export function teamNames(events: readonly { kind: string; data: Record<string, unknown> }[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const e of events) {
+    if (e.kind !== TEAM_NAME) continue;
+    const d = e.data as TeamNameData;
+    const key = `${d.round}:${d.group}`;
+    if (d.name.trim()) names.set(key, d.name.trim());
+    else names.delete(key);
+  }
+  return names;
+}
+
+/** A group's name: its team name, or "Group N". */
+export function groupLabel(names: ReadonlyMap<string, string>, round: number, group: number): string {
+  return names.get(`${round}:${group}`) ?? `Group ${group + 1}`;
+}
+
 type CardBackend = {
   recordCard: typeof recordCard;
-  logEvent: (sessionId: string, participantId: string | null, kind: string, data: Record<string, unknown>) => Promise<void>;
+  logEvent: (
+    sessionId: string,
+    participantId: string | null,
+    kind: string,
+    data: Record<string, unknown>,
+  ) => Promise<void>;
 };
 
 /**

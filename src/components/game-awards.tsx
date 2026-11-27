@@ -8,7 +8,7 @@ import type { LiveSession } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
 import type { SessionEvent } from '@/lib/session-events';
 import { errorMessage } from '@/lib/supabase';
-import type { WordGameKind } from '@/lib/word-game';
+import { isTyping, type WordGameKind } from '@/lib/word-game';
 import { gameResults, personalLine } from '@/lib/word-game-results';
 
 /**
@@ -108,12 +108,29 @@ export function GameAwards({
         </View>
       )}
 
+      {teacher && results.hardToSpell.length > 0 && (
+        <View style={[styles.award, { backgroundColor: theme.markABg }]}>
+          <ThemedText type="smallBold" style={{ color: theme.markA }}>
+            Hard to spell
+          </ThemedText>
+          {results.hardToSpell.map((w) => (
+            <ThemedText key={w.word} type="small" style={{ color: theme.markA }}>
+              <ThemedText type="smallBold" style={{ color: theme.markA }}>
+                {w.word}
+              </ThemedText>
+              {' · typed as '}
+              {w.tries.join(', ')}
+            </ThemedText>
+          ))}
+        </View>
+      )}
+
       {teacher && results.groups.length > 1 && (
         <View style={[styles.award, { backgroundColor: theme.backgroundElement }]}>
           <ThemedText type="smallBold">👥 Groups</ThemedText>
           {results.groups.map((g) => (
             <ThemedText key={g.index} type="small">
-              Group {g.index + 1} ({g.names.join(', ')}): {g.words} {g.words === 1 ? 'word' : 'words'}
+              {g.label} ({g.names.join(', ')}): {g.words} {g.words === 1 ? 'word' : 'words'}
             </ThemedText>
           ))}
         </View>
@@ -126,6 +143,7 @@ export function GameAwards({
             <ThemedText key={p.id} type="small">
               {p.name}: {p.points} points · guessed {p.guessed} · {kind === 'hot-seat' ? 'described' : 'explained'}{' '}
               {p.explained} · meanings opened {p.hints}
+              {isTyping(session) ? ` · spelling mistakes ${p.spellingMistakes}` : ''}
             </ThemedText>
           ))}
         </View>
