@@ -9,6 +9,7 @@ import { JoinCodeHero } from '@/components/join-code-hero';
 import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
 import { LiveTimer } from '@/components/live-timer';
 import { Pill } from '@/components/pill';
+import { PretendStudentsPanel } from '@/components/pretend-students-panel';
 import { ProgressBar } from '@/components/progress-bar';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -43,6 +44,7 @@ import {
   type LiveSession,
 } from '@/lib/live-session';
 import { groupsForRound, type Group } from '@/lib/round-robin';
+import { usePretendStudents } from '@/lib/pretend-students';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
@@ -74,6 +76,7 @@ export function LiveHostScreen({
   const [error, setError] = useState<string | null>(null);
 
   const backend = useSessionBackend();
+  const pretend = usePretendStudents(session, participants);
   type Changes = Parameters<typeof backend.updateSession>[1];
 
   async function save(changes: Changes, onlyIfUnmoved = false) {
@@ -192,6 +195,8 @@ export function LiveHostScreen({
             </View>
           )}
         </ThemedView>
+
+        {!backend.demo && <PretendStudentsPanel onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />}
 
         <View style={styles.pills}>
           {friending && <Pill label={PRODUCT_NAME} tone="accent" />}
