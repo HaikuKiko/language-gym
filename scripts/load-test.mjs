@@ -42,7 +42,9 @@ const WORD_GAME_MS = 30_000;
 const REFRESH_INTERVAL_MS = 5_000;
 /** Same as LIVE_STUDENT_UPDATES_UP_TO, BIG_GROUP_REFRESH_MS and STUDENT_LIVE_DELAY_MS there. */
 const LIVE_STUDENT_UPDATES_UP_TO = 20;
-const BIG_GROUP_REFRESH_MS = 2_000;
+const BIG_GROUP_REFRESH_MS = 3_000;
+/** Same as SLOW_SERVER_MAX_WAIT_MS there. */
+const SLOW_SERVER_MAX_WAIT_MS = 30_000;
 const STUDENT_LIVE_DELAY_MS = 5_000;
 /** Same as SIGN_IN_RETRY_FOR_MS in src/lib/supabase.ts. */
 const SIGN_IN_RETRY_FOR_MS = 90_000;
@@ -236,8 +238,14 @@ async function student(index, code, login) {
   // re-reads every BIG_GROUP_REFRESH_MS instead.
   let bigGroup = false;
   let studentChannel = null;
+  let busy = false;
+  let backoff = 0;
   const reloadParticipants = async () => {
-    const { data } = await client.from('participants').select().eq('session_id', session.id).order('joined_at').order('id');
+    if (busy) return;
+    busy = true;
+    const { data, error } = await client.from('participants').select().eq('session_id', session.id).order('joined_at').order('id').then((r) => r, (e) => ({ data: null, error: e }));
+    busy = false;
+    backoff = error || !data ? Math.min(SLOW_SERVER_MAX_WAIT_MS, Math.max(REFRESH_INTERVAL_MS, backoff * 2)) : 0;
     if (!bigGroup && (data?.length ?? 0) > LIVE_STUDENT_UPDATES_UP_TO) {
       bigGroup = true;
       if (studentChannel) client.removeChannel(studentChannel);
@@ -253,15 +261,20 @@ async function student(index, code, login) {
   await reloadParticipants();
   let lastStudents = Date.now();
   let lastSession = Date.now();
+  let sessionBusy = false;
+  let sessionBackoff = 0;
   const poll = setInterval(async () => {
     const now = Date.now();
-    if (now - lastStudents >= (bigGroup ? BIG_GROUP_REFRESH_MS : REFRESH_INTERVAL_MS)) {
+    if (now - lastStudents >= (backoff || (bigGroup ? BIG_GROUP_REFRESH_MS : REFRESH_INTERVAL_MS))) {
       lastStudents = now;
       reloadParticipants();
     }
-    if (now - lastSession < REFRESH_INTERVAL_MS) return;
+    if (sessionBusy || now - lastSession < (sessionBackoff || REFRESH_INTERVAL_MS)) return;
     lastSession = now;
-    const { data } = await client.rpc('session_by_code', { p_code: code });
+    sessionBusy = true;
+    const { data } = await client.rpc('session_by_code', { p_code: code }).then((r) => r, () => ({ data: null }));
+    sessionBusy = false;
+    sessionBackoff = data ? 0 : Math.min(SLOW_SERVER_MAX_WAIT_MS, Math.max(REFRESH_INTERVAL_MS, sessionBackoff * 2));
     if (data?.[0]) react(data[0], false);
   }, 500);
 
