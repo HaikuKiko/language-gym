@@ -6,6 +6,7 @@ import { Button } from '@/core/ui/button';
 import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME, RETENTION_DAYS } from '@/constants/product';
+import { SAVED_NAME_DAYS } from '@/core/live/saved-names';
 import { Spacing } from '@/core/ui/theme';
 
 /** The privacy page, in plain English. */
@@ -19,7 +20,14 @@ export default function PrivacyRoute() {
       </ThemedText>
 
       <Part title="What we store">
-        <Line>The name you type when you join (it can be just a first name or a nickname).</Line>
+        <Line>
+          The name you type when you join (a first name and the first letter of your family name, e.g. &quot;Mai
+          T.&quot;, or a nickname).
+        </Line>
+        <Line>
+          That name is also saved for the teacher or host, so next time you can type two letters and tap it. Only people
+          joining that teacher&apos;s sessions see it, and only after typing its first letters.
+        </Line>
         <Line>Which session you joined, and when.</Line>
         <Line>The session settings (level, theme, round length) chosen by the teacher or host.</Line>
         <Line>
@@ -36,6 +44,10 @@ export default function PrivacyRoute() {
 
       <Part title="Who can see names">
         <Line>Only the teacher or host who ran the session and the other people in that session.</Line>
+        <Line>
+          Saved names: the teacher, and people joining that teacher&apos;s sessions who type the name&apos;s first
+          letters.
+        </Line>
       </Part>
 
       <Part title="Where it is kept">
@@ -47,16 +59,15 @@ export default function PrivacyRoute() {
       </Part>
 
       <Part title="How long">
-        <Line>
-          Sessions, and the names in them, are deleted automatically after {RETENTION_DAYS} days.
-        </Line>
+        <Line>Sessions, and the names in them, are deleted automatically after {RETENTION_DAYS} days.</Line>
+        <Line>Saved names are deleted automatically after {SAVED_NAME_DAYS} days without use.</Line>
         <Line>Contact messages are kept until we have answered them, or until you ask us to delete them.</Line>
       </Part>
 
       <Part title="Young people">
         <Line>
-          Some students are as young as 16. We suggest using a first name only. Teachers: please ask your students to do
-          the same.
+          Some students are as young as 16. We suggest a first name and the first letter of the family name only, never
+          a full name. Teachers: please ask your students to do the same.
         </Line>
       </Part>
 

@@ -57,6 +57,8 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   const [hintFor, setHintFor] = useState<string | null>(null);
   // Explain It: the word just guessed, waiting for "Who guessed it?".
   const [choosingFor, setChoosingFor] = useState<number | null>(null);
+  // "Mix the groups": the round in which this phone tapped "We found each other!".
+  const [foundRound, setFoundRound] = useState<number | null>(null);
   const typing = isTyping(session);
   const { names: teams, reload: reloadTeams } = useTeamNames(session);
 
@@ -83,7 +85,7 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   async function openHint(group: GroupProgress) {
     setHintFor(`${group.index}:${group.card}`);
     if (!group.word) return;
-    const data: HintData = { round: 0, group: group.index, card: group.card, word: group.word.word };
+    const data: HintData = { round: group.round, group: group.index, card: group.card, word: group.word.word };
     await backend.logEvent(session.id, me.id, HINT, data).catch(() => {});
   }
 
@@ -95,7 +97,7 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
       await tap(group, true, me.id);
     } else {
       const data: GuessWrongData = {
-        round: 0,
+        round: group.round,
         group: group.index,
         card: group.card,
         word: group.word.word,
@@ -108,7 +110,11 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   }
 
   async function nameTeam(group: GroupProgress, name: string) {
-    const data: TeamNameData = { round: 0, group: group.index, name: name.trim().slice(0, TEAM_NAME_MAX_LENGTH) };
+    const data: TeamNameData = {
+      round: group.round,
+      group: group.index,
+      name: name.trim().slice(0, TEAM_NAME_MAX_LENGTH),
+    };
     try {
       await backend.logEvent(session.id, me.id, TEAM_NAME, data);
       await reloadTeams();
@@ -147,6 +153,26 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   }
 
   const group = groupOf(groupProgress(session, withMine), me.id);
+  if (group && session.stage === 'changeover') {
+    return (
+      <FindNewGroup
+        session={session}
+        group={group}
+        me={meNow}
+        found={foundRound === session.round || me.found_round === session.round}
+        onFound={async () => {
+          setFoundRound(session.round);
+          try {
+            await backend.markFound(me.id, session.round);
+          } catch (e) {
+            setFoundRound(null);
+            setError(errorMessage(e));
+          }
+        }}
+        error={error}
+      />
+    );
+  }
   if (!group || !group.player) {
     return (
       <Screen>
@@ -182,14 +208,14 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
     <Screen>
       <View style={[styles.header, { backgroundColor: theme.hero }]}>
         <Text style={[styles.headerTitle, { color: theme.onHero }]}>
-          {groupLabel(teams, 0, group.index)} · {heading}
+          {groupLabel(teams, group.round, group.index)} · {heading}
         </Text>
         <Text style={[styles.headerSub, { color: theme.onHeroMuted }]}>
           {game.emoji} {game.name} · {group.score} {group.score === 1 ? 'word' : 'words'} so far
         </Text>
       </View>
 
-      <TeamName name={teams.get(`0:${group.index}`) ?? null} onSave={(name) => nameTeam(group, name)} />
+      <TeamName name={teams.get(`${group.round}:${group.index}`) ?? null} onSave={(name) => nameTeam(group, name)} />
 
       <GameClock session={session} now={now} />
 
@@ -385,6 +411,10 @@ function TeamName({ name, onSave }: { name: string | null; onSave: (name: string
 }
 
 const styles = StyleSheet.create({
+  findName: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+  },
   guess: {
     alignSelf: 'stretch',
     gap: Spacing.two,
@@ -461,3 +491,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+/** "Mix the groups": the clock waits while everyone finds their new group. */
+function FindNewGroup({
+  session,
+  group,
+  me,
+  found,
+  onFound,
+  error,
+}: {
+  session: LiveSession;
+  group: GroupProgress;
+  me: LiveParticipant;
+  found: boolean;
+  onFound: () => void;
+  error: string | null;
+}) {
+  const theme = useTheme();
+  const others = group.members.filter((m) => m.id !== me.id);
+  return (
+    <Screen>
+      <View style={[styles.header, { backgroundColor: theme.hero }]}>
+        <Text style={[styles.headerTitle, { color: theme.onHero }]}>
+          🔀 New groups! · Round {session.round + 1} of {session.round_count}
+        </Text>
+      </View>
+      <View style={styles.message}>
+        <ThemedText type="subtitle" style={styles.centered}>
+          Find your new group
+        </ThemedText>
+        <ThemedText themeColor="textSecondary">Group {group.index + 1}</ThemedText>
+      </View>
+      {others.map((m) => (
+        <View key={m.id} style={[styles.findName, { backgroundColor: theme.successSoft }]}>
+          <ThemedText type="smallBold" style={{ color: theme.successText }}>
+            {m.name}
+          </ThemedText>
+        </View>
+      ))}
+      {found ? (
+        <ThemedText themeColor="textSecondary" style={styles.centered}>
+          ✓ Waiting for the other groups… The words start in a moment.
+        </ThemedText>
+      ) : (
+        <Button label="We found each other!" onPress={onFound} />
+      )}
+      <ErrorNote message={error} />
+      <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+        The clock waits until every group has found each other.
+      </ThemedText>
+    </Screen>
+  );
+}

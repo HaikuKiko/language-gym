@@ -1,6 +1,6 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
 import { FooterLinks } from '@/core/ui/footer-links';
@@ -14,6 +14,10 @@ import { useTheme } from '@/core/ui/use-theme';
 import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/core/live/session';
 import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/core/app/supabase';
 import { signOutTeacher } from '@/core/app/teachers';
+import { SAVED_NAME_DAYS, hasInitial, savedNamesFor, tidyName } from '@/core/live/saved-names';
+
+/** Wait this long after the last letter typed before looking up saved names. */
+const LOOKUP_DELAY_MS = 250;
 
 /**
  * Where the session's QR code leads: the student types their name and joins.
@@ -22,7 +26,9 @@ import { signOutTeacher } from '@/core/app/teachers';
 export default function JoinRoute() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ code: string }>();
-  const code = String(params.code ?? '').replace(/\D/g, '').slice(0, CODE_LENGTH);
+  const code = String(params.code ?? '')
+    .replace(/\D/g, '')
+    .slice(0, CODE_LENGTH);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +37,22 @@ export default function JoinRoute() {
   /** Already in this session (after leaving the page or a reload): offer the way back. */
   const [alreadyIn, setAlreadyIn] = useState(false);
   const configured = supabase !== null;
+  /** Saved names that start with what is typed. */
+  const [matches, setMatches] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!configured) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      savedNamesFor(code, name)
+        .then((list) => !cancelled && setMatches(list))
+        .catch(() => !cancelled && setMatches([]));
+    }, LOOKUP_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [configured, code, name]);
 
   useEffect(() => {
     if (!configured) return;
@@ -41,12 +63,12 @@ export default function JoinRoute() {
 
   const goToSession = () => router.replace({ pathname: '/session/[code]', params: { code } });
 
-  async function join() {
+  async function join(chosen?: string) {
     setBusy(true);
     setError(null);
     setHostDevice(null);
     try {
-      await joinSession(code, name);
+      await joinSession(code, chosen ?? tidyName(name));
       goToSession();
     } catch (e) {
       if (e instanceof HostDeviceError) {
@@ -90,15 +112,39 @@ export default function JoinRoute() {
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Your name"
+          placeholder="Your name (e.g. Mai T.)"
           placeholderTextColor={theme.textSecondary}
           accessibilityLabel="Your name"
           autoFocus={!alreadyIn}
           maxLength={40}
-          onSubmitEditing={join}
+          onSubmitEditing={() => join()}
           style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
         />
-        <Button label={busy ? 'Joining…' : 'Join'} disabled={!configured || busy} onPress={join} />
+        {matches.map((m) => (
+          <Pressable
+            key={m}
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => join(m)}
+            style={({ pressed }) => [
+              styles.match,
+              { borderColor: theme.border, backgroundColor: theme.background },
+              pressed && { opacity: 0.7 },
+            ]}>
+            <ThemedText>👤 {m}</ThemedText>
+          </Pressable>
+        ))}
+        {name.trim().length >= 2 && !hasInitial(name) && (
+          <ThemedText type="small" themeColor="textSecondary">
+            {matches.length > 0 ? 'Is one of these you? Tap it. New here? ' : ''}Add the first letter of your family
+            name, e.g. &quot;Mai T.&quot;
+          </ThemedText>
+        )}
+        <Button label={busy ? 'Joining…' : 'Join'} disabled={!configured || busy} onPress={() => join()} />
+        <ThemedText type="small" themeColor="textSecondary">
+          Your name is saved for your teacher&apos;s classes, so next time you can tap it. Names not used for{' '}
+          {SAVED_NAME_DAYS} days are deleted.
+        </ThemedText>
         {hostDevice && (
           <View style={[styles.card, { backgroundColor: theme.accentSoft }]}>
             <ThemedText type="smallBold">This device is the teacher&apos;s</ThemedText>
@@ -132,6 +178,13 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     borderRadius: Spacing.four,
     gap: Spacing.three,
+  },
+  match: {
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderWidth: 1,
+    borderRadius: Spacing.three,
   },
   input: {
     minHeight: 56,

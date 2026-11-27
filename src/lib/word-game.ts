@@ -18,8 +18,8 @@
  */
 import { LEVELS } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS, type WordCard } from '@/data/word-cards';
-import type { LiveParticipant, LiveSession } from '@/core/live/session';
-import type { Participant } from '@/core/live/groups';
+import { flagValue, remainingMs, type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { dealOrder, mixGroups, type Participant } from '@/core/live/groups';
 import { shuffle } from '@/core/content/shuffle';
 import { requireSupabase } from '@/core/app/supabase';
 
@@ -41,6 +41,10 @@ export const NEAR_MISS_MIN_LENGTH = 6;
 /** Team names: the longest name, and how often phones check for a new one. */
 export const TEAM_NAME_MAX_LENGTH = 24;
 export const TEAM_NAME_REFRESH_MS = 5000;
+/** "Mix the groups": how often (minutes) everyone moves to a new group. */
+export const MIX_MINUTES = [3, 5] as const;
+/** Card numbers in round r start at r × this (so each round's groups start from their first word). */
+export const ROUND_CARD_BASE = 1000;
 
 /** The games: names shown to everyone, and their default group size. */
 export const WORD_GAMES = {
@@ -68,14 +72,31 @@ const GAME_FLAG = 'word-game:';
 const GROUP_SIZE_FLAG = 'group-size:';
 const GROUPS_FLAG = 'groups:';
 const TYPING_FLAG = 'typing';
+const MIX_FLAG = 'mix:';
 
 export function isWordGameKind(value: unknown): value is WordGameKind {
   return typeof value === 'string' && value in WORD_GAMES;
 }
 
 /** The flags that make a session a word game. */
-export function wordGameFlags(kind: WordGameKind, groupSize: number, typing = false): string[] {
-  return [GAME_FLAG + kind, GROUP_SIZE_FLAG + groupSize, ...(typing ? [TYPING_FLAG] : [])];
+export function wordGameFlags(kind: WordGameKind, groupSize: number, typing = false, mixMinutes = 0): string[] {
+  return [
+    GAME_FLAG + kind,
+    GROUP_SIZE_FLAG + groupSize,
+    ...(typing ? [TYPING_FLAG] : []),
+    ...(mixMinutes > 0 ? [MIX_FLAG + mixMinutes] : []),
+  ];
+}
+
+/** "Mix the groups": minutes per round (0 = the groups stay the same). */
+export function mixMinutesOf(session: LiveSession): number {
+  const n = Number(flagValue(session, MIX_FLAG));
+  return n > 0 ? n : 0;
+}
+
+/** How many rounds (sets of groups) a game of this length has; the last round takes what is left. */
+export function roundCountFor(gameMinutes: number, mixMinutes: number): number {
+  return mixMinutes > 0 ? Math.max(1, Math.floor(gameMinutes / mixMinutes)) : 1;
 }
 
 /** Guessers type the word on their phone (spelling counts) instead of saying it. */
@@ -117,11 +138,6 @@ export function checkGuess(guess: string, word: string): 'right' | 'almost' | 'w
   return lettersApart(g, w) <= allowed ? 'almost' : 'wrong';
 }
 
-function flagValue(session: LiveSession, prefix: string): string | null {
-  const flag = session.categories?.find((c) => c.startsWith(prefix));
-  return flag ? flag.slice(prefix.length) : null;
-}
-
 /** Which word game this session is (null for a speaking session). */
 export function wordGameKind(session: LiveSession): WordGameKind | null {
   const kind = flagValue(session, GAME_FLAG);
@@ -161,9 +177,11 @@ export function gameGroups(session: LiveSession): Participant[][] {
 }
 
 export type GroupProgress = {
+  /** The round (set of groups), 0-based. */
+  round: number;
   index: number;
   members: Participant[];
-  /** The card the group is on now (0 = its first word). */
+  /** The card the group is on now (round × ROUND_CARD_BASE + words done this round). */
   card: number;
   /** Words guessed. */
   score: number;
@@ -181,7 +199,14 @@ export function groupProgress(
   cards: readonly WordCard[] = WORD_CARDS,
 ): GroupProgress[] {
   const groups = gameGroups(session);
-  const pool = shuffle(cardsForLevel(cards, session.level), session.seed + LEVELS.indexOf(session.level));
+  const round = session.round ?? 0;
+  const first = round * ROUND_CARD_BASE;
+  const inRound = (n: number) => n >= first && n < first + ROUND_CARD_BASE;
+  // Each round deals the words again in a new order.
+  const pool = shuffle(
+    cardsForLevel(cards, session.level),
+    session.seed + LEVELS.indexOf(session.level) + round * 7919,
+  );
   const byId = new Map(participants.map((p) => [p.id, p]));
 
   return groups.map((members, index) => {
@@ -190,22 +215,24 @@ export function groupProgress(
     for (const m of members) {
       const row = byId.get(m.id);
       for (const n of row?.got_cards ?? []) {
+        if (!inRound(n)) continue;
         got.add(n);
         done.add(n);
       }
-      for (const n of row?.skipped_cards ?? []) done.add(n);
+      for (const n of row?.skipped_cards ?? []) if (inRound(n)) done.add(n);
     }
-    const card = done.size === 0 ? 0 : Math.max(...done) + 1;
+    const turn = done.size === 0 ? 0 : Math.max(...done) + 1 - first;
     const n = members.length;
     return {
+      round,
       index,
       members,
-      card,
+      card: first + turn,
       score: got.size,
-      player: n > 0 ? members[card % n] : null,
-      nextPlayer: n > 0 ? members[(card + 1) % n] : null,
+      player: n > 0 ? members[turn % n] : null,
+      nextPlayer: n > 0 ? members[(turn + 1) % n] : null,
       // Groups never share a word: group g takes every G-th card of the shuffled list.
-      word: pool.length > 0 ? pool[(index + card * groups.length) % pool.length] : null,
+      word: pool.length > 0 ? pool[(index + turn * groups.length) % pool.length] : null,
     };
   });
 }
@@ -237,7 +264,7 @@ export function startWordGame(session: LiveSession, participants: readonly LiveP
   return {
     status: 'playing',
     round: 0,
-    round_count: 1,
+    round_count: roundCountFor(session.round_minutes, mixMinutesOf(session)),
     stage: 'discussion',
     roster,
     categories: [...(session.categories ?? []).filter((c) => !c.startsWith(GROUPS_FLAG)), GROUPS_FLAG + count],
@@ -252,6 +279,60 @@ export function addLateJoiners(session: LiveSession, participants: readonly Live
   const late = participants.filter((p) => !inRoster.has(p.id));
   if (late.length === 0) return null;
   return { roster: [...session.roster, ...late.map((p) => ({ id: p.id, name: p.name }))] };
+}
+
+/** True when the clock says it's time for new groups ("Mix the groups"). */
+export function newRoundDue(session: LiveSession, now: number): boolean {
+  const mix = mixMinutesOf(session);
+  if (!mix || session.status !== 'playing' || session.stage !== 'discussion') return false;
+  if (session.round >= session.round_count - 1) return false;
+  const endsAt = session.round_minutes * 60_000 - (session.round + 1) * mix * 60_000;
+  return remainingMs(session, now) <= endsAt;
+}
+
+/**
+ * New groups for the next round: the clock stops while everyone finds their
+ * new group. `pastGroups`: every earlier round's groups (ids), so people who
+ * were together before are kept apart.
+ */
+export function startNewRound(
+  session: LiveSession,
+  participants: readonly LiveParticipant[],
+  pastGroups: readonly (readonly string[])[],
+  now: number,
+): Changes {
+  const here = new Set(participants.map((p) => p.id));
+  const roster = [
+    ...session.roster.filter((p) => here.has(p.id)),
+    ...participants.filter((p) => !session.roster.some((r) => r.id === p.id)).map((p) => ({ id: p.id, name: p.name })),
+  ];
+  const count = groupCount(session);
+  const round = session.round + 1;
+  return {
+    round,
+    stage: 'changeover',
+    roster: dealOrder(mixGroups(roster, count, pastGroups, session.seed + round)),
+    found_ids: [],
+    ends_at: null,
+    remaining_ms: remainingMs(session, now),
+  };
+}
+
+/** Everyone has found their new group (or the teacher said start): the clock runs again. */
+export function resumeRound(session: LiveSession, now: number): Changes {
+  return {
+    stage: 'discussion',
+    ends_at: new Date(now + (session.remaining_ms ?? 0)).toISOString(),
+    remaining_ms: null,
+  };
+}
+
+/** Which groups have found each other this round (any member tapped, or the teacher marked them). */
+export function groupsFound(session: LiveSession, participants: readonly LiveParticipant[]): boolean[] {
+  const tapped = new Set(participants.filter((p) => p.found_round === session.round).map((p) => p.id));
+  const marked = new Set(session.found_ids ?? []);
+  // A group is found when every member has tapped (or the teacher marked them).
+  return gameGroups(session).map((g) => g.every((p) => tapped.has(p.id) || marked.has(p.id)));
 }
 
 /** Adds time to the game clock (running or paused). */
@@ -289,6 +370,20 @@ export const HINT = 'hint';
 export const GUESS_WRONG = 'guess_wrong';
 /** A group names its team (the newest name wins). */
 export const TEAM_NAME = 'team_name';
+/** A round's groups start playing ({round, groups: ids per group}); round 0 is the start of the game. */
+export const ROUND_STARTED = 'round_started';
+
+export type RoundStartedData = { round: number; groups: string[][] };
+
+/** Every round's groups so far (for keeping people apart), from the events. */
+export function pastGroupsFrom(events: readonly { kind: string; data: Record<string, unknown> }[]): string[][] {
+  return events.filter((e) => e.kind === ROUND_STARTED).flatMap((e) => (e.data as RoundStartedData).groups ?? []);
+}
+
+/** The event data for the groups now playing. */
+export function roundStartedData(session: LiveSession): RoundStartedData {
+  return { round: session.round, groups: gameGroups(session).map((g) => g.map((p) => p.id)) };
+}
 
 /** What is saved when a word is guessed or skipped (kind CARD_DONE). */
 export type CardDoneData = {
@@ -358,7 +453,7 @@ export async function finishCard(
   if (!group.player || !group.word) return;
   await backend.recordCard(tapper, group.card, guessed);
   const data: CardDoneData = {
-    round: 0,
+    round: group.round,
     group: group.index,
     card: group.card,
     word: group.word.word,
