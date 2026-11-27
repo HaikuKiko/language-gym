@@ -7,18 +7,22 @@
  * Each line is written as "word: banned, banned, banned, banned".
  */
 import type { Level } from '@/data/questions';
+import { WORD_HINTS } from '@/data/word-hints';
 
 export type WordCard = {
   word: string;
   /** Words the describers (or the explainer) can't say. */
   banned: string[];
   level: Level;
+  /** What the word means, in easy English (from word-hints.ts). */
+  hint?: string;
 };
 
 function cards(level: Level, lines: string[]): WordCard[] {
   return lines.map((line) => {
     const [word, rest] = line.split(':');
-    return { level, word: word.trim(), banned: rest.split(',').map((w) => w.trim()) };
+    const w = word.trim();
+    return { level, word: w, banned: rest.split(',').map((b) => b.trim()), hint: WORD_HINTS[w] };
   });
 }
 

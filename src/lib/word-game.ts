@@ -230,3 +230,90 @@ export async function recordCard(me: LiveParticipant, card: number, guessed: boo
     .eq('id', me.id);
   if (error) throw new Error(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// The record of every word (session_events), for points and awards
+// ---------------------------------------------------------------------------
+
+export const GAME_STARTED = 'game_started';
+export const CARD_DONE = 'card_done';
+export const HINT = 'hint';
+
+/** What is saved when a word is guessed or skipped (kind CARD_DONE). */
+export type CardDoneData = {
+  round: number;
+  group: number;
+  card: number;
+  word: string;
+  result: 'got' | 'skipped';
+  /** Hot Seat: the guesser. Explain It: the explainer. */
+  player_id: string;
+  /** Who guessed the word (null when skipped or not known). */
+  guesser_id: string | null;
+  /** Everyone in the group at the time. */
+  members: string[];
+};
+
+/** What is saved when someone opens a word's meaning (kind HINT). */
+export type HintData = { round: number; group: number; card: number; word: string };
+
+type CardBackend = {
+  recordCard: typeof recordCard;
+  logEvent: (sessionId: string, participantId: string | null, kind: string, data: Record<string, unknown>) => Promise<void>;
+};
+
+/**
+ * A word is guessed or skipped: moves the group on (recordCard), then saves
+ * the record for the awards. `guesserId`: who guessed it, when known.
+ */
+export async function finishCard(
+  backend: CardBackend,
+  session: LiveSession,
+  kind: WordGameKind,
+  group: GroupProgress,
+  tapper: LiveParticipant,
+  guessed: boolean,
+  guesserId: string | null,
+): Promise<void> {
+  if (!group.player || !group.word) return;
+  await backend.recordCard(tapper, group.card, guessed);
+  const data: CardDoneData = {
+    round: 0,
+    group: group.index,
+    card: group.card,
+    word: group.word.word,
+    result: guessed ? 'got' : 'skipped',
+    player_id: group.player.id,
+    guesser_id: guessed ? (kind === 'hot-seat' ? group.player.id : guesserId) : null,
+    members: group.members.map((m) => m.id),
+  };
+  await backend.logEvent(session.id, tapper.id, CARD_DONE, data);
+}
+
+/** How far back "Past word games" on the dashboard looks (sessions are deleted after 30 days anyway). */
+export const PAST_GAMES_DAYS = 30;
+
+export type PastGame = { code: string; kind: WordGameKind; level: string; created_at: string; students: number };
+
+/** Word games this teacher hosted, newest first, so their awards can be opened again. */
+export async function fetchMyPastGames(): Promise<PastGame[]> {
+  const client = requireSupabase();
+  const { data: auth } = await client.auth.getSession();
+  const userId = auth.session?.user.id;
+  if (!userId) return [];
+  const since = new Date(Date.now() - PAST_GAMES_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await client
+    .from('sessions')
+    .select('code, level, categories, roster, created_at, status')
+    .eq('host_id', userId)
+    .eq('status', 'finished')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as (LiveSession & { created_at: string })[]).flatMap((s) => {
+    const kind = wordGameKind(s);
+    return kind && s.roster.length > 0
+      ? [{ code: s.code, kind, level: s.level, created_at: s.created_at, students: s.roster.length }]
+      : [];
+  });
+}

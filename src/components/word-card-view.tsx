@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -7,8 +7,26 @@ import { formatClock } from '@/hooks/use-countdown';
 import { useTheme } from '@/hooks/use-theme';
 import { remainingMs, type LiveSession } from '@/lib/live-session';
 
-/** A word card: the word, and the words you can't say. */
-export function WordCardView({ card, compact = false }: { card: WordCard; compact?: boolean }) {
+/** Hint colours (a soft yellow, the same in light and dark mode). */
+const HINT_BG = '#FFF6D6';
+const HINT_BORDER = '#E9B200';
+const HINT_TEXT = '#5C4300';
+
+/**
+ * A word card: the word, and the words you can't say. With `onHint`, a
+ * "Don't know this word?" button opens its meaning (`showHint`).
+ */
+export function WordCardView({
+  card,
+  compact = false,
+  showHint = false,
+  onHint,
+}: {
+  card: WordCard;
+  compact?: boolean;
+  showHint?: boolean;
+  onHint?: () => void;
+}) {
   const theme = useTheme();
   return (
     <View style={styles.card}>
@@ -17,6 +35,19 @@ export function WordCardView({ card, compact = false }: { card: WordCard; compac
           {card.word}
         </Text>
       </View>
+      {card.hint && showHint ? (
+        <View style={[styles.hint, { backgroundColor: HINT_BG, borderColor: HINT_BORDER }]}>
+          <Text style={[styles.hintLabel, { color: HINT_TEXT }]}>WHAT IT MEANS</Text>
+          <Text style={[styles.hintText, { color: HINT_TEXT }]}>{card.hint}</Text>
+        </View>
+      ) : card.hint && onHint ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onHint}
+          style={({ pressed }) => [styles.hint, styles.hintButton, { borderColor: HINT_BORDER }, pressed && { opacity: 0.7 }]}>
+          <Text style={[styles.hintLabel, { color: theme.text }]}>💡 Don&apos;t know this word?</Text>
+        </Pressable>
+      ) : null}
       <View style={[styles.banned, { borderColor: theme.warning }]}>
         <ThemedText type="smallBold" style={{ color: theme.warning, letterSpacing: 1 }}>
           DON&apos;T SAY
@@ -74,6 +105,24 @@ const styles = StyleSheet.create({
   wordTextCompact: {
     fontSize: 22,
     lineHeight: 28,
+  },
+  hint: {
+    borderWidth: 2,
+    borderRadius: Spacing.three,
+    padding: Spacing.two,
+    gap: 2,
+  },
+  hintButton: {
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  hintLabel: {
+    fontSize: 13,
+    fontWeight: 800,
+  },
+  hintText: {
+    fontSize: 16,
+    lineHeight: 22,
   },
   banned: {
     borderWidth: 2,

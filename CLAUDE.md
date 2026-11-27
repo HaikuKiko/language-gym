@@ -91,6 +91,16 @@ Things agreed for later: `BACKLOG.md`.
   **Demo** ("Try the demo first" on the setup screen → `/demo?game=…&level=…&minutes=2`): the same `demo.tsx`,
   6 pretend students in 2 groups of 3; each group taps "Got it" (or skips, `SKIP_CHANCE`) a few seconds after
   each word appears. The word-game screens send taps through `useSessionBackend().recordCard`.
+  **Hints, points and awards** (part 1 of 3, 27 Nov): every card has an easy-English meaning
+  (`src/data/word-hints.ts`), opened with "💡 Don't know this word?". Every word guessed/skipped and every hint
+  is logged to the shared table **`session_events`** (session_id, participant_id, kind, data jsonb, created_at;
+  helpers `src/lib/session-events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
+  `follow_up_asked`) via `finishCard` in `word-game.ts`. Explain It asks the explainer "Who guessed it?".
+  `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
+  Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
+  words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
+  reopens past games (`fetchMyPastGames`). Planned next: part 2 typing the answer + team names; part 3
+  rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
