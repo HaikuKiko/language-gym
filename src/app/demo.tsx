@@ -8,7 +8,8 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/core/content/levels';
 import { useTheme } from '@/core/ui/use-theme';
-import { type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { createSession, type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { errorMessage } from '@/core/app/supabase';
 import { sessionFlags } from '@/lib/talk-rounds';
 import { groupsForRound } from '@/core/live/groups';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';
@@ -426,6 +427,32 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
   };
   const sideBySide = width >= SIDE_BY_SIDE_WIDTH;
 
+  // A real session with the same settings: its QR code lets your own phone join,
+  // and pretend students join with you (one fewer than in this demo, as you take a place).
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  async function joinWithPhone() {
+    setJoining(true);
+    setJoinError(null);
+    try {
+      const real = await createSession({
+        level: session.level,
+        week: session.week ?? null,
+        roundMinutes: session.round_minutes,
+        roundCount: session.round_count,
+        autoAdvance: session.auto_advance,
+        flags: session.categories ?? [],
+      });
+      router.push({
+        pathname: '/session/[code]',
+        params: { code: real.code, pretend: String(Math.max(1, count - 1)) },
+      });
+    } catch (e) {
+      setJoinError(errorMessage(e));
+      setJoining(false);
+    }
+  }
+
   return (
     <SessionBackendProvider backend={backend}>
       <ThemedView style={styles.page}>
@@ -442,6 +469,14 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
             <Text style={[styles.bannerText, styles.end]}>End demo</Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={joining}
+            onPress={joinWithPhone}
+            style={[styles.phoneButton, joining && { opacity: 0.6 }]}>
+            <Text style={styles.phoneButtonText}>{joining ? 'Starting…' : '📱 Join with your own phone'}</Text>
+          </Pressable>
+          {joinError && <Text style={styles.bannerText}>{joinError}</Text>}
           <View style={styles.countRow}>
             <Text style={styles.bannerText}>Pretend students:</Text>
             {DEMO_STUDENT_CHOICES.map((n) => (
@@ -513,6 +548,17 @@ const styles = StyleSheet.create({
   },
   end: {
     textDecorationLine: 'underline',
+  },
+  phoneButton: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+    backgroundColor: '#1873D3',
+  },
+  phoneButtonText: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: '#fff',
   },
   countRow: {
     flexDirection: 'row',
