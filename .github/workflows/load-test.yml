@@ -1,0 +1,34 @@
+# Load test for Talk Rounds and the word games: pretend phones join one live
+# session on the real Supabase project and play through it, all from one
+# internet address (like a school's wifi).
+# Run it from GitHub: Actions -> "Load test" -> "Run workflow".
+# Afterwards, run supabase/load-test-cleanup.sql to delete the pretend data.
+name: Load test
+
+on:
+  push:
+    branches: [claude/project-thread-t9jwv3]
+    paths: [scripts/load-test.mjs, .github/workflows/load-test.yml]
+  workflow_dispatch:
+    inputs:
+      phones:
+        description: How many pretend phones
+        default: '50'
+
+env:
+  EXPO_PUBLIC_SUPABASE_URL: https://pzvjttzapbzoozpxndbd.supabase.co
+  EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_kVWg8im2CG_jzSfWeIe6gA_VZehq7HU
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install the Supabase library only
+        run: mkdir -p /tmp/lt && cp scripts/load-test.mjs /tmp/lt/ && cd /tmp/lt && npm init -y >/dev/null && npm install @supabase/supabase-js@2
+      - name: Pretend phones joining over 30 seconds
+        working-directory: /tmp/lt
+        run: node load-test.mjs ${{ inputs.phones || '50' }}
