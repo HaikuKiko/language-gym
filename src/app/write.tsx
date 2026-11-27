@@ -49,7 +49,7 @@ export default function WriteRoute() {
     setBusy(true);
     setError(null);
     try {
-      const response = await requestFeedback({ text, level, task, week });
+      const response = await requestFeedback({ text, level, task, week, guessedWords: draft.guessed });
       setResult(response);
       draft.showMistakes(response.feedback.corrections);
     } catch (e) {
@@ -63,6 +63,7 @@ export default function WriteRoute() {
       <WritingFeedbackView
         response={result}
         text={text}
+        guessedWords={draft.guessed}
         onAgain={() => {
           setResult(null);
           draft.clear();

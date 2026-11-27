@@ -26,7 +26,7 @@ import {
 } from '@/lib/ielts';
 import { pickPhoto } from '@/core/media/photo';
 import { errorMessage, supabase } from '@/core/app/supabase';
-import { guessesStillIn, joinLines, writtenLines } from '@/core/marking/marks';
+import { joinLines, writtenLines } from '@/core/marking/marks';
 import { readPhoto, writingProblem, type PhotoReading } from '@/core/marking/photo-reading';
 
 /**
@@ -51,7 +51,7 @@ export default function TeacherIeltsRoute() {
   const reading = readingQuestion || draft.reading;
   // Read from photos line by line: shown with line numbers, sent as running text.
   const lineByLine = draft.photo?.lineByLine === true;
-  const guessed = guessesStillIn(text, draft.photo?.guessedWords ?? []);
+  const guessed = draft.guessed;
 
   const words = countWords(text);
   const problem =
