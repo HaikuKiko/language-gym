@@ -6,7 +6,7 @@
  *
  * Each line is written as "word: banned, banned, banned, banned".
  */
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 import { WORD_HINTS } from '@/data/word-hints';
 
 export type WordCard = {

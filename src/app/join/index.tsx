@@ -10,7 +10,7 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { CODE_LENGTH, findMyOpenSession, formatCode } from '@/lib/live-session';
+import { CODE_LENGTH, findMyOpenSession, formatCode } from '@/core/live/session';
 import { supabase } from '@/core/app/supabase';
 
 /**

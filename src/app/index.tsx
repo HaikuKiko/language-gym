@@ -9,7 +9,7 @@ import { ThemedText } from '@/core/ui/themed-text';
 import { LANDING_VIDEO_URL, PRODUCT_NAME, PRODUCT_SENTENCE } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { CODE_LENGTH } from '@/lib/live-session';
+import { CODE_LENGTH } from '@/core/live/session';
 
 const STEPS = [
   ['Start a session', 'in one tap. No account, no app to install.'],

@@ -6,7 +6,7 @@
  * shared_essays table, photos in the shared-essay-photos storage bucket.
  * Nothing expires.
  */
-import { getAppAddress } from '@/components/join-qr-code';
+import { getAppAddress } from '@/core/live/join-qr-code';
 import { aiMarking, type AiMarking } from '@/lib/calibration';
 import type { IeltsFeedback } from '@/lib/ielts';
 import type { PreparedPhoto } from '@/core/media/photo';

@@ -8,7 +8,7 @@ import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
-import { createSession } from '@/lib/live-session';
+import { createTalkSession } from '@/lib/talk-rounds';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
 import { errorMessage } from '@/core/app/supabase';
 
@@ -30,7 +30,7 @@ export default function HostRoute() {
     setBusy(true);
     setError(null);
     try {
-      const session = await createSession(settings);
+      const session = await createTalkSession(settings);
       router.replace({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
       setError(errorMessage(e));

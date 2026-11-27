@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { findQuestions } from '@/data/questions';
-import { uniqueRoundCount } from '@/lib/round-robin';
+import { uniqueRoundCount } from '@/core/live/groups';
 import { useQuestions } from '@/hooks/use-questions';
 import {
   DEFAULT_ROUND_SETTINGS,

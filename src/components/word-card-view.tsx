@@ -5,7 +5,7 @@ import { Spacing } from '@/core/ui/theme';
 import type { WordCard } from '@/data/word-cards';
 import { formatClock } from '@/core/app/use-countdown';
 import { useTheme } from '@/core/ui/use-theme';
-import { remainingMs, type LiveSession } from '@/lib/live-session';
+import { remainingMs, type LiveSession } from '@/core/live/session';
 
 /** Hint colours (a soft yellow, the same in light and dark mode). */
 const HINT_BG = '#FFF6D6';

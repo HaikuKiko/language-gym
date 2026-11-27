@@ -12,7 +12,7 @@ import { useTheme } from '@/core/ui/use-theme';
 import { Spacing } from '@/core/ui/theme';
 import type { Question } from '@/data/questions';
 import { formatClock, useCountdown } from '@/core/app/use-countdown';
-import { groupsForRound } from '@/lib/round-robin';
+import { groupsForRound } from '@/core/live/groups';
 import { CHANGEOVER_SECONDS, type Session } from '@/lib/session';
 
 type RoundScreenProps = {

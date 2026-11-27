@@ -11,7 +11,7 @@ import { ThemedText } from '@/core/ui/themed-text';
 import { WritingBox } from '@/components/writing-box';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/core/ui/theme';
-import { LEVELS, type Level } from '@/data/questions';
+import { LEVELS, type Level } from '@/core/content/levels';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useSavedState } from '@/core/app/use-saved-state';

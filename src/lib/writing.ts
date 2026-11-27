@@ -6,7 +6,7 @@
 import { countWords } from '@/core/app/text';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export const MIN_WORDS = 20;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { LiveSession } from '@/lib/live-session';
+import type { LiveSession } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
 import { TEAM_NAME_REFRESH_MS, teamNames } from '@/lib/word-game';
 

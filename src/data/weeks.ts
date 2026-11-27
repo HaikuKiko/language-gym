@@ -9,7 +9,7 @@
  * used when the database is not set up or cannot be reached.
  */
 import { DRAFT_GRAMMAR_HELP, type GrammarHelp } from '@/data/grammar-help';
-import { LEVELS, type Level } from '@/data/questions';
+import { LEVELS, type Level } from '@/core/content/levels';
 
 export const WEEKS_PER_LEVEL = 16;
 

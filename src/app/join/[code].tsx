@@ -10,7 +10,7 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { PRODUCT_NAME } from '@/constants/product';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
+import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/core/live/session';
 import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/core/app/supabase';
 import { signOutTeacher } from '@/core/app/teachers';
 

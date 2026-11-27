@@ -4,7 +4,8 @@
  * the database cannot be reached; normally they come from the `questions`
  * table, where each has a level and a week.
  */
-import type { Level, Question } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
+import type { Question } from '@/data/questions';
 import { WEEKLY_THEMES } from '@/data/weeks';
 
 const BY_WEEK: Record<Level, string[][]> = {

@@ -9,7 +9,7 @@
  * Supabase has rows, those are used instead, so the questions can be edited
  * there.
  */
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 
 export type FunQuestion = {
   text: string;

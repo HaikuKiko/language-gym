@@ -7,10 +7,9 @@ import { Chip } from '@/core/ui/chip';
 import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
-import { LEVELS, type Level } from '@/data/questions';
+import { LEVELS, type Level } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS } from '@/data/word-cards';
-import { createSession } from '@/lib/live-session';
-import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
+import { createSession } from '@/core/live/session';
 import { errorMessage } from '@/core/app/supabase';
 import {
   DEFAULT_GAME_MINUTES,
@@ -46,19 +45,14 @@ export default function WordGameSetupRoute() {
     setBusy(true);
     setError(null);
     try {
-      const session = await createSession(
-        {
-          ...DEFAULT_ROUND_SETTINGS,
-          mode: 'conversation',
-          level,
-          week: null,
-          roundMinutes: minutes,
-          roundCount: 1,
-          roundRobin: false,
-          autoAdvance: true,
-        },
-        wordGameFlags(kind, groupSize, typing),
-      );
+      const session = await createSession({
+        level,
+        week: null,
+        roundMinutes: minutes,
+        roundCount: 1,
+        autoAdvance: true,
+        flags: wordGameFlags(kind, groupSize, typing),
+      });
       router.replace({
         pathname: '/session/[code]',
         params: { code: session.code },

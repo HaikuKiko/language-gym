@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
+import { leaveSession } from '@/core/live/leave';
+import { StudentLobby } from '@/core/live/lobby';
 import { GameAwards } from '@/components/game-awards';
 import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
@@ -11,7 +13,7 @@ import { Spacing } from '@/core/ui/theme';
 import { useNow } from '@/core/app/use-now';
 import { useTeamNames } from '@/hooks/use-team-names';
 import { useTheme } from '@/core/ui/use-theme';
-import { remainingMs, type LiveParticipant, type LiveSession } from '@/lib/live-session';
+import { remainingMs, type LiveParticipant, type LiveSession } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/core/app/supabase';
 import {
@@ -114,14 +116,7 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
     }
   }
 
-  async function leave() {
-    await backend.removeParticipant(me.id).catch(() => {});
-    if (backend.demo) return;
-    router.replace({
-      pathname: '/join/[code]',
-      params: { code: session.code },
-    });
-  }
+  const leave = () => leaveSession(backend, me, session);
 
   if (session.status === 'finished') {
     return (
@@ -140,19 +135,13 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
 
   if (session.status === 'lobby') {
     return (
-      <Screen>
-        <View style={styles.message}>
-          <ThemedText type="subtitle">You&apos;re in, {me.name}</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            We&apos;re playing {game.emoji} {game.name}. {game.summary}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Waiting for your teacher to start. {participants.length}{' '}
-            {participants.length === 1 ? 'student has' : 'students have'} joined so far.
-          </ThemedText>
-        </View>
-        <Button label="Leave the game" variant="secondary" onPress={leave} />
-      </Screen>
+      <StudentLobby
+        name={me.name}
+        studentCount={participants.length}
+        intro={`We're playing ${game.emoji} ${game.name}. ${game.summary}`}
+        leaveLabel="Leave the game"
+        onLeave={leave}
+      />
     );
   }
 
