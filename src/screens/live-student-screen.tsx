@@ -37,6 +37,20 @@ import { errorMessage } from '@/lib/supabase';
 const FOLLOW_UPS = ['Why?', 'What happened next?', 'How did you feel?', 'Can you give an example?', 'Tell me more about…'];
 /** Taking turns: how long "Swap!" shows when the next turn starts. */
 const SWAP_NOTICE_MS = 4000;
+/**
+ * Follow-up questions: always light with dark text, in dark mode too, so they
+ * are easy to read on a phone in class. A tapped one ("asked") turns green.
+ */
+const FOLLOW_UP_COLOURS = {
+  panel: '#FFF1E3',
+  label: '#7A2E05',
+  chip: '#FFFFFF',
+  chipBorder: '#C2410C',
+  chipText: '#5C2203',
+  askedChip: '#1A8F52',
+  askedText: '#FFFFFF',
+  hint: '#5C4636',
+};
 
 // ===========================================================================
 
@@ -64,6 +78,20 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   // while the change reaches the other phones.
   const [tappedRound, setTappedRound] = useState<number | null>(null);
   const [tapError, setTapError] = useState<string | null>(null);
+  // Follow-ups this phone tapped as asked, shown straight away while saving.
+  const [askedLocal, setAskedLocal] = useState<string[] | null>(null);
+  const askedNow = askedLocal ?? me.asked_follow_ups ?? [];
+
+  async function tapFollowUp(key: string) {
+    const before = askedNow;
+    setAskedLocal(before.includes(key) ? before.filter((k) => k !== key) : [...before, key]);
+    try {
+      await backend.toggleFollowUp({ ...me, asked_follow_ups: before }, key);
+    } catch (e) {
+      setAskedLocal(before);
+      setTapError(errorMessage(e));
+    }
+  }
 
   async function found() {
     const round = session.round;
@@ -294,17 +322,42 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
             <ThemedText>• Say how you felt.</ThemedText>
           </View>
         ) : (
-          <View style={[styles.followUps, { backgroundColor: theme.markABg }]}>
-            <Text style={[styles.bigLabel, { color: theme.markA }]}>
+          <View style={[styles.followUps, { backgroundColor: FOLLOW_UP_COLOURS.panel }]}>
+            <Text style={[styles.bigLabel, { color: FOLLOW_UP_COLOURS.label }]}>
               KEEP {talker.name.toUpperCase()} TALKING: ASK
             </Text>
             <View style={styles.chips}>
-              {(askerQuestion?.followUps?.length ? askerQuestion.followUps : FOLLOW_UPS).map((f) => (
-                <View key={f} style={[styles.followChip, { borderColor: theme.markA }]}>
-                  <Text style={[styles.followText, { color: theme.markA }]}>{f}</Text>
-                </View>
-              ))}
+              {(askerQuestion?.followUps?.length ? askerQuestion.followUps : FOLLOW_UPS).map((f, i) => {
+                const key = `${session.round}.${turn}.${i}`;
+                const asked = askedNow.includes(key);
+                return (
+                  <Pressable
+                    key={f}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: asked }}
+                    accessibilityLabel={`${f} ${asked ? '(asked, tap to undo)' : '(tap when you have asked it)'}`}
+                    onPress={() => tapFollowUp(key)}
+                    style={({ pressed }) => [
+                      styles.followChip,
+                      asked
+                        ? { backgroundColor: FOLLOW_UP_COLOURS.askedChip, borderColor: FOLLOW_UP_COLOURS.askedChip }
+                        : { backgroundColor: FOLLOW_UP_COLOURS.chip, borderColor: FOLLOW_UP_COLOURS.chipBorder },
+                      pressed && styles.pressed,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.followText,
+                        { color: asked ? FOLLOW_UP_COLOURS.askedText : FOLLOW_UP_COLOURS.chipText },
+                      ]}>
+                      {asked ? `✓ ${f}` : f}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
+            <Text style={[styles.followHint, { color: FOLLOW_UP_COLOURS.hint }]}>
+              Tap a question when you have asked it.
+            </Text>
           </View>
         )}
 
@@ -486,6 +539,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.one,
     paddingHorizontal: Spacing.three,
     backgroundColor: '#fff',
+  },
+  followHint: {
+    fontSize: 14,
+    fontWeight: 600,
   },
   followText: {
     flexShrink: 1,

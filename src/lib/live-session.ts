@@ -102,6 +102,12 @@ export type LiveParticipant = {
   got_cards?: number[] | null;
   /** Word games: the cards this student skipped. */
   skipped_cards?: number[] | null;
+  /**
+   * Take turns: the follow-up questions this student tapped as asked, as
+   * "round.turn.number" keys (one per follow-up, so the count is how many
+   * they asked). For a leaderboard later.
+   */
+  asked_follow_ups?: string[] | null;
 };
 
 type SessionChanges = Partial<Omit<LiveSession, 'id' | 'code' | 'host_id'>>;
@@ -265,6 +271,14 @@ export async function removeParticipant(participantId: string): Promise<void> {
 /** A student taps "We found each other!": marks their own row for this round. */
 export async function markFound(participantId: string, round: number): Promise<void> {
   const { error } = await requireSupabase().from('participants').update({ found_round: round }).eq('id', participantId);
+  if (error) throw new Error(error.message);
+}
+
+/** Take turns: a student taps a follow-up they asked (again to undo). Saved on their own row. */
+export async function toggleFollowUp(me: LiveParticipant, key: string): Promise<void> {
+  const current = me.asked_follow_ups ?? [];
+  const next = current.includes(key) ? current.filter((k) => k !== key) : [...current, key];
+  const { error } = await requireSupabase().from('participants').update({ asked_follow_ups: next }).eq('id', me.id);
   if (error) throw new Error(error.message);
 }
 

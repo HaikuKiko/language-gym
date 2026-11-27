@@ -152,6 +152,15 @@ export default function DemoRoute() {
         });
       },
       fetchEvents: async () => [...eventsRef.current],
+      toggleFollowUp: async (me, key) => {
+        const next = participantsRef.current.map((p) => {
+          if (p.id !== me.id) return p;
+          const asked = p.asked_follow_ups ?? [];
+          return { ...p, asked_follow_ups: asked.includes(key) ? asked.filter((k) => k !== key) : [...asked, key] };
+        });
+        participantsRef.current = next;
+        setParticipants(next);
+      },
     }),
     [],
   );

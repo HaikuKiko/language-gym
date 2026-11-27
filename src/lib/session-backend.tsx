@@ -5,8 +5,8 @@
  */
 import { createContext, use, type ReactNode } from 'react';
 
-import { markFound, removeParticipant, updateSession } from '@/lib/live-session';
 import { fetchEvents, logEvent } from '@/lib/session-events';
+import { markFound, removeParticipant, toggleFollowUp, updateSession } from '@/lib/live-session';
 import { recordCard } from '@/lib/word-game';
 
 export type SessionBackend = {
@@ -18,6 +18,8 @@ export type SessionBackend = {
   /** Saves something that happened (for awards and results afterwards). */
   logEvent: typeof logEvent;
   fetchEvents: typeof fetchEvents;
+  /** Take turns: a student taps a follow-up question they asked. */
+  toggleFollowUp: typeof toggleFollowUp;
   /** The solo demo: nothing is saved and no real students can join. */
   demo: boolean;
 };
@@ -29,6 +31,7 @@ const SUPABASE_BACKEND: SessionBackend = {
   recordCard,
   logEvent,
   fetchEvents,
+  toggleFollowUp,
   demo: false,
 };
 
