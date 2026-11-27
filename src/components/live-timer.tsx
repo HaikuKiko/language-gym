@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ProgressBar } from '@/components/progress-bar';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { formatClock } from '@/hooks/use-countdown';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { formatClock } from '@/core/app/use-countdown';
 import { remainingMs, stageDurationMs, type LiveSession } from '@/lib/live-session';
 
 /** The shared countdown for a phone session, as seen by host and students. */

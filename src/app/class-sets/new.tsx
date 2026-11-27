@@ -2,20 +2,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { feedbackLevel, targetLabel } from '@/lib/class-scores';
 import { CAN_READ_PDF, MAX_CLASS_SET_PAGES, choosePdfPages, createClassSet } from '@/lib/class-sets';
 import { loadClasses, type SchoolClass } from '@/lib/classes';
-import { pickPhotos, type PreparedPhoto } from '@/lib/photo';
-import { errorMessage } from '@/lib/supabase';
+import { pickPhotos, type PreparedPhoto } from '@/core/media/photo';
+import { errorMessage } from '@/core/app/supabase';
 
 /** Upload a scan (or photos) of a class's writing for one of the teacher's classes. */
 function NewClassSetRouteScreen() {

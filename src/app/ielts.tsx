@@ -3,22 +3,22 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { JoinCourse } from '@/components/join-course';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { WritingBox } from '@/components/writing-box';
-import { Spacing } from '@/constants/theme';
-import { formatClock, useCountdown } from '@/hooks/use-countdown';
-import { useSavedState } from '@/hooks/use-saved-state';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { formatClock, useCountdown } from '@/core/app/use-countdown';
+import { useSavedState } from '@/core/app/use-saved-state';
+import { useTheme } from '@/core/ui/use-theme';
 import { useWritingDraft } from '@/hooks/use-writing-draft';
-import { loadAccount, type Account } from '@/lib/account';
+import { loadAccount, type Account } from '@/core/app/account';
 import {
   ESSAY_TYPE_NAMES,
   IELTS_HARD_MIN_WORDS,
@@ -29,8 +29,9 @@ import {
   type IeltsResponse,
   type WritingPrompt,
 } from '@/lib/ielts';
-import { errorMessage } from '@/lib/supabase';
-import { countWords, writingProblem } from '@/lib/writing';
+import { errorMessage } from '@/core/app/supabase';
+import { countWords } from '@/core/app/text';
+import { writingProblem } from '@/lib/writing';
 
 const draftKey = (promptId: number) => `ielts-draft-${promptId}`;
 

@@ -2,16 +2,16 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { FooterLinks } from '@/components/footer-links';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/core/ui/button';
+import { FooterLinks } from '@/core/ui/footer-links';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { CODE_LENGTH, findMyOpenSession, formatCode } from '@/lib/live-session';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/core/app/supabase';
 
 /**
  * Join without the QR code: type the code from the teacher's screen. A phone

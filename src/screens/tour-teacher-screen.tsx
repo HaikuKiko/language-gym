@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Pill } from '@/components/pill';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/core/ui/button';
+import { Pill } from '@/core/ui/pill';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { formatDistance, type LatLng } from '@/core/place/geo';
 import { PlaceMap, type MapCircle, type MapPin } from '@/core/place/place-map';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { distanceFromAdults, type Tour } from '@/lib/tours';
 
 /** A group as the supervising adults see it. `at` is only known for groups that share their place. */

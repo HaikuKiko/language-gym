@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 
 /**
  * The web address students should open. A configured public address

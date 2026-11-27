@@ -3,10 +3,11 @@
  * function (supabase/functions/assess-writing), which asks Claude for a CEFR
  * level estimate and feedback. The Anthropic API key never reaches the app.
  */
+import { countWords } from '@/core/app/text';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
 import type { Level } from '@/data/questions';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export const MIN_WORDS = 20;
 export const MAX_WORDS = 600;
@@ -51,10 +52,6 @@ export type WritingResponse = {
   /** True when this exact writing was sent before and the saved feedback was shown (no check used). */
   cached?: boolean;
 };
-
-export function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
 
 export async function requestFeedback(request: WritingRequest): Promise<WritingResponse> {
   const client = requireSupabase();

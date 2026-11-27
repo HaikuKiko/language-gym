@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Button } from '@/core/ui/button';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { friendlyConnectionMessage } from '@/core/app/connection';
 import { useLiveSession } from '@/hooks/use-live-session';
 import { LiveHostScreen } from '@/screens/live-host-screen';
 import { LiveStudentScreen } from '@/screens/live-student-screen';
@@ -30,7 +31,7 @@ export default function LiveSessionRoute() {
       <Screen>
         <View style={styles.message}>
           <ThemedText type="subtitle">Can&apos;t open this session</ThemedText>
-          <ThemedText themeColor="textSecondary">{friendlyMessage(state.message)}</ThemedText>
+          <ThemedText themeColor="textSecondary">{friendlyConnectionMessage(state.message)}</ThemedText>
         </View>
         <Button label="Try again" onPress={retry} />
         <Button
@@ -90,13 +91,6 @@ export default function LiveSessionRoute() {
   if (game) return <WordGameStudentScreen kind={game} session={session} participants={participants} me={me} />;
 
   return <LiveStudentScreen session={session} participants={participants} me={me} />;
-}
-
-/** A lost connection, in words a student understands. */
-function friendlyMessage(message: string): string {
-  return /fetch|network|load failed|timed? ?out/i.test(message)
-    ? 'Your phone can’t reach the internet right now. Check your Wi-Fi or data, then tap Try again.'
-    : message;
 }
 
 const styles = StyleSheet.create({

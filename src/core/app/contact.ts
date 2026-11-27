@@ -1,5 +1,5 @@
 /** The contact box ("Keep me posted"): messages only teachers can read. */
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export type ContactMessage = { id: number; email: string; message: string; created_at: string };
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import { useSavedState } from '@/hooks/use-saved-state';
-import type { PreparedPhoto } from '@/lib/photo';
-import { errorMessage } from '@/lib/supabase';
+import { useSavedState } from '@/core/app/use-saved-state';
+import type { PreparedPhoto } from '@/core/media/photo';
+import { errorMessage } from '@/core/app/supabase';
 import {
   anchorsFrom,
   guessAnchorsFrom,

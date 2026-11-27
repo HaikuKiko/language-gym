@@ -3,14 +3,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Pill } from '@/components/pill';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { Pill } from '@/core/ui/pill';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { pageResult, targetLabel } from '@/lib/class-scores';
 import { loadClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import {
@@ -31,7 +31,7 @@ import {
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 const STATUS_TEXT: Record<ClassSetPage['status'], string> = {
   waiting: 'waiting',

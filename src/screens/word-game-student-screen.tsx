@@ -2,18 +2,18 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { GameAwards } from '@/components/game-awards';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { GameClock, WordCardView } from '@/components/word-card-view';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
 import { useTeamNames } from '@/hooks/use-team-names';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { remainingMs, type LiveParticipant, type LiveSession } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import {
   GUESS_WRONG,
   HINT,

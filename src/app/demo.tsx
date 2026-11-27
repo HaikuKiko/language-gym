@@ -2,12 +2,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { Chip } from '@/components/chip';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Chip } from '@/core/ui/chip';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/data/questions';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { sessionFlags, type LiveParticipant, type LiveSession } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';

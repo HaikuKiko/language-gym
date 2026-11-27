@@ -2,13 +2,13 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Screen } from '@/components/screen';
-import { TeacherSignIn, useTeacher } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { errorMessage } from '@/lib/supabase';
+import { Button } from '@/core/ui/button';
+import { Screen } from '@/core/ui/screen';
+import { TeacherSignIn, useTeacher } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { errorMessage } from '@/core/app/supabase';
 import {
   MIN_PASSWORD_LENGTH,
   addTeacher,
@@ -17,7 +17,7 @@ import {
   signOutTeacher,
   teacherCount,
   type Teacher,
-} from '@/lib/teachers';
+} from '@/core/app/teachers';
 
 /** Teacher accounts: sign in, the first teacher account, adding teachers, signing out. */
 export default function TeacherRoute() {

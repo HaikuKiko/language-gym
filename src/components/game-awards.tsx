@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import type { LiveSession } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
 import type { SessionEvent } from '@/lib/session-events';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import { isTyping, type WordGameKind } from '@/lib/word-game';
 import { gameResults, personalLine } from '@/lib/word-game-results';
 

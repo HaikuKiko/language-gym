@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import type { WordCard } from '@/data/word-cards';
-import { formatClock } from '@/hooks/use-countdown';
-import { useTheme } from '@/hooks/use-theme';
+import { formatClock } from '@/core/app/use-countdown';
+import { useTheme } from '@/core/ui/use-theme';
 import { remainingMs, type LiveSession } from '@/lib/live-session';
 
 /** Hint colours (a soft yellow, the same in light and dark mode). */

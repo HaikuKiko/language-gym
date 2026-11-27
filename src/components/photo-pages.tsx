@@ -2,12 +2,12 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { MAX_PAGES, pickPhotos, type PreparedPhoto } from '@/lib/photo';
-import { errorMessage } from '@/lib/supabase';
+import { Button } from '@/core/ui/button';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { MAX_PAGES, pickPhotos, type PreparedPhoto } from '@/core/media/photo';
+import { errorMessage } from '@/core/app/supabase';
 
 /**
  * Photos of handwriting, one per page: take them one at a time or choose

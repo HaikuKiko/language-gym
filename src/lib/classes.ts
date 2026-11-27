@@ -6,7 +6,7 @@
  */
 import { IELTS_PLACEHOLDER_LEVEL, type TargetLevel } from '@/lib/class-scores';
 import { studentKey, type Area, type ClassSet, type ClassSetPage, type Course } from '@/lib/class-sets';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 import type { AreaLevel } from '@/lib/writing';
 
 // ===========================================================================

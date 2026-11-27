@@ -3,7 +3,7 @@
  * kept for awards and results afterwards. Shared by every live game: word
  * games log words guessed and hints; Talk Rounds can log follow-up questions.
  */
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase } from '@/core/app/supabase';
 
 export type SessionEvent = {
   id?: number;

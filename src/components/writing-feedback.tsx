@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import {
   Bullet,
   CorrectionNotes,
@@ -11,13 +11,13 @@ import {
   ParagraphNote,
   Section,
 } from '@/components/feedback-parts';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
 import { ShareReportButton } from '@/components/share-report-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { writingReportHtml } from '@/lib/report-html';
 import { writingReport } from '@/lib/share-report';
 import { markCorrections, withoutGuessCorrections, type WritingResponse } from '@/lib/writing';

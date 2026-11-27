@@ -8,18 +8,18 @@
  * bucket (see supabase/updates/2026-11-23-class-sets.sql). Teachers have no
  * accounts yet, so a class set belongs to the device that made it.
  */
+import { countWords } from '@/core/app/text';
 import { loadScript } from '@/core/app/load-script';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import type { Level } from '@/data/questions';
 import { matchStudent, type ClassStudent } from '@/lib/classes';
-import type { PreparedPhoto } from '@/lib/photo';
+import type { PreparedPhoto } from '@/core/media/photo';
 import { requestTeacherIeltsFeedback, type IeltsFeedback } from '@/lib/ielts';
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 import {
   MIN_WORDS,
-  countWords,
   joinLines,
   requestFeedback,
   type AreaLevel,

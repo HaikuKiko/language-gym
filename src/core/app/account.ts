@@ -11,7 +11,7 @@
  */
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 
 export type Student = { id: string; displayName: string; studentCode: string };
 export type Enrolment = { trackId: string; trackName: string; target: string | null };

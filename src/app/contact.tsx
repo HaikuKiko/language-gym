@@ -2,15 +2,15 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { FooterLinks } from '@/components/footer-links';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/core/ui/button';
+import { FooterLinks } from '@/core/ui/footer-links';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { sendContactMessage } from '@/lib/contact';
-import { errorMessage } from '@/lib/supabase';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { sendContactMessage } from '@/core/app/contact';
+import { errorMessage } from '@/core/app/supabase';
 
 /** "Keep me posted": a teacher leaves their email and, if they like, a message. */
 export default function ContactRoute() {

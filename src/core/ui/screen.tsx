@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { ThemedView } from '@/core/ui/themed-view';
+import { MaxContentWidth, Spacing } from '@/core/ui/theme';
 
 /** Full-height scrolling page with the content centred in a readable column. */
 export function Screen({ children }: { children: ReactNode }) {

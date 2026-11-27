@@ -112,9 +112,16 @@ Things agreed for later: `BACKLOG.md`.
   must stay within `MAX_FROM_ADULT_M` (100 m) of a supervising adult (any number of teachers + helper adults, never
   adult students); stops and talk-to-a-person tasks open only with an adult near; they may talk to adults only,
   voice only unless the teacher allows video. Next: live runs (tables, join, live places), route builder, recording.
-- **Core (`src/core/`)**: shared kits (plan: `shared-code-plan.md` in project files). So far: `app/load-script.ts`
-  (cdnjs loader; pdf.js uses it), `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`,
-  `place-map.tsx` Leaflet + OpenStreetMap from cdnjs, web only), `media/slideshow.tsx`, `classes/safety-rules.ts`.
+- **Core (`src/core/`)**: the shared toolkit, in kits (plan: `shared-code-plan.md` in project files). **Put anything
+  another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",
+  IELTS). `ui/` (App basics, look): `theme.ts` (colours, `Spacing`), `use-theme`, Button, Chip, Pill, Screen,
+  ThemedText/View, Avatar, ProgressBar, BusyOverlay, ExternalLink, AppLoading, FooterLinks, `notice.tsx` (`Notice`,
+  `ErrorNote`). `app/` (App basics, logic): `error-boundary.tsx` (no white screens; `_layout` re-exports it),
+  `connection.ts` (friendly "no internet" message), `supabase.ts`, `teachers.ts` + `teacher-only.tsx` (teacher
+  login), `account.ts` (student code + PIN), `contact.ts`, `text.ts` (`countWords`), `use-now`, `use-countdown`,
+  `use-saved-state`, `load-script.ts` (cdnjs loader; pdf.js uses it). `media/`: `photo.ts` (pick photos),
+  `slideshow.tsx`. `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
+  + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
@@ -158,7 +165,7 @@ Things agreed for later: `BACKLOG.md`.
   **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set
   reads and marks only the first student; "Do the next student" does one more each tap (no "Mark all").
   Set it to false when the owner has finished testing.
-- **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
+- **Teacher logins:** `teacher.tsx`, `src/core/app/teachers.ts`, `core/app/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add
   teachers. Table `teachers`.
@@ -168,7 +175,7 @@ Things agreed for later: `BACKLOG.md`.
   `calibrate/[code].tsx` (the AI's full feedback + everyone's marks so far; others add theirs).
 - **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem`: change those, not
   each screen.
-- **Accounts:** `account.tsx`, `src/lib/account.ts` (student code + PIN, self-enrol on IELTS).
+- **Accounts:** `account.tsx`, `src/core/app/account.ts` (student code + PIN, self-enrol on IELTS).
 - **Sharing:** `share-report-button.tsx`, `src/lib/share-report.ts` (text),
   `report-html.ts` + `report-pdf.ts` (PDF that looks like the screen, print).
 

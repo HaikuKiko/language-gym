@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import type { IeltsFeedback } from '@/lib/ielts';
-import type { PreparedPhoto } from '@/lib/photo';
+import type { PreparedPhoto } from '@/core/media/photo';
 import { shareReport } from '@/lib/share-report';
 import { calibrateUrl, shareEssay } from '@/lib/shared-essay';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /**
  * "Share the results": under a teacher's marking, makes a link to the

@@ -4,7 +4,7 @@
  */
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
-import { ensureSignedIn, requireSupabase } from '@/lib/supabase';
+import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
 import type { Correction } from '@/lib/writing';
 
 export const IELTS_MIN_WORDS = 250;

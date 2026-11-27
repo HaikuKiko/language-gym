@@ -3,6 +3,7 @@
  * only open when they are there. Uses the Place kit (distances), the Classes kit
  * (safety rules) and the Media kit (slideshow).
  */
+import { countWords } from '@/core/app/text';
 import type { Slide } from '@/core/media/slideshow';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { distanceM, isWithin, nearest, type Fix, type LatLng } from '@/core/place/geo';
@@ -65,7 +66,7 @@ export type TourWork = Record<string, Record<string, TaskWork>>;
 export function isTaskDone(task: TourTask, work: TaskWork | undefined): boolean {
   if (!work) return false;
   if (task.kind === 'photo') return Boolean(work.photoUri);
-  if (task.kind === 'write') return wordCount(work.text ?? '') > 0;
+  if (task.kind === 'write') return countWords(work.text ?? '') > 0;
   return false;
 }
 
@@ -74,9 +75,6 @@ export function isStopVisited(stop: TourStop, work: TourWork): boolean {
   return stop.tasks.some((t) => isTaskDone(t, work[stop.id]?.[t.id]));
 }
 
-export function wordCount(text: string): number {
-  return text.trim() ? text.trim().split(/\s+/).length : 0;
-}
 
 export type StopAccess =
   /** Not there yet. */
