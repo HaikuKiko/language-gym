@@ -1,26 +1,38 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
+import { leaveSession } from '@/core/live/leave';
+import { StudentLobby } from '@/core/live/lobby';
 import { GameAwards } from '@/components/game-awards';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
 import { GameClock, WordCardView } from '@/components/word-card-view';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
-import { remainingMs, type LiveParticipant, type LiveSession } from '@/lib/live-session';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
+import { useTeamNames } from '@/hooks/use-team-names';
+import { useTheme } from '@/core/ui/use-theme';
+import { remainingMs, type LiveParticipant, type LiveSession } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import {
+  GUESS_WRONG,
   HINT,
+  TEAM_NAME,
+  TEAM_NAME_MAX_LENGTH,
   WORD_GAMES,
+  checkGuess,
   finishCard,
+  groupLabel,
+  isTyping,
   groupOf,
   groupProgress,
   type GroupProgress,
+  type GuessWrongData,
   type HintData,
+  type TeamNameData,
   type WordGameKind,
 } from '@/lib/word-game';
 
@@ -45,6 +57,8 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   const [hintFor, setHintFor] = useState<string | null>(null);
   // Explain It: the word just guessed, waiting for "Who guessed it?".
   const [choosingFor, setChoosingFor] = useState<number | null>(null);
+  const typing = isTyping(session);
+  const { names: teams, reload: reloadTeams } = useTeamNames(session);
 
   const meNow: LiveParticipant = {
     ...me,
@@ -73,14 +87,37 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
     await backend.logEvent(session.id, me.id, HINT, data).catch(() => {});
   }
 
-  async function leave() {
-    await backend.removeParticipant(me.id).catch(() => {});
-    if (backend.demo) return;
-    router.replace({
-      pathname: '/join/[code]',
-      params: { code: session.code },
-    });
+  /** Typing: checks a guess. Right finishes the word; a wrong guess is saved for the awards. */
+  async function guess(group: GroupProgress, text: string): Promise<'right' | 'almost' | 'wrong'> {
+    if (!group.word) return 'wrong';
+    const result = checkGuess(text, group.word.word);
+    if (result === 'right') {
+      await tap(group, true, me.id);
+    } else {
+      const data: GuessWrongData = {
+        round: 0,
+        group: group.index,
+        card: group.card,
+        word: group.word.word,
+        guess: text.trim().slice(0, 60),
+        almost: result === 'almost',
+      };
+      await backend.logEvent(session.id, me.id, GUESS_WRONG, data).catch(() => {});
+    }
+    return result;
   }
+
+  async function nameTeam(group: GroupProgress, name: string) {
+    const data: TeamNameData = { round: 0, group: group.index, name: name.trim().slice(0, TEAM_NAME_MAX_LENGTH) };
+    try {
+      await backend.logEvent(session.id, me.id, TEAM_NAME, data);
+      await reloadTeams();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
+  const leave = () => leaveSession(backend, me, session);
 
   if (session.status === 'finished') {
     return (
@@ -99,19 +136,13 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
 
   if (session.status === 'lobby') {
     return (
-      <Screen>
-        <View style={styles.message}>
-          <ThemedText type="subtitle">You&apos;re in, {me.name}</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            We&apos;re playing {game.emoji} {game.name}. {game.summary}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Waiting for your teacher to start. {participants.length}{' '}
-            {participants.length === 1 ? 'student has' : 'students have'} joined so far.
-          </ThemedText>
-        </View>
-        <Button label="Leave the game" variant="secondary" onPress={leave} />
-      </Screen>
+      <StudentLobby
+        name={me.name}
+        studentCount={participants.length}
+        intro={`We're playing ${game.emoji} ${game.name}. ${game.summary}`}
+        leaveLabel="Leave the game"
+        onLeave={leave}
+      />
     );
   }
 
@@ -151,12 +182,14 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
     <Screen>
       <View style={[styles.header, { backgroundColor: theme.hero }]}>
         <Text style={[styles.headerTitle, { color: theme.onHero }]}>
-          Group {group.index + 1} · {heading}
+          {groupLabel(teams, 0, group.index)} · {heading}
         </Text>
         <Text style={[styles.headerSub, { color: theme.onHeroMuted }]}>
           {game.emoji} {game.name} · {group.score} {group.score === 1 ? 'word' : 'words'} so far
         </Text>
       </View>
+
+      <TeamName name={teams.get(`0:${group.index}`) ?? null} onSave={(name) => nameTeam(group, name)} />
 
       <GameClock session={session} now={now} />
 
@@ -200,30 +233,41 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
               onPress={() => tap(group, false)}
               style={styles.button}
             />
-            <Button
-              label={myTurn ? 'Got it ✓' : `${playerName} got it ✓`}
-              disabled={!canTap}
-              onPress={() =>
-                kind === 'explain-it' && group.members.length > 1 ? setChoosingFor(group.card) : tap(group, true)
-              }
-              style={styles.buttonWide}
-            />
+            {!typing && (
+              <Button
+                label={myTurn ? 'Got it ✓' : `${playerName} got it ✓`}
+                disabled={!canTap}
+                onPress={() =>
+                  kind === 'explain-it' && group.members.length > 1 ? setChoosingFor(group.card) : tap(group, true)
+                }
+                style={styles.buttonWide}
+              />
+            )}
           </View>
           <ThemedText type="small" themeColor="textSecondary">
-            {myTurn
-              ? 'Tap "Got it" when someone says the word.'
-              : `Anyone describing can tap "Got it" when ${playerName} says the word.`}
+            {typing
+              ? kind === 'hot-seat'
+                ? `${playerName} types the word on their phone. Skip if it's too hard.`
+                : "Your group types the word on their phones. Skip if it's too hard."
+              : myTurn
+                ? 'Tap "Got it" when someone says the word.'
+                : `Anyone describing can tap "Got it" when ${playerName} says the word.`}
           </ThemedText>
         </>
       ) : (
         <View style={styles.listen}>
           <Text style={styles.emoji}>{kind === 'hot-seat' ? '🙈' : '👂'}</Text>
           <ThemedText type="subtitle" style={styles.centered}>
-            {kind === 'hot-seat' ? 'Listen and guess the word' : 'Listen and shout your guess!'}
+            {typing
+              ? 'Listen and type the word'
+              : kind === 'hot-seat'
+                ? 'Listen and guess the word'
+                : 'Listen and shout your guess!'}
           </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.centered}>
             {kind === 'hot-seat' ? "Your group can see it. You can't." : `Only ${playerName} can see the word.`}
           </ThemedText>
+          {typing && canTap && <GuessBox key={`${group.index}:${group.card}`} onGuess={(text) => guess(group, text)} />}
         </View>
       )}
 
@@ -242,16 +286,126 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
         </View>
       )}
 
-      {error && (
-        <ThemedText type="small" themeColor="warning" style={styles.centered}>
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} />
     </Screen>
   );
 }
 
+/** Typing: the guesser types the word; spelling counts. */
+function GuessBox({ onGuess }: { onGuess: (text: string) => Promise<'right' | 'almost' | 'wrong'> }) {
+  const theme = useTheme();
+  const [text, setText] = useState('');
+  const [result, setResult] = useState<'almost' | 'wrong' | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function check() {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    const outcome = await onGuess(text);
+    setBusy(false);
+    if (outcome !== 'right') {
+      setResult(outcome);
+      setText('');
+    }
+  }
+
+  return (
+    <View style={styles.guess}>
+      <TextInput
+        value={text}
+        onChangeText={(t) => {
+          setText(t);
+          setResult(null);
+        }}
+        onSubmitEditing={check}
+        placeholder="Type the word"
+        placeholderTextColor={theme.textSecondary}
+        autoCapitalize="none"
+        autoCorrect={false}
+        spellCheck={false}
+        autoFocus
+        style={[styles.input, { color: theme.text, borderColor: theme.accent, backgroundColor: theme.background }]}
+      />
+      <Button label={busy ? 'Checking…' : 'Check'} disabled={busy || !text.trim()} onPress={check} />
+      {result && (
+        <ThemedText
+          type="smallBold"
+          themeColor={result === 'almost' ? 'warning' : 'textSecondary'}
+          style={styles.centered}>
+          {result === 'almost' ? 'Almost! Check your spelling.' : 'Not quite. Try again!'}
+        </ThemedText>
+      )}
+    </View>
+  );
+}
+
+/** The team's name, which anyone in the group can set or change. */
+function TeamName({ name, onSave }: { name: string | null; onSave: (name: string) => Promise<void> }) {
+  const theme = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState('');
+
+  async function save() {
+    if (!text.trim()) return;
+    setEditing(false);
+    await onSave(text);
+  }
+
+  if (!editing) {
+    return (
+      <Button
+        variant="secondary"
+        label={name ? `✏️ Team ${name}: change the name` : '✏️ Name your team'}
+        onPress={() => {
+          setText(name ?? '');
+          setEditing(true);
+        }}
+      />
+    );
+  }
+  return (
+    <View style={styles.teamRow}>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={save}
+        maxLength={TEAM_NAME_MAX_LENGTH}
+        placeholder="Your team's name"
+        placeholderTextColor={theme.textSecondary}
+        autoFocus
+        style={[
+          styles.input,
+          styles.teamInput,
+          { color: theme.text, borderColor: theme.border, backgroundColor: theme.background },
+        ]}
+      />
+      <Button label="Save" disabled={!text.trim()} onPress={save} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  guess: {
+    alignSelf: 'stretch',
+    gap: Spacing.two,
+    marginTop: Spacing.three,
+  },
+  input: {
+    borderWidth: 2,
+    borderRadius: Spacing.three,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    fontSize: 20,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    alignItems: 'center',
+  },
+  teamInput: {
+    flex: 1,
+    fontSize: 16,
+  },
   message: {
     gap: Spacing.two,
     paddingVertical: Spacing.four,

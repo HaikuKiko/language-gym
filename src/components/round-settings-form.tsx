@@ -1,15 +1,16 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { ThemedView } from '@/components/themed-view';
-import { LEVELS, countForWeek, findQuestions } from '@/data/questions';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { ThemedView } from '@/core/ui/themed-view';
+import { LEVELS } from '@/core/content/levels';
+import { countForWeek, findQuestions } from '@/data/questions';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useCustomSets, useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
 import { FRIENDING_WEEKS, findFunQuestions } from '@/data/fun-questions';
-import { uniqueRoundCount } from '@/lib/round-robin';
+import { uniqueRoundCount } from '@/core/live/groups';
 import { CHANGEOVER_SECONDS, type RoundSettings } from '@/lib/session';
 
 const ROUND_MINUTES = [1, 2, 3, 5, 10];

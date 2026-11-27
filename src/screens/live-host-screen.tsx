@@ -1,56 +1,37 @@
 import { router, type Href } from 'expo-router';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Avatar } from '@/components/avatar';
+import { Button } from '@/core/ui/button';
+import { Avatar } from '@/core/ui/avatar';
 import { GrammarCard } from '@/components/grammar-card';
-import { JoinCodeHero } from '@/components/join-code-hero';
-import { JoinQrCode, getAppAddress, joinUrl } from '@/components/join-qr-code';
-import { LiveTimer } from '@/components/live-timer';
-import { Pill } from '@/components/pill';
+import { JoinCodeHero } from '@/core/live/join-code-hero';
+import { LateJoinQr } from '@/core/live/late-join-qr';
+import { LobbyButtons, StudentRoster } from '@/core/live/lobby';
 import { PretendStudentsPanel } from '@/components/pretend-students-panel';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { usePretendStudents } from '@/lib/pretend-students';
+import { useHostActions } from '@/core/live/use-host-actions';
+import { ErrorNote } from '@/core/ui/notice';
+import { LiveTimer } from '@/core/live/live-timer';
+import { Pill } from '@/core/ui/pill';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { WeekFocus } from '@/components/week-focus';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
 import { findWeek } from '@/data/weeks';
 import { useCustomSets, useQuestions, useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
-import {
-  beginDiscussion,
-  endSession,
-  findingStatus,
-  formatCode,
-  isFriending,
-  isRoundRobin,
-  roundRobinRounds,
-  nextRound,
-  pauseTimer,
-  customSetId,
-  isTakingTurns,
-  turnFor,
-  questionForRound,
-  remainingMs,
-  resetTimer,
-  setGroupFound,
-  startSession,
-  startTimer,
-  type LiveParticipant,
-  type LiveSession,
-} from '@/lib/live-session';
-import { groupsForRound, type Group } from '@/lib/round-robin';
-import { usePretendStudents } from '@/lib/pretend-students';
+import { useTheme } from '@/core/ui/use-theme';
+import { endSession, formatCode, pauseTimer, remainingMs, resetTimer, startTimer, type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { findingStatus, setGroupFound } from '@/core/live/ready-check';
+import { turnFor } from '@/core/live/turns';
+import { beginDiscussion, isFriending, isRoundRobin, roundRobinRounds, nextRound, customSetId, isTakingTurns, questionForRound, startSession } from '@/lib/talk-rounds';
+import { groupsForRound, type Group } from '@/core/live/groups';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
 import { FinishedScreen } from '@/screens/finished-screen';
-
-/** Size of the small QR code for late joiners, beside the round number. */
-const LATE_JOIN_QR_SIZE = 88;
 
 type LiveHostScreenProps = {
   session: LiveSession;
@@ -73,31 +54,9 @@ export function LiveHostScreen({
   const custom = customSets.find((s) => s.id === customSetId(session)) ?? null;
   const plan = findWeek(useWeeks(), session.level, session.week);
   const theme = useTheme();
-  const [error, setError] = useState<string | null>(null);
-
   const backend = useSessionBackend();
+  const { save, remove, error } = useHostActions({ backend, session, participants, onSession, onParticipants });
   const pretend = usePretendStudents(session, participants);
-  type Changes = Parameters<typeof backend.updateSession>[1];
-
-  async function save(changes: Changes, onlyIfUnmoved = false) {
-    try {
-      const saved = await backend.updateSession(session, changes, onlyIfUnmoved);
-      if (saved) onSession(saved);
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }
-
-  async function remove(participant: LiveParticipant) {
-    try {
-      await backend.removeParticipant(participant.id);
-      onParticipants(participants.filter((p) => p.id !== participant.id));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }
 
   // Automatic mode: this screen moves the session on when the clock runs out.
   const playing = session.status === 'playing';
@@ -138,12 +97,6 @@ export function LiveHostScreen({
     );
   }
 
-  const errorText = error && (
-    <ThemedText type="small" themeColor="warning" style={styles.centered}>
-      {error}
-    </ThemedText>
-  );
-
   const header = (status: string) => (
     <View style={styles.topBar}>
       <View style={styles.brand}>
@@ -161,40 +114,7 @@ export function LiveHostScreen({
 
         <JoinCodeHero code={session.code} demo={backend.demo} />
 
-        <ThemedView type="backgroundElement" style={styles.card}>
-          <View style={styles.cardHeader}>
-            <ThemedText type="smallBold">Students</ThemedText>
-            <Pill label={String(participants.length)} tone="accent" />
-          </View>
-          {participants.length === 0 ? (
-            <View style={[styles.empty, { borderColor: theme.border }]}>
-              <ThemedText themeColor="textSecondary" style={styles.centered}>
-                Waiting for students to join…
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={styles.chips}>
-              {participants.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${p.name}`}
-                  onPress={() => remove(p)}
-                  style={({ pressed }) => [
-                    styles.student,
-                    { backgroundColor: theme.background },
-                    pressed && styles.pressed,
-                  ]}>
-                  <Avatar id={p.id} name={p.name} size={28} />
-                  <ThemedText type="small">{p.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    ✕
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </ThemedView>
+        <StudentRoster participants={participants} onRemove={remove} />
 
         {!backend.demo && <PretendStudentsPanel onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />}
 
@@ -233,20 +153,14 @@ export function LiveHostScreen({
           </View>
         ) : null}
 
-        <View style={styles.section}>
-          <Button
-            label="Start session"
-            disabled={participants.length < 2}
-            onPress={() => save(startSession(session, participants, Date.now()))}
-          />
-          {participants.length < 2 && (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              At least two students need to join before you can start.
-            </ThemedText>
-          )}
-          <Button label="Cancel session" variant="secondary" onPress={() => save(endSession())} />
-          {errorText}
-        </View>
+        <LobbyButtons
+          studentCount={participants.length}
+          startLabel="Start session"
+          cancelLabel="Cancel session"
+          onStart={() => save(startSession(session, participants, Date.now()))}
+          onCancel={() => save(endSession())}
+          error={error}
+        />
       </Screen>
     );
   }
@@ -258,9 +172,6 @@ export function LiveHostScreen({
   const rosterIds = new Set(session.roster.map((p) => p.id));
   const waiting = participants.filter((p) => !rosterIds.has(p.id));
   const question = friending ? null : questionForRound(session, questions, session.level);
-  // Students who arrive late scan this and join from the next round.
-  const lateJoinAddress = backend.demo ? null : getAppAddress();
-  const lateJoinLink = lateJoinAddress ? joinUrl(lateJoinAddress, session.code) : null;
 
   return (
     <Screen>
@@ -274,14 +185,8 @@ export function LiveHostScreen({
             </ThemedText>
             <WeekFocus level={session.level} week={session.week} friending={friending} customName={custom?.name} />
           </View>
-          {lateJoinLink && (
-            <View style={styles.lateJoin}>
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                Late? Scan to join
-              </ThemedText>
-              <JoinQrCode url={lateJoinLink} code={formatCode(session.code)} size={LATE_JOIN_QR_SIZE} />
-            </View>
-          )}
+          {/* Students who arrive late scan this and join from the next round. */}
+          <LateJoinQr code={session.code} demo={backend.demo} />
         </View>
         <View style={styles.steps}>
           {Array.from({ length: session.round_count }, (_, i) => (
@@ -393,7 +298,7 @@ export function LiveHostScreen({
         {!lastRound && (
           <Button label="End session" variant="secondary" onPress={() => save(endSession())} />
         )}
-        {errorText}
+        <ErrorNote message={error} />
       </View>
     </Screen>
   );
@@ -533,28 +438,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  empty: {
-    paddingVertical: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: Spacing.three,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  student: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.one,
-    paddingLeft: Spacing.one,
-    paddingRight: Spacing.three,
-    borderRadius: Spacing.four,
-    minHeight: 36,
-  },
   pressed: {
     opacity: 0.7,
   },
@@ -572,10 +455,6 @@ const styles = StyleSheet.create({
   roundTitle: {
     flex: 1,
     gap: Spacing.two,
-  },
-  lateJoin: {
-    alignItems: 'center',
-    gap: Spacing.one,
   },
   steps: {
     flexDirection: 'row',
@@ -622,8 +501,5 @@ const styles = StyleSheet.create({
   },
   groupNames: {
     flexShrink: 1,
-  },
-  centered: {
-    textAlign: 'center',
   },
 });

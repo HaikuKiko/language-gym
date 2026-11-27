@@ -2,17 +2,18 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { FooterLinks } from '@/components/footer-links';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/core/ui/button';
+import { FooterLinks } from '@/core/ui/footer-links';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/lib/live-session';
-import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/lib/supabase';
-import { signOutTeacher } from '@/lib/teachers';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { CODE_LENGTH, HostDeviceError, findMyOpenSession, formatCode, joinSession } from '@/core/live/session';
+import { NOT_CONFIGURED_MESSAGE, errorMessage, supabase } from '@/core/app/supabase';
+import { signOutTeacher } from '@/core/app/teachers';
 
 /**
  * Where the session's QR code leads: the student types their name and joins.
@@ -111,11 +112,7 @@ export default function JoinRoute() {
             )}
           </View>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning">
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} align="left" />
         {!configured && (
           <ThemedText type="small" themeColor="warning">
             {NOT_CONFIGURED_MESSAGE}

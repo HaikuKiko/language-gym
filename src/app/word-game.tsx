@@ -2,16 +2,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { LEVELS, type Level } from '@/data/questions';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { LEVELS, type Level } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS } from '@/data/word-cards';
-import { createSession } from '@/lib/live-session';
-import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
-import { errorMessage } from '@/lib/supabase';
+import { createSession } from '@/core/live/session';
+import { errorMessage } from '@/core/app/supabase';
 import {
   DEFAULT_GAME_MINUTES,
   GAME_MINUTES,
@@ -32,6 +32,7 @@ export default function WordGameSetupRoute() {
   const [level, setLevel] = useState<Level>('B1');
   const [groupSize, setGroupSize] = useState<number>(WORD_GAMES[kind].defaultGroupSize);
   const [minutes, setMinutes] = useState<number>(DEFAULT_GAME_MINUTES);
+  const [typing, setTyping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = WORD_GAMES[kind];
@@ -45,19 +46,14 @@ export default function WordGameSetupRoute() {
     setBusy(true);
     setError(null);
     try {
-      const session = await createSession(
-        {
-          ...DEFAULT_ROUND_SETTINGS,
-          mode: 'conversation',
-          level,
-          week: null,
-          roundMinutes: minutes,
-          roundCount: 1,
-          roundRobin: false,
-          autoAdvance: true,
-        },
-        wordGameFlags(kind, groupSize),
-      );
+      const session = await createSession({
+        level,
+        week: null,
+        roundMinutes: minutes,
+        roundCount: 1,
+        autoAdvance: true,
+        flags: wordGameFlags(kind, groupSize, typing),
+      });
       router.replace({
         pathname: '/session/[code]',
         params: { code: session.code },
@@ -123,12 +119,21 @@ export default function WordGameSetupRoute() {
       </View>
 
       <View style={styles.section}>
+        <ThemedText type="smallBold">How guessers answer</ThemedText>
+        <View style={styles.chips}>
+          <Chip label="🗣️ Say it" selected={!typing} onPress={() => setTyping(false)} />
+          <Chip label="⌨️ Type it (spelling counts)" selected={typing} onPress={() => setTyping(true)} />
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          {typing
+            ? 'Guessers type the word on their phone. The phone checks it, says "Almost!" for a small spelling mistake, and moves on when it is right.'
+            : 'Guessers say the word, and the group taps "Got it".'}
+        </ThemedText>
+      </View>
+
+      <View style={styles.section}>
         <Button label={busy ? 'Creating…' : 'Create game'} disabled={busy} onPress={create} />
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <Button
           label="Try the demo first (pretend students)"
           variant="secondary"
@@ -136,7 +141,7 @@ export default function WordGameSetupRoute() {
             router.push({
               pathname: '/demo',
               // The demo always has two groups of 3 pretend students.
-              params: { game: kind, level, minutes: String(DEMO_MINUTES) },
+              params: { game: kind, level, minutes: String(DEMO_MINUTES), typing: typing ? '1' : '0' },
             })
           }
         />

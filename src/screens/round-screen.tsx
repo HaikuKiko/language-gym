@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/core/ui/button';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { GrammarCard } from '@/components/grammar-card';
 import { WeekFocus } from '@/components/week-focus';
 import { findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
-import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/core/ui/use-theme';
+import { Spacing } from '@/core/ui/theme';
 import type { Question } from '@/data/questions';
-import { formatClock, useCountdown } from '@/hooks/use-countdown';
-import { groupsForRound } from '@/lib/round-robin';
+import { formatClock, useCountdown } from '@/core/app/use-countdown';
+import { groupsForRound } from '@/core/live/groups';
 import { CHANGEOVER_SECONDS, type Session } from '@/lib/session';
 
 type RoundScreenProps = {

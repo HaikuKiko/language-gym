@@ -54,8 +54,8 @@ Things agreed for later: `BACKLOG.md`.
   `session_by_code` RPC). Sessions (and names, by cascade) are deleted nightly after 30 days (pg_cron
   job `delete-old-sessions` → `delete_old_sessions(30)`; keep it equal to `RETENTION_DAYS`).
 - **Core / speed friending (live sessions):** `host.tsx`, `session/[code].tsx`, `single.tsx`,
-  `src/lib/live-session.ts`, `round-robin.ts`, `session.ts`, `src/hooks/use-questions.tsx`,
-  components `round-settings-form`, `join-qr-code`, `grammar-card`, `live-timer`.
+  `src/lib/talk-rounds.ts` (its own flags, rounds and questions, on top of the Live classroom kit), `session.ts`,
+  `src/hooks/use-questions.tsx`, components `round-settings-form`, `grammar-card`.
   Questions table: 1,488 rows (levels × themes, 15 each); defaults: Automatic, 2 minutes, round robin.
   Two modes (flag in `sessions.categories`): **Speed friending** (dashboard "🎉 Speed friending" →
   `/host?mode=friending`; questions per level A1–C2 × 8 fun themes × 10 in
@@ -76,9 +76,9 @@ Things agreed for later: `BACKLOG.md`.
   and "🔄 Swap!" for `SWAP_NOTICE_MS`. To roll back completely: revert the "Take turns" PR.
   **Solo demo** (`demo.tsx`, from "Try the demo first" on the setup screen; params level/week/custom/
   turns/minutes): a whole session kept only in memory (`SessionBackendProvider` in
-  `src/lib/session-backend.tsx` swaps Supabase for local state; the host and student screens use
-  `useSessionBackend()` for every change). 2 or 3 pretend students (chips in the banner, param `students`) join, find each other and tap;
-  teacher screen + phones side by side (tabs when narrow). Never saved.
+  `src/lib/session-backend.tsx`, built on `core/live/backend.tsx`, swaps Supabase for local state; the host and student screens use
+  `useSessionBackend()` for every change). 2 or 3 pretend students (chips in the banner, param `students`) join, find each other
+  and tap; teacher screen + phones side by side (tabs when narrow). Never saved.
   **Pretend students in a real session** (`src/lib/pretend-students.ts`, `components/pretend-students-panel.tsx`,
   in the lobby of Talk Rounds and word games): "Add pretend students: 1, 2, 3" adds made-up "Name (pretend)"
   students, each its own anonymous guest run from the teacher's page, so the owner can test with their own
@@ -99,14 +99,48 @@ Things agreed for later: `BACKLOG.md`.
   **Hints, points and awards** (part 1 of 3, 27 Nov): every card has an easy-English meaning
   (`src/data/word-hints.ts`), opened with "💡 Don't know this word?". Every word guessed/skipped and every hint
   is logged to the shared table **`session_events`** (session_id, participant_id, kind, data jsonb, created_at;
-  helpers `src/lib/session-events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
+  helpers `src/core/live/events.ts`; kinds `game_started`, `card_done`, `hint`; Talk Rounds may add
   `follow_up_asked`) via `finishCard` in `word-game.ts`. Explain It asks the explainer "Who guessed it?".
   `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
   Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
   words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
-  reopens past games (`fetchMyPastGames`). Planned next: part 2 typing the answer + team names; part 3
+  reopens past games (`fetchMyPastGames`). **Part 2** (27 Nov): setup "How guessers answer": say it, or type it (flag `typing`; `GuessBox` on the guesser's phone, `checkGuess` with `NEAR_MISS_*` → "Almost!"; wrong tries logged as `guess_wrong`; awards add Best spellers, teacher sees Hard to spell). **Team names**: anyone in a group can set it (event `team_name`, newest wins, host can clear it; `useTeamNames` polls). Planned next: part 3
   rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
-- **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
+- **GPS tours** (27 Nov 2026, design: Claude Doc "GPS tours: plan"; demo only so far, dashboard "🗺️ GPS tours" →
+  `/tour-demo`): a teacher's route of stops; groups choose where to go (`aim` = how many), and a stop's tasks open only
+  within its radius (or with its code word). Group work → slideshow. `src/lib/tours.ts` (types, `stopAccess`,
+  `tourSlides`), `src/data/tour-routes.ts` (Brighton trial route: The Level, St Peter's, North Laine, Pavilion
+  Gardens, Old Steine, beach; places approximate), `screens/tour-group-screen.tsx`, `tour-teacher-screen.tsx`,
+  `app/tour-demo.tsx` (pretend walk by tapping the map, or real GPS; pretend groups; nothing saved).
+  **Under-18 rules (agreed with the owner)** live only in `src/core/classes/safety-rules.ts`: default under 18; anyone
+  under 18 → whole group; under-18 groups share their newest place with the adults (no trail, deleted at the end) and
+  must stay within `MAX_FROM_ADULT_M` (100 m) of a supervising adult (any number of teachers + helper adults, never
+  adult students); stops and talk-to-a-person tasks open only with an adult near; they may talk to adults only,
+  voice only unless the teacher allows video. Next: live runs (tables, join, live places), route builder, recording.
+- **Core (`src/core/`)**: the shared toolkit, in kits (plan: `shared-code-plan.md` in project files). **Put anything
+  another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",
+  IELTS). `ui/` (App basics, look): `theme.ts` (colours, `Spacing`), `use-theme`, Button, Chip, Pill, Screen,
+  ThemedText/View, Avatar, ProgressBar, BusyOverlay, ExternalLink, AppLoading, FooterLinks, `notice.tsx` (`Notice`,
+  `ErrorNote`: use it for every red error line), `confirm-button.tsx` (`ConfirmButton`: any "Are you sure?" step). `app/` (App basics, logic): `error-boundary.tsx` (no white screens; `_layout` re-exports it),
+  `connection.ts` (friendly "no internet" message), `supabase.ts`, `teachers.ts` + `teacher-only.tsx` (teacher
+  login), `account.ts` (student code + PIN), `contact.ts`, `text.ts` (`countWords`), `use-now`, `use-countdown`,
+  `use-saved-state`, `load-script.ts` (cdnjs loader; pdf.js uses it). `media/`: `photo.ts` (pick photos),
+  `slideshow.tsx`. `content/` (Content kit): `levels.ts` (CEFR `LEVELS`), `shuffle.ts` (`shuffle` with a seed, `pickForSeat`:
+  each person their own item, no repeats), `custom-sets.ts` (custom sets: type + loading). `live/` (Live classroom kit, any activity students join on
+  their phones): `session.ts` (sessions + participants, join codes, create/join/update, flags `hasFlag`/`flagValue`,
+  timer steps), `groups.ts` (round robin), `ready-check.ts` ("We found each other!"), `turns.ts` (take turns),
+  `events.ts` (`session_events`), `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase
+  or demo; apps add their own actions), `use-host-actions.ts` (save/remove/error), `lobby.tsx` (`StudentRoster`,
+  `LobbyButtons`, `StudentLobby`), `leave.ts`, `join-code-hero`, `join-qr-code`, **`late-join-qr.tsx` (put
+  `LateJoinQr` on every teacher screen while an activity runs)**, `live-timer`. `marking/` (Marking kit, every writing tool): `marks.ts` (corrections on the student's text, line by line,
+  guessed words: `guessParts`, `withoutGuessCorrections`), **`guessed.tsx` (`Guessed`, `GuessedText`, `GuessedWordsList`:
+  the pink guessed words everywhere; change the look only here)**, `photo-reading.ts` (`readPhoto`, `writingProblem`),
+  `feedback-parts.tsx` (marked writing, line view, corrections, `WritingWithCorrections`, `BulletSection`, `usageText`),
+  `marked-text-input`, `photo-note`, `photo-pages`, `writing-box`, `use-writing-draft`, `report-html.ts` (PDF building
+  blocks + CSS, guessed words pink), `report-pdf.ts`, `share-report-button.tsx`. `app/share.ts` (share menu / copy /
+  email link). `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
+  + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
+- **General English writing:** `write.tsx`, `src/lib/writing.ts` (General English feedback request; photo reading is in `core/marking`),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
 - **Class writing** (teachers): `class-sets/` (writing marked from a scan), `classes/[id]` (a class:
@@ -149,7 +183,7 @@ Things agreed for later: `BACKLOG.md`.
   **TEMPORARY testing switch** `ONE_STUDENT_AT_A_TIME` (top of `class-sets.ts`, now true): a new set
   reads and marks only the first student; "Do the next student" does one more each tap (no "Mark all").
   Set it to false when the owner has finished testing.
-- **Teacher logins:** `teacher.tsx`, `src/lib/teachers.ts`, `components/teacher-only.tsx`, edge function
+- **Teacher logins:** `teacher.tsx`, `src/core/app/teachers.ts`, `core/app/teacher-only.tsx`, edge function
   `teacher-account` (username + password; login email `username@teachers.language-gym.invalid`).
   The first teacher account is made by the owner (only while there are none); then teachers add
   teachers. Table `teachers`.
@@ -157,11 +191,11 @@ Things agreed for later: `BACKLOG.md`.
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
   `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
   `calibrate/[code].tsx` (the AI's full feedback + everyone's marks so far; others add theirs).
-- **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem`: change those, not
-  each screen.
-- **Accounts:** `account.tsx`, `src/lib/account.ts` (student code + PIN, self-enrol on IELTS).
-- **Sharing:** `share-report-button.tsx`, `src/lib/share-report.ts` (text),
-  `report-html.ts` + `report-pdf.ts` (PDF that looks like the screen, print).
+- **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem` (all in `src/core/marking/`): change
+  those, not each screen.
+- **Accounts:** `account.tsx`, `src/core/app/account.ts` (student code + PIN, self-enrol on IELTS).
+- **Sharing:** `core/marking/share-report-button.tsx`, `src/lib/share-report.ts` (the text reports),
+  `src/lib/report-html.ts` (GE + IELTS reports from the core blocks) + `core/marking/report-pdf.ts` (PDF, print).
 
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 

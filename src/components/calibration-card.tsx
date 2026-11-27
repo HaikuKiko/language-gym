@@ -2,10 +2,11 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   CODE_NAMES,
   CODES,
@@ -17,7 +18,7 @@ import {
   type Bands,
   type Code,
 } from '@/lib/calibration';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 const CHOICES = [3, 4, 5, 6, 7, 8, 9];
 
@@ -155,11 +156,7 @@ export function CalibrationCard({
           <Button label="Undo" variant="secondary" onPress={undo} />
         </>
       )}
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+      <ErrorNote message={error} align="left" />
     </View>
   );
 }

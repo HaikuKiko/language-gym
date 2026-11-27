@@ -7,7 +7,7 @@
  * {curly brackets} in blue, so the parts of a pattern can be matched to the
  * same parts in the examples.
  */
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 
 export type GrammarHelp = {
   /** What the grammar is used for, in a few words. */

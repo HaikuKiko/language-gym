@@ -3,13 +3,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { CalibrationCard } from '@/components/calibration-card';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import {
   CODE_NAMES,
   CODES,
@@ -20,7 +20,7 @@ import {
   type SharedMark,
 } from '@/lib/calibration';
 import { loadSharedEssay, type SharedEssay } from '@/lib/shared-essay';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /**
  * A colleague's shared results (/calibrate/<code>): the question, the photos,

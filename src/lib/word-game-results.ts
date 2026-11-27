@@ -3,10 +3,22 @@
  * a game from the record of every word (session_events). Every phone and the
  * teacher's screen work them out the same way.
  */
-import type { LiveSession } from '@/lib/live-session';
-import type { Participant } from '@/lib/round-robin';
-import type { SessionEvent } from '@/lib/session-events';
-import { CARD_DONE, GAME_STARTED, HINT, type CardDoneData, type HintData, type WordGameKind } from '@/lib/word-game';
+import type { LiveSession } from '@/core/live/session';
+import type { Participant } from '@/core/live/groups';
+import type { SessionEvent } from '@/core/live/events';
+import {
+  CARD_DONE,
+  GAME_STARTED,
+  GUESS_WRONG,
+  HINT,
+  groupLabel,
+  isTyping,
+  teamNames,
+  type CardDoneData,
+  type GuessWrongData,
+  type HintData,
+  type WordGameKind,
+} from '@/lib/word-game';
 
 // ===========================================================================
 // Settings: points
@@ -23,6 +35,8 @@ export const EXPLAIN_POINTS = 10;
 export const DESCRIBE_POINTS = 5;
 /** Extra for each person who could see a guessed word, when nobody opened its meaning. */
 export const NO_HINT_BONUS_POINTS = 3;
+/** Typing: extra for typing a word right the first time. */
+export const SPELLED_FIRST_TIME_POINTS = 2;
 /** How many people each award lists. */
 export const AWARD_PLACES = 3;
 /** How many words "Hardest words" lists. */
@@ -42,17 +56,29 @@ export type PlayerResult = {
   explainSeconds: number | null;
   /** Meanings this person opened. */
   hints: number;
+  /** Typing: words typed right the first time, and guesses that were spelling mistakes. */
+  firstTry: number;
+  spellingMistakes: number;
 };
 
 export type Award = { title: string; emoji: string; lines: { id?: string; text: string }[] };
 
-export type WordResult = { word: string; skipped: number; guessed: number; hints: number; avgSeconds: number | null; missedBy: string[] };
+export type WordResult = {
+  word: string;
+  skipped: number;
+  guessed: number;
+  hints: number;
+  avgSeconds: number | null;
+  missedBy: string[];
+};
 
 export type GameResults = {
   players: PlayerResult[];
   awards: Award[];
   hardWords: WordResult[];
-  groups: { index: number; names: string[]; words: number }[];
+  groups: { index: number; label: string; names: string[]; words: number }[];
+  /** Typing: words with spelling mistakes, and how they were spelled. */
+  hardToSpell: { word: string; tries: string[] }[];
   wordsDone: number;
 };
 
@@ -77,6 +103,23 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     hintedCards.add(`${d.round}:${d.group}:${d.card}`);
     if (e.participant_id) hintsBy.set(e.participant_id, (hintsBy.get(e.participant_id) ?? 0) + 1);
   }
+
+  // Typing: wrong guesses, per word on screen and person.
+  const typing = isTyping(session);
+  const wrongOn = new Map<string, number>();
+  const mistakesBy = new Map<string, number>();
+  const misspelt = new Map<string, string[]>();
+  for (const e of events) {
+    if (e.kind !== GUESS_WRONG || !e.participant_id) continue;
+    const d = e.data as GuessWrongData;
+    const key = `${d.round}:${d.group}:${d.card}:${e.participant_id}`;
+    wrongOn.set(key, (wrongOn.get(key) ?? 0) + 1);
+    if (d.almost) {
+      mistakesBy.set(e.participant_id, (mistakesBy.get(e.participant_id) ?? 0) + 1);
+      misspelt.set(d.word, [...(misspelt.get(d.word) ?? []), d.guess]);
+    }
+  }
+  const firstTries = new Map<string, number>();
 
   // Each word once (two people can tap at the same moment), with its time.
   const seen = new Set<string>();
@@ -108,6 +151,10 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     if (c.guesser_id) {
       add(guessTimes, c.guesser_id, c.seconds);
       score(c.guesser_id, GUESS_POINTS + (c.seconds <= FAST_SECONDS ? FAST_BONUS_POINTS : 0));
+      if (typing && !wrongOn.has(`${c.round}:${c.group}:${c.card}:${c.guesser_id}`)) {
+        score(c.guesser_id, SPELLED_FIRST_TIME_POINTS);
+        firstTries.set(c.guesser_id, (firstTries.get(c.guesser_id) ?? 0) + 1);
+      }
     }
     // Who could see the word: Hot Seat, everyone but the guesser; Explain It, the explainer.
     const seers = kind === 'hot-seat' ? c.members.filter((m) => m !== c.player_id) : [c.player_id];
@@ -126,16 +173,22 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     explained: explainTimes.get(id)?.length ?? 0,
     explainSeconds: avg(explainTimes.get(id) ?? []),
     hints: hintsBy.get(id) ?? 0,
+    firstTry: firstTries.get(id) ?? 0,
+    spellingMistakes: mistakesBy.get(id) ?? 0,
   }));
 
-  const top = <T,>(list: T[], keep: (t: T) => boolean, order: (a: T, b: T) => number) =>
+  const top = <T>(list: T[], keep: (t: T) => boolean, order: (a: T, b: T) => number) =>
     list.filter(keep).sort(order).slice(0, AWARD_PLACES);
   const awards: Award[] = [];
 
   awards.push({
     title: 'Points',
     emoji: '🏆',
-    lines: top(players, (p) => p.points > 0, (a, b) => b.points - a.points).map((p) => ({
+    lines: top(
+      players,
+      (p) => p.points > 0,
+      (a, b) => b.points - a.points,
+    ).map((p) => ({
       id: p.id,
       text: `${p.name}: ${p.points} points`,
     })),
@@ -147,7 +200,10 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
       players,
       (p) => p.guessed > 0,
       (a, b) => b.guessed - a.guessed || (a.guessSeconds ?? 0) - (b.guessSeconds ?? 0),
-    ).map((p) => ({ id: p.id, text: `${p.name}: ${p.guessed} ${p.guessed === 1 ? 'word' : 'words'}, ${secs(p.guessSeconds)}` })),
+    ).map((p) => ({
+      id: p.id,
+      text: `${p.name}: ${p.guessed} ${p.guessed === 1 ? 'word' : 'words'}, ${secs(p.guessSeconds)}`,
+    })),
   });
   awards.push({
     title: kind === 'hot-seat' ? 'Best describers' : 'Best explainers',
@@ -165,7 +221,8 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
   // Explain It: an explainer and a guesser who get through words quickly together.
   if (kind === 'explain-it') {
     const pairs = new Map<string, number[]>();
-    for (const c of cards) if (c.result === 'got' && c.guesser_id) add(pairs, `${c.player_id}>${c.guesser_id}`, c.seconds);
+    for (const c of cards)
+      if (c.result === 'got' && c.guesser_id) add(pairs, `${c.player_id}>${c.guesser_id}`, c.seconds);
     awards.push({
       title: 'Strong pairs',
       emoji: '🤝',
@@ -181,6 +238,18 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     });
   }
 
+  if (typing) {
+    awards.push({
+      title: 'Best spellers',
+      emoji: '✍️',
+      lines: top(
+        players,
+        (p) => p.firstTry > 0,
+        (a, b) => b.firstTry - a.firstTry || a.spellingMistakes - b.spellingMistakes,
+      ).map((p) => ({ id: p.id, text: `${p.name}: ${p.firstTry} of ${p.guessed} right first time` })),
+    });
+  }
+
   awards.push({
     title: 'No hints needed',
     emoji: '💪',
@@ -188,7 +257,10 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
       players,
       (p) => p.hints === 0 && p.guessed + p.explained > 0,
       (a, b) => b.guessed + b.explained - (a.guessed + a.explained),
-    ).map((p) => ({ id: p.id, text: `${p.name}: ${p.guessed + p.explained} ${p.guessed + p.explained === 1 ? 'word' : 'words'}, no hints` })),
+    ).map((p) => ({
+      id: p.id,
+      text: `${p.name}: ${p.guessed + p.explained} ${p.guessed + p.explained === 1 ? 'word' : 'words'}, no hints`,
+    })),
   });
 
   // Hardest words: skipped most, then hints, then slowest.
@@ -214,8 +286,14 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     if (!groupNames.has(c.group)) groupNames.set(c.group, c.members.map(nameOf));
     if (c.result === 'got') groupWords.set(c.group, (groupWords.get(c.group) ?? 0) + 1);
   }
+  const teams = teamNames(events);
   const groups = [...groupNames.entries()]
-    .map(([index, members]) => ({ index, names: members, words: groupWords.get(index) ?? 0 }))
+    .map(([index, members]) => ({
+      index,
+      label: groupLabel(teams, 0, index),
+      names: members,
+      words: groupWords.get(index) ?? 0,
+    }))
     .sort((a, b) => b.words - a.words);
 
   return {
@@ -223,6 +301,10 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     awards: awards.filter((a) => a.lines.length > 0),
     hardWords,
     groups,
+    hardToSpell: [...misspelt.entries()]
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, HARD_WORDS_SHOWN)
+      .map(([word, tries]) => ({ word, tries: [...new Set(tries)] })),
     wordsDone: cards.filter((c) => c.result === 'got').length,
   };
 }

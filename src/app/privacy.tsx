@@ -2,11 +2,11 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Button } from '@/core/ui/button';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME, RETENTION_DAYS } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 
 /** The privacy page, in plain English. */
 export default function PrivacyRoute() {

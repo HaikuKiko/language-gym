@@ -2,18 +2,31 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
-import { Chip } from '@/components/chip';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { LEVELS, type Level } from '@/data/questions';
-import { useTheme } from '@/hooks/use-theme';
-import { sessionFlags, type LiveParticipant, type LiveSession } from '@/lib/live-session';
-import { groupsForRound } from '@/lib/round-robin';
+import { Chip } from '@/core/ui/chip';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
+import { LEVELS, type Level } from '@/core/content/levels';
+import { useTheme } from '@/core/ui/use-theme';
+import { type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { sessionFlags } from '@/lib/talk-rounds';
+import { groupsForRound } from '@/core/live/groups';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';
-import type { SessionEvent } from '@/lib/session-events';
+import type { SessionEvent } from '@/core/live/events';
 import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
-import { WORD_GAMES, finishCard, groupProgress, isWordGameKind, wordGameFlags, wordGameKind } from '@/lib/word-game';
+import {
+  GUESS_WRONG,
+  TEAM_NAME,
+  WORD_GAMES,
+  finishCard,
+  groupProgress,
+  isTyping,
+  isWordGameKind,
+  wordGameFlags,
+  wordGameKind,
+  type GuessWrongData,
+  type TeamNameData,
+} from '@/lib/word-game';
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';
 import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { LiveHostScreen } from '@/screens/live-host-screen';
@@ -45,6 +58,11 @@ const GUESS_MIN_MS = 4000;
 const GUESS_MAX_MS = 9000;
 /** Word games: how often a pretend group skips a word instead of guessing it. */
 const SKIP_CHANCE = 0.2;
+/** Word games: names the pretend teams give themselves, a few seconds into the game. */
+const DEMO_TEAM_NAMES = ['The Owls', 'Rocket Squad', 'Word Wizards'];
+const TEAM_NAME_AFTER_MS = 6000;
+/** Word games with typing: how often a pretend guesser makes a spelling mistake first. */
+const MISSPELL_CHANCE = 0.3;
 /** Screens at least this wide show the teacher screen and the phones side by side. */
 const SIDE_BY_SIDE_WIDTH = 1000;
 
@@ -60,6 +78,8 @@ type DemoParams = {
   game?: string;
   /** Word games: the group size. */
   size?: string;
+  /** Word games: "1" when guessers type the word. */
+  typing?: string;
   /** How many pretend students (2 or 3). */
   students?: string;
 };
@@ -87,7 +107,7 @@ function demoSession(params: DemoParams): LiveSession {
     roster: [],
     seed: Math.floor(Math.random() * 2 ** 31),
     categories: game
-      ? wordGameFlags(game, Number(params.size) || GAME_DEMO_GROUP_SIZE)
+      ? wordGameFlags(game, Number(params.size) || GAME_DEMO_GROUP_SIZE, params.typing === '1')
       : sessionFlags({
           ...DEFAULT_ROUND_SETTINGS,
           level,
@@ -248,7 +268,24 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
         // Explain It: someone else in the group guessed it.
         const others = group.members.filter((m) => m.id !== group.player?.id);
         const guesser = others[Math.floor(Math.random() * others.length)]?.id ?? null;
-        if (tapper) finishCard(backend, sessionRef.current, game, group, tapper, Math.random() >= SKIP_CHANCE, guesser);
+        const guessed = Math.random() >= SKIP_CHANCE;
+        const current = sessionRef.current;
+        const guesserId = game === 'hot-seat' ? group.player.id : guesser;
+        // Typing: now and then a pretend guesser misspells the word first.
+        if (guessed && guesserId && group.word && isTyping(current) && Math.random() < MISSPELL_CHANCE) {
+          const word = group.word.word;
+          const typo = word.length > 3 ? word.slice(0, -2) + word.slice(-1) : word + 'e';
+          const data: GuessWrongData = {
+            round: 0,
+            group: group.index,
+            card: group.card,
+            word,
+            guess: typo,
+            almost: true,
+          };
+          backend.logEvent(current.id, guesserId, GUESS_WRONG, data);
+        }
+        if (tapper) finishCard(backend, current, game, group, tapper, guessed, guesser);
       }
     }, 500);
     return () => {
@@ -256,6 +293,22 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
       pending.clear();
     };
   }, [game, session.status, clockRunning, backend]);
+
+  // Word games: each pretend team names itself a few seconds in.
+  useEffect(() => {
+    if (!game || session.status !== 'playing') return;
+    const timer = setTimeout(() => {
+      groupProgress(sessionRef.current, participantsRef.current).forEach((group) => {
+        const data: TeamNameData = {
+          round: 0,
+          group: group.index,
+          name: DEMO_TEAM_NAMES[group.index % DEMO_TEAM_NAMES.length],
+        };
+        backend.logEvent(sessionRef.current.id, group.members[0]?.id ?? null, TEAM_NAME, data);
+      });
+    }, TEAM_NAME_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [game, session.status, backend]);
 
   const host = game ? (
     <WordGameHostScreen

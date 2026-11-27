@@ -2,31 +2,27 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
+import { leaveSession } from '@/core/live/leave';
+import { StudentLobby } from '@/core/live/lobby';
 import { GrammarHint } from '@/components/grammar-card';
-import { LiveTimer } from '@/components/live-timer';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { LiveTimer } from '@/core/live/live-timer';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
+import { Spacing } from '@/core/ui/theme';
 import { findWeek } from '@/data/weeks';
-import { useNow } from '@/hooks/use-now';
+import { useNow } from '@/core/app/use-now';
 import { useCustomSets, useFunQuestions, useQuestions, useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
-import {
-  findingStatus,
-  isFriending,
-  isTakingTurns,
-  questionForRound,
-  customSetId,
-  questionForStudent,
-  turnFor,
-  type LiveParticipant,
-  type LiveSession,
-} from '@/lib/live-session';
-import { groupsForRound } from '@/lib/round-robin';
+import { useTheme } from '@/core/ui/use-theme';
+import { type LiveParticipant, type LiveSession } from '@/core/live/session';
+import { findingStatus } from '@/core/live/ready-check';
+import { turnFor } from '@/core/live/turns';
+import { isFriending, isTakingTurns, questionForRound, customSetId, questionForStudent } from '@/lib/talk-rounds';
+import { groupsForRound } from '@/core/live/groups';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 // ===========================================================================
 // Settings
@@ -113,12 +109,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
     }
   }
 
-  async function leave() {
-    await backend.removeParticipant(me.id).catch(() => {});
-    if (backend.demo) return;
-    // Students only ever go back to the session's join page, never the teacher page.
-    router.replace({ pathname: '/join/[code]', params: { code: session.code } });
-  }
+  const leave = () => leaveSession(backend, me, session);
 
   if (session.status === 'finished') {
     return (
@@ -142,18 +133,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
   }
 
   if (session.status === 'lobby') {
-    return (
-      <Screen>
-        <View style={styles.message}>
-          <ThemedText type="subtitle">You&apos;re in, {me.name}</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Waiting for your teacher to start. {participants.length}{' '}
-            {participants.length === 1 ? 'student has' : 'students have'} joined so far.
-          </ThemedText>
-        </View>
-        <Button label="Leave session" variant="secondary" onPress={leave} />
-      </Screen>
-    );
+    return <StudentLobby name={me.name} studentCount={participants.length} leaveLabel="Leave session" onLeave={leave} />;
   }
 
   const groups = groupsForRound(session.roster, session.round);
@@ -254,11 +234,7 @@ export function LiveStudentScreen({ session, participants, me }: LiveStudentScre
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               Only one of you needs to tap.
             </ThemedText>
-            {tapError && (
-              <ThemedText type="small" themeColor="warning" style={styles.centered}>
-                {tapError}
-              </ThemedText>
-            )}
+            <ErrorNote message={tapError} />
           </>
         )}
       </Screen>

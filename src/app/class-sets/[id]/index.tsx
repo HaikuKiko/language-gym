@@ -3,14 +3,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Pill } from '@/components/pill';
-import { ProgressBar } from '@/components/progress-bar';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { ConfirmButton } from '@/core/ui/confirm-button';
+import { ErrorNote } from '@/core/ui/notice';
+import { Pill } from '@/core/ui/pill';
+import { ProgressBar } from '@/core/ui/progress-bar';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { pageResult, targetLabel } from '@/lib/class-scores';
 import { loadClass, type ClassStudent, type SchoolClass } from '@/lib/classes';
 import {
@@ -31,7 +33,7 @@ import {
   type ClassSet,
   type ClassSetPage,
 } from '@/lib/class-sets';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 const STATUS_TEXT: Record<ClassSetPage['status'], string> = {
   waiting: 'waiting',
@@ -322,8 +324,6 @@ function DeleteClassSet({
   disabled: boolean;
   onDeleted: () => void;
 }) {
-  const theme = useTheme();
-  const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -339,32 +339,27 @@ function DeleteClassSet({
     }
   }
 
-  if (!asking) {
-    return <Button label="Delete this class set" variant="secondary" disabled={disabled} onPress={() => setAsking(true)} />;
-  }
   return (
-    <View style={[styles.deleteBox, { borderColor: theme.warning }]}>
-      <ThemedText type="smallBold">Delete “{set.title}”?</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        This removes all {pages.length} {pages.length === 1 ? 'page' : 'pages'}, their feedback and their scores in each
-        student&apos;s history. It can&apos;t be undone. The class and its students stay.
-      </ThemedText>
-      <Button label={busy ? 'Deleting…' : 'Yes, delete it'} disabled={busy} onPress={remove} />
-      <Button label="No, keep it" variant="secondary" disabled={busy} onPress={() => setAsking(false)} />
-      {error && (
-        <ThemedText type="small" themeColor="warning">
-          {error}
-        </ThemedText>
-      )}
+    <View style={styles.deleteWrap}>
+      <ConfirmButton
+        label="Delete this class set"
+        busyLabel="Deleting…"
+        busy={busy}
+        disabled={disabled}
+        tone="danger"
+        title={`Delete “${set.title}”?`}
+        detail={`This removes all ${pages.length} ${pages.length === 1 ? 'page' : 'pages'}, their feedback and their scores in each student's history. It can't be undone. The class and its students stay.`}
+        yesLabel="Yes, delete it"
+        noLabel="No, keep it"
+        onConfirm={remove}
+      />
+      <ErrorNote message={error} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  deleteBox: {
-    borderWidth: 2,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
+  deleteWrap: {
     gap: Spacing.two,
   },
   header: {

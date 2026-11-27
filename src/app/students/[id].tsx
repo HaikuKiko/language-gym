@@ -2,17 +2,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Pill } from '@/components/pill';
-import { Screen } from '@/components/screen';
-import { TeacherOnly } from '@/components/teacher-only';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/core/ui/button';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { TeacherOnly } from '@/core/app/teacher-only';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { pageResult, targetLabel } from '@/lib/class-scores';
 import { AREAS, isIeltsFeedback } from '@/lib/class-sets';
 import { loadStudentHistory, renameStudent, type ClassStudent, type HistoryEntry, type SchoolClass } from '@/lib/classes';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /** One student: every piece of their writing, newest first, with the score and the level per area. */
 function StudentRouteScreen() {

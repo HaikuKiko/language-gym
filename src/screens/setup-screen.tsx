@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
 import { GrammarCard } from '@/components/grammar-card';
 import { RoundSettingsForm } from '@/components/round-settings-form';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
 import { findQuestions } from '@/data/questions';
 import { findWeek } from '@/data/weeks';
 import { useQuestions, useWeeks } from '@/hooks/use-questions';
-import { useTheme } from '@/hooks/use-theme';
+import { useTheme } from '@/core/ui/use-theme';
 import type { SessionSettings } from '@/lib/session';
 
 type SetupScreenProps = {

@@ -2,27 +2,25 @@ import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import {
-  Bullet,
-  CorrectionNotes,
-  correctionLines,
-  LineMarkedWriting,
-  MarkedWriting,
+  BulletSection,
   NumberedCard,
-  Section,
   ParagraphNote,
-} from '@/components/feedback-parts';
-import { Screen } from '@/components/screen';
-import { ShareReportButton } from '@/components/share-report-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+  Section,
+  WritingWithCorrections,
+  usageText,
+} from '@/core/marking/feedback-parts';
+import { Screen } from '@/core/ui/screen';
+import { ShareReportButton } from '@/core/marking/share-report-button';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { CRITERION_SHORT, formatBand, type IeltsResponse } from '@/lib/ielts';
 import { ieltsReportHtml } from '@/lib/report-html';
 import { ieltsReport } from '@/lib/share-report';
-import { markCorrections, withoutGuessCorrections } from '@/lib/writing';
+import { markCorrections, withoutGuessCorrections } from '@/core/marking/marks';
 
 /** IELTS Task 2 band scores and feedback, for students and for teacher marking. */
 export function IeltsFeedbackView({
@@ -172,35 +170,9 @@ export function IeltsFeedbackView({
         </Section>
       )}
 
-      {f.strengths.length > 0 && (
-        <Section title="What you did well">
-          {f.strengths.map((s, i) => (
-            <Bullet key={i} text={s} />
-          ))}
-        </Section>
-      )}
+      <BulletSection title="What you did well" items={f.strengths} />
 
-      {pageLines ? (
-        <>
-          <LineMarkedWriting
-            title={`${essayTitle}, line by line (as on the paper)`}
-            text={text}
-            marked={marked}
-            guessed={guessedWords}
-            pageLines={pageLines}
-          />
-          <CorrectionNotes
-            marked={marked}
-            title="Corrections to copy onto the paper"
-            lineLabels={correctionLines(text, marked, pageLines)}
-          />
-        </>
-      ) : (
-        <>
-          <MarkedWriting marked={marked} title={essayTitle} guessed={guessedWords} />
-          <CorrectionNotes marked={marked} />
-        </>
-      )}
+      <WritingWithCorrections text={text} marked={marked} guessed={guessedWords} pageLines={pageLines} title={essayTitle} />
       {f.paragraphing.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
       {extra}
@@ -210,18 +182,13 @@ export function IeltsFeedbackView({
         <ShareReportButton
           title="IELTS Writing feedback"
           report={() => ieltsReport(f, text, subtitle)}
-          html={() => ieltsReportHtml(f, text, subtitle)}
+          html={() => ieltsReportHtml(f, text, subtitle, guessedWords)}
           pdfName="ielts-feedback"
         />
         {showHome && <Button label="Back to home" variant="secondary" onPress={() => router.replace('/dashboard')} />}
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           AI band scores are a guide, not an official IELTS result.{' '}
-          {showUsage && response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
-          {!showUsage
-            ? ''
-            : response.remainingToday === 1
-            ? '1 feedback check left today.'
-            : `${response.remainingToday} feedback checks left today.`}
+          {showUsage ? usageText(response.cached, response.remainingToday) : ''}
         </ThemedText>
       </View>
     </Screen>

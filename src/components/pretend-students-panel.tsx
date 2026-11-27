@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Chip } from '@/components/chip';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Chip } from '@/core/ui/chip';
+import { ThemedText } from '@/core/ui/themed-text';
+import { Spacing } from '@/core/ui/theme';
+import { useTheme } from '@/core/ui/use-theme';
 import { PRETEND_STUDENT_CHOICES } from '@/lib/pretend-students';
 
 /**

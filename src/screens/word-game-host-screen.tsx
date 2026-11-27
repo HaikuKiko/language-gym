@@ -1,34 +1,32 @@
 import { router } from 'expo-router';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Avatar } from '@/components/avatar';
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { GameAwards } from '@/components/game-awards';
-import { JoinCodeHero } from '@/components/join-code-hero';
-import { Pill } from '@/components/pill';
+import { JoinCodeHero } from '@/core/live/join-code-hero';
+import { LateJoinQr } from '@/core/live/late-join-qr';
+import { LobbyButtons, StudentRoster } from '@/core/live/lobby';
 import { PretendStudentsPanel } from '@/components/pretend-students-panel';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { GameClock, WordCardView } from '@/components/word-card-view';
-import { Spacing } from '@/constants/theme';
-import { useNow } from '@/hooks/use-now';
-import { useTheme } from '@/hooks/use-theme';
-import {
-  endSession,
-  formatCode,
-  pauseTimer,
-  remainingMs,
-  startTimer,
-  type LiveParticipant,
-  type LiveSession,
-} from '@/lib/live-session';
 import { usePretendStudents } from '@/lib/pretend-students';
+import { useHostActions } from '@/core/live/use-host-actions';
+import { ErrorNote } from '@/core/ui/notice';
+import { Pill } from '@/core/ui/pill';
+import { Screen } from '@/core/ui/screen';
+import { ThemedText } from '@/core/ui/themed-text';
+import { ThemedView } from '@/core/ui/themed-view';
+import { GameClock, WordCardView } from '@/components/word-card-view';
+import { Spacing } from '@/core/ui/theme';
+import { useNow } from '@/core/app/use-now';
+import { useTeamNames } from '@/hooks/use-team-names';
+import { endSession, formatCode, pauseTimer, remainingMs, startTimer, type LiveParticipant, type LiveSession } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 import {
   EXTRA_TIME_MS,
+  TEAM_NAME,
+  isTyping,
+  type TeamNameData,
   GAME_STARTED,
   WORD_GAMES,
   addLateJoiners,
@@ -50,36 +48,24 @@ type Props = {
 /** The teacher's screen for a word game: join code, then every group's progress, then the results. */
 export function WordGameHostScreen({ kind, session, participants, onSession, onParticipants }: Props) {
   const now = useNow();
-  const theme = useTheme();
   const backend = useSessionBackend();
-  const pretend = usePretendStudents(session, participants);
   const game = WORD_GAMES[kind];
-  const [error, setError] = useState<string | null>(null);
+  const { save, remove, error, setError } = useHostActions({ backend, session, participants, onSession, onParticipants });
+  const pretend = usePretendStudents(session, participants);
 
-  async function save(changes: Parameters<typeof backend.updateSession>[1]) {
-    try {
-      const saved = await backend.updateSession(session, changes);
-      if (saved) onSession(saved);
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
+  const { names: teams, reload: reloadTeams } = useTeamNames(session);
+
+  /** The teacher removes a team name (e.g. a rude one). */
+  async function clearTeamName(group: number) {
+    const data: TeamNameData = { round: 0, group, name: '' };
+    await backend.logEvent(session.id, null, TEAM_NAME, data).catch((e) => setError(errorMessage(e)));
+    await reloadTeams();
   }
 
   async function start() {
     await save(startWordGame(session, participants, Date.now()));
     // The start time, from the database's clock, for timing the first words.
     await backend.logEvent(session.id, null, GAME_STARTED, {}).catch(() => {});
-  }
-
-  async function remove(participant: LiveParticipant) {
-    try {
-      await backend.removeParticipant(participant.id);
-      onParticipants(participants.filter((p) => p.id !== participant.id));
-      setError(null);
-    } catch (e) {
-      setError(errorMessage(e));
-    }
   }
 
   const playing = session.status === 'playing';
@@ -105,12 +91,6 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
   useEffect(() => {
     if (lateIds) addLate();
   }, [lateIds]);
-
-  const errorText = error && (
-    <ThemedText type="small" themeColor="warning" style={styles.centered}>
-      {error}
-    </ThemedText>
-  );
 
   const title = (
     <View style={styles.topBar}>
@@ -145,38 +125,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
       <Screen>
         {title}
         <JoinCodeHero code={session.code} demo={backend.demo} />
-        <ThemedView type="backgroundElement" style={styles.card}>
-          <View style={styles.rowBetween}>
-            <ThemedText type="smallBold">Students</ThemedText>
-            <Pill label={String(participants.length)} tone="accent" />
-          </View>
-          {participants.length === 0 ? (
-            <ThemedText themeColor="textSecondary" style={styles.centered}>
-              Waiting for students to join…
-            </ThemedText>
-          ) : (
-            <View style={styles.chips}>
-              {participants.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${p.name}`}
-                  onPress={() => remove(p)}
-                  style={({ pressed }) => [
-                    styles.student,
-                    { backgroundColor: theme.background },
-                    pressed && styles.pressed,
-                  ]}>
-                  <Avatar id={p.id} name={p.name} size={28} />
-                  <ThemedText type="small">{p.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    ✕
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </ThemedView>
+        <StudentRoster participants={participants} onRemove={remove} />
         {!backend.demo && (
           <PretendStudentsPanel wordGame onAdd={pretend.add} busy={pretend.busy} error={pretend.error} />
         )}
@@ -184,24 +133,19 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
           <Pill label={`Level ${session.level}`} />
           <Pill label={`Groups of about ${size}`} />
           <Pill label={`${session.round_minutes} min game`} />
+          <Pill label={isTyping(session) ? 'Guessers type the word' : 'Guessers say the word'} />
         </View>
         <ThemedText type="small" themeColor="textSecondary">
           {game.summary}
         </ThemedText>
-        <View style={styles.section}>
-          <Button
-            label="Start the game"
-            disabled={participants.length < 2}
-            onPress={start}
-          />
-          {participants.length < 2 && (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              At least two students need to join before you can start.
-            </ThemedText>
-          )}
-          <Button label="Cancel game" variant="secondary" onPress={() => save(endSession())} />
-          {errorText}
-        </View>
+        <LobbyButtons
+          studentCount={participants.length}
+          startLabel="Start the game"
+          cancelLabel="Cancel game"
+          onStart={start}
+          onCancel={() => save(endSession())}
+          error={error}
+        />
       </Screen>
     );
   }
@@ -214,7 +158,10 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     <Screen>
       {title}
       <ThemedView type="backgroundElement" style={[styles.card, styles.clockCard]}>
-        <GameClock session={session} now={now} large />
+        <View style={styles.clockRow}>
+          <GameClock session={session} now={now} large />
+          <LateJoinQr code={session.code} demo={backend.demo} />
+        </View>
         <View style={styles.buttons}>
           <Button
             label={running ? 'Pause' : 'Resume'}
@@ -232,20 +179,29 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         {progress.map((g) => (
           <ThemedView key={g.index} type="backgroundElement" style={[styles.card, styles.group]}>
             <View style={styles.rowBetween}>
-              <ThemedText type="smallBold">Group {g.index + 1}</ThemedText>
+              <ThemedText type="smallBold">
+                {g.index + 1}. {teams.get(`0:${g.index}`) ?? 'No team name yet'}
+              </ThemedText>
               <Pill label={`${g.score} ${g.score === 1 ? 'word' : 'words'}`} tone="accent" />
             </View>
             <ThemedText type="small" themeColor="textSecondary">
               {g.members.map((m) => (m.id === g.player?.id ? `${m.name} (${role.toLowerCase()})` : m.name)).join(' · ')}
             </ThemedText>
             {g.word && <WordCardView card={g.word} compact />}
+            {teams.has(`0:${g.index}`) && (
+              <Pressable accessibilityRole="button" onPress={() => clearTeamName(g.index)}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  ✕ Clear the team name
+                </ThemedText>
+              </Pressable>
+            )}
           </ThemedView>
         ))}
       </View>
 
       <View style={styles.section}>
         <Button label="End the game now" variant="secondary" onPress={() => save(endSession())} />
-        {errorText}
+        <ErrorNote message={error} />
       </View>
     </Screen>
   );
@@ -266,6 +222,13 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     gap: Spacing.two,
   },
+  clockRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.four,
+  },
   clockCard: {
     alignItems: 'center',
     gap: Spacing.three,
@@ -281,19 +244,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.two,
   },
-  student: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.one,
-    paddingLeft: Spacing.one,
-    paddingRight: Spacing.three,
-    borderRadius: Spacing.four,
-    minHeight: 36,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   buttons: {
     flexDirection: 'row',
     gap: Spacing.two,
@@ -306,8 +256,5 @@ const styles = StyleSheet.create({
   group: {
     flexGrow: 1,
     flexBasis: 260,
-  },
-  centered: {
-    textAlign: 'center',
   },
 });

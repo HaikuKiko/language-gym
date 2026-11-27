@@ -9,8 +9,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useRef, useState } from 'react';
 
-import type { LiveParticipant, LiveSession } from '@/lib/live-session';
-import { groupsForRound } from '@/lib/round-robin';
+import type { LiveParticipant, LiveSession } from '@/core/live/session';
+import { groupsForRound } from '@/core/live/groups';
 import { finishCard, groupProgress, wordGameKind } from '@/lib/word-game';
 
 // ===========================================================================

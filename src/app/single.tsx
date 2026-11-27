@@ -2,14 +2,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { findQuestions } from '@/data/questions';
-import { uniqueRoundCount } from '@/lib/round-robin';
+import { uniqueRoundCount } from '@/core/live/groups';
 import { useQuestions } from '@/hooks/use-questions';
-import {
-  DEFAULT_ROUND_SETTINGS,
-  shuffle,
-  type Session,
-  type SessionSettings,
-} from '@/lib/session';
+import { shuffle } from '@/core/content/shuffle';
+import { DEFAULT_ROUND_SETTINGS, type Session, type SessionSettings } from '@/lib/session';
 import { FinishedScreen } from '@/screens/finished-screen';
 import { RoundScreen } from '@/screens/round-screen';
 import { SetupScreen } from '@/screens/setup-screen';

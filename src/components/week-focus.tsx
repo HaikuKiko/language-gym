@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import type { Level } from '@/data/questions';
+import { Spacing } from '@/core/ui/theme';
+import type { Level } from '@/core/content/levels';
 import { findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 

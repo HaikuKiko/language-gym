@@ -2,15 +2,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/components/button';
+import { Button } from '@/core/ui/button';
 import { RoundSettingsForm } from '@/components/round-settings-form';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
 import { PRODUCT_NAME } from '@/constants/product';
-import { Spacing } from '@/constants/theme';
-import { createSession } from '@/lib/live-session';
+import { Spacing } from '@/core/ui/theme';
+import { createTalkSession } from '@/lib/talk-rounds';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
-import { errorMessage } from '@/lib/supabase';
+import { errorMessage } from '@/core/app/supabase';
 
 /**
  * The teacher chooses the settings and gets a join code for the class.
@@ -30,7 +31,7 @@ export default function HostRoute() {
     setBusy(true);
     setError(null);
     try {
-      const session = await createSession(settings);
+      const session = await createTalkSession(settings);
       router.replace({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
       setError(errorMessage(e));
@@ -61,11 +62,7 @@ export default function HostRoute() {
           disabled={busy}
           onPress={create}
         />
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         {friending && (
           <Button
             label="Try the demo first (pretend students)"

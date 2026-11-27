@@ -9,7 +9,7 @@
  * Supabase has rows, those are used instead, so the questions can be edited
  * there.
  */
-import type { Level } from '@/data/questions';
+import type { Level } from '@/core/content/levels';
 
 export type FunQuestion = {
   text: string;
@@ -18,20 +18,6 @@ export type FunQuestion = {
   week: number;
   /** Follow-up questions for the asker (empty: the general ones are shown). */
   followUps?: string[];
-};
-
-/**
- * A custom question set: a name, a line about what it is for, and its
- * questions (the same at every level). Tables custom_question_sets and
- * custom_questions; made by the owner with Claude for now.
- */
-export type CustomSet = {
-  id: string;
-  name: string;
-  description: string;
-  questions: string[];
-  /** Each question's follow-ups, in the same order as questions (may be empty). */
-  followUps?: string[][];
 };
 
 /** The themes speed friending uses (course weeks), in the order shown. */

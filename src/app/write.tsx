@@ -1,30 +1,26 @@
+import { countWords } from '@/core/app/text';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { BusyOverlay } from '@/components/busy-overlay';
-import { Button } from '@/components/button';
-import { Chip } from '@/components/chip';
-import { Screen } from '@/components/screen';
-import { ThemedText } from '@/components/themed-text';
-import { WritingBox } from '@/components/writing-box';
+import { BusyOverlay } from '@/core/ui/busy-overlay';
+import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
+import { Screen } from '@/core/ui/screen';
+import { ErrorNote } from '@/core/ui/notice';
+import { ThemedText } from '@/core/ui/themed-text';
+import { WritingBox } from '@/core/marking/writing-box';
 import { WritingFeedbackView } from '@/components/writing-feedback';
-import { Spacing } from '@/constants/theme';
-import { LEVELS, type Level } from '@/data/questions';
+import { Spacing } from '@/core/ui/theme';
+import { LEVELS, type Level } from '@/core/content/levels';
 import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
-import { useSavedState } from '@/hooks/use-saved-state';
-import { useTheme } from '@/hooks/use-theme';
-import { useWritingDraft } from '@/hooks/use-writing-draft';
-import { errorMessage, supabase } from '@/lib/supabase';
-import {
-  MAX_WORDS,
-  MIN_WORDS,
-  countWords,
-  requestFeedback,
-  writingProblem,
-  type WritingResponse,
-} from '@/lib/writing';
+import { useSavedState } from '@/core/app/use-saved-state';
+import { useTheme } from '@/core/ui/use-theme';
+import { useWritingDraft } from '@/core/marking/use-writing-draft';
+import { errorMessage, supabase } from '@/core/app/supabase';
+import { writingProblem } from '@/core/marking/photo-reading';
+import { MAX_WORDS, MIN_WORDS, requestFeedback, type WritingResponse } from '@/lib/writing';
 
 
 
@@ -155,11 +151,7 @@ export default function WriteRoute() {
             {problem}
           </ThemedText>
         )}
-        {error && (
-          <ThemedText type="small" themeColor="warning" style={styles.centered}>
-            {error}
-          </ThemedText>
-        )}
+        <ErrorNote message={error} />
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
           Your writing and photos are checked by an AI (Claude) and are not saved. The feedback
           may contain mistakes; ask your teacher if something is unclear.
