@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { GameAwards } from '@/components/game-awards';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { GameClock, WordCardView } from '@/components/word-card-view';
@@ -12,8 +13,16 @@ import { useTheme } from '@/hooks/use-theme';
 import { remainingMs, type LiveParticipant, type LiveSession } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
-import { WORD_GAMES, groupOf, groupProgress, type WordGameKind } from '@/lib/word-game';
-import { Results } from '@/screens/word-game-host-screen';
+import {
+  HINT,
+  WORD_GAMES,
+  finishCard,
+  groupOf,
+  groupProgress,
+  type GroupProgress,
+  type HintData,
+  type WordGameKind,
+} from '@/lib/word-game';
 
 type Props = {
   kind: WordGameKind;
@@ -32,6 +41,10 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   const [myGot, setMyGot] = useState<number[]>([]);
   const [mySkipped, setMySkipped] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The word (as "group:card") whose meaning this phone has opened.
+  const [hintFor, setHintFor] = useState<string | null>(null);
+  // Explain It: the word just guessed, waiting for "Who guessed it?".
+  const [choosingFor, setChoosingFor] = useState<number | null>(null);
 
   const meNow: LiveParticipant = {
     ...me,
@@ -40,15 +53,24 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   };
   const withMine = participants.map((p) => (p.id === me.id ? meNow : p));
 
-  async function tap(card: number, guessed: boolean) {
+  async function tap(group: GroupProgress, guessed: boolean, guesserId: string | null = null) {
+    const card = group.card;
     setError(null);
+    setChoosingFor(null);
     (guessed ? setMyGot : setMySkipped)((list) => [...list, card]);
     try {
-      await backend.recordCard(meNow, card, guessed);
+      await finishCard(backend, session, kind, group, meNow, guessed, guesserId);
     } catch (e) {
       (guessed ? setMyGot : setMySkipped)((list) => list.filter((n) => n !== card));
       setError(errorMessage(e));
     }
+  }
+
+  async function openHint(group: GroupProgress) {
+    setHintFor(`${group.index}:${group.card}`);
+    if (!group.word) return;
+    const data: HintData = { round: 0, group: group.index, card: group.card, word: group.word.word };
+    await backend.logEvent(session.id, me.id, HINT, data).catch(() => {});
   }
 
   async function leave() {
@@ -61,19 +83,13 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
   }
 
   if (session.status === 'finished') {
-    const progress = groupProgress(session, withMine);
-    const mine = groupOf(progress, me.id);
     return (
       <Screen>
         <View style={styles.message}>
           <ThemedText type="subtitle">Game over!</ThemedText>
-          {mine && (
-            <ThemedText themeColor="textSecondary">
-              Your group guessed {mine.score} {mine.score === 1 ? 'word' : 'words'}. Thanks for playing, {me.name}!
-            </ThemedText>
-          )}
+          <ThemedText themeColor="textSecondary">Thanks for playing, {me.name}!</ThemedText>
         </View>
-        {progress.length > 0 && session.roster.length > 0 && <Results progress={progress} myGroup={mine?.index} />}
+        {session.roster.length > 0 && <GameAwards kind={kind} session={session} myId={me.id} />}
         <ThemedText type="small" themeColor="textSecondary">
           You can close this page.
         </ThemedText>
@@ -151,24 +167,45 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
             Your group guessed {group.score} {group.score === 1 ? 'word' : 'words'}.
           </ThemedText>
         </View>
+      ) : myTurn && kind === 'explain-it' && choosingFor === group.card ? (
+        <View style={styles.choose}>
+          <ThemedText type="subtitle" style={styles.centered}>
+            ✓ Who guessed it?
+          </ThemedText>
+          <View style={styles.names}>
+            {group.members
+              .filter((m) => m.id !== me.id)
+              .map((m) => (
+                <Button key={m.id} label={m.name} onPress={() => tap(group, true, m.id)} style={styles.name} />
+              ))}
+          </View>
+          <Button label="Not sure" variant="secondary" onPress={() => tap(group, true, null)} />
+          <Button label="Back" variant="secondary" onPress={() => setChoosingFor(null)} />
+        </View>
       ) : seesWord && group.word ? (
         <>
           <ThemedText type="smallBold" style={{ color: theme.accent, letterSpacing: 1 }}>
             {myTurn ? 'EXPLAIN IT TO YOUR GROUP' : `DESCRIBE IT TO ${playerName.toUpperCase()}`}
           </ThemedText>
-          <WordCardView card={group.word} />
+          <WordCardView
+            card={group.word}
+            showHint={hintFor === `${group.index}:${group.card}`}
+            onHint={canTap ? () => openHint(group) : undefined}
+          />
           <View style={styles.buttons}>
             <Button
               label="Skip"
               variant="secondary"
               disabled={!canTap}
-              onPress={() => tap(group.card, false)}
+              onPress={() => tap(group, false)}
               style={styles.button}
             />
             <Button
               label={myTurn ? 'Got it ✓' : `${playerName} got it ✓`}
               disabled={!canTap}
-              onPress={() => tap(group.card, true)}
+              onPress={() =>
+                kind === 'explain-it' && group.members.length > 1 ? setChoosingFor(group.card) : tap(group, true)
+              }
               style={styles.buttonWide}
             />
           </View>
@@ -240,6 +277,19 @@ const styles = StyleSheet.create({
   },
   buttonWide: {
     flex: 2,
+  },
+  choose: {
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+  },
+  names: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  name: {
+    flexGrow: 1,
+    flexBasis: 120,
   },
   listen: {
     alignItems: 'center',

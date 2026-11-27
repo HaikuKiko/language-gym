@@ -12,6 +12,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { loadContactMessages, type ContactMessage } from '@/lib/contact';
 import { findMyOpenSession } from '@/lib/live-session';
+import { WORD_GAMES, fetchMyPastGames, type PastGame } from '@/lib/word-game';
 import { NOT_CONFIGURED_MESSAGE, supabase } from '@/lib/supabase';
 
 /** The pages teachers send to students as links (students never see this page). */
@@ -104,9 +105,34 @@ function Dashboard() {
         )}
       </View>
 
+      <PastWordGames />
       <StudentLinks />
       <Messages />
     </Screen>
+  );
+}
+
+/** Word games played in the last 30 days: tap one to see its awards again. */
+function PastWordGames() {
+  const [games, setGames] = useState<PastGame[] | null>(null);
+  useEffect(() => {
+    fetchMyPastGames()
+      .then(setGames)
+      .catch(() => setGames([]));
+  }, []);
+  if (!games || games.length === 0) return null;
+  return (
+    <View style={styles.section}>
+      <ThemedText type="smallBold">Word game results</ThemedText>
+      {games.map((g) => (
+        <Button
+          key={g.code}
+          variant="secondary"
+          label={`${WORD_GAMES[g.kind].emoji} ${WORD_GAMES[g.kind].name} · ${g.level} · ${new Date(g.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} · ${g.students} students`}
+          onPress={() => router.push({ pathname: '/session/[code]', params: { code: g.code } })}
+        />
+      ))}
+    </View>
   );
 }
 

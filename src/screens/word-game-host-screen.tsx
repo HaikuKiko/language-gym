@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { GameAwards } from '@/components/game-awards';
 import { JoinCodeHero } from '@/components/join-code-hero';
 import { Pill } from '@/components/pill';
 import { Screen } from '@/components/screen';
@@ -26,14 +27,13 @@ import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import {
   EXTRA_TIME_MS,
+  GAME_STARTED,
   WORD_GAMES,
   addLateJoiners,
   addTime,
   groupProgress,
   groupSizeOf,
-  ranking,
   startWordGame,
-  type GroupProgress,
   type WordGameKind,
 } from '@/lib/word-game';
 
@@ -61,6 +61,12 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     } catch (e) {
       setError(errorMessage(e));
     }
+  }
+
+  async function start() {
+    await save(startWordGame(session, participants, Date.now()));
+    // The start time, from the database's clock, for timing the first words.
+    await backend.logEvent(session.id, null, GAME_STARTED, {}).catch(() => {});
   }
 
   async function remove(participant: LiveParticipant) {
@@ -113,12 +119,11 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
   );
 
   if (session.status === 'finished') {
-    const progress = groupProgress(session, participants);
     return (
       <Screen>
         {title}
         <ThemedText type="subtitle">Game over!</ThemedText>
-        {progress.length > 0 && <Results progress={progress} />}
+        {session.roster.length > 0 && <GameAwards kind={kind} session={session} teacher />}
         {backend.demo ? (
           <Button
             label="Back to the setup"
@@ -181,7 +186,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
           <Button
             label="Start the game"
             disabled={participants.length < 2}
-            onPress={() => save(startWordGame(session, participants, Date.now()))}
+            onPress={start}
           />
           {participants.length < 2 && (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
@@ -240,41 +245,6 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
   );
 }
 
-/** The groups, best first. */
-export function Results({ progress, myGroup }: { progress: GroupProgress[]; myGroup?: number }) {
-  const theme = useTheme();
-  const medals = ['🥇', '🥈', '🥉'];
-  return (
-    <View style={styles.section}>
-      {ranking(progress).map(({ group, place }) => (
-        <View
-          key={group.index}
-          style={[
-            styles.result,
-            {
-              backgroundColor: place === 1 ? theme.successSoft : theme.backgroundElement,
-            },
-            group.index === myGroup && {
-              borderColor: theme.accent,
-              borderWidth: 2,
-            },
-          ]}>
-          <ThemedText type="smallBold">
-            {medals[place - 1] ?? `${place}.`} Group {group.index + 1}
-            {group.index === myGroup ? ' (you)' : ''}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.resultNames}>
-            {group.members.map((m) => m.name).join(', ')}
-          </ThemedText>
-          <ThemedText type="smallBold">
-            {group.score} {group.score === 1 ? 'word' : 'words'}
-          </ThemedText>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
@@ -330,18 +300,6 @@ const styles = StyleSheet.create({
   group: {
     flexGrow: 1,
     flexBasis: 260,
-  },
-  result: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  resultNames: {
-    flex: 1,
   },
   centered: {
     textAlign: 'center',
