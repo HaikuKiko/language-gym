@@ -126,7 +126,18 @@ Things agreed for later: `BACKLOG.md`.
   ranking, the week's leaderboard, hardest questions), `quiz-student-screen.tsx`, `hooks/use-quiz-questions.ts`.
   Answers: participants `quiz_answers` jsonb via RPC `answer_quiz` (once, only while open). Scores: saved at the end
   to **`player_scores`** (shared by any game: activity, board, name, points; kept `SCORE_DAYS` = 60, pg_cron
-  `delete-old-player-scores`); leaderboards add up by name ("Mai T.").
+  `delete-old-player-scores`); leaderboards add up by name (`nameKey`: first name + family initial, so "Mai T." =
+  "Mai Tran").
+- **Classes + leaderboards** (27 Nov 2026): Core Classes kit `core/classes/classes.ts` (`useClasses`, `useChosenClass`
+  remembers the last class in this browser, `classFlags`/`sessionClassId`: a session's class is the flag `class:<id>`)
+  + `class-picker.tsx` (`ClassPicker`, hidden when the user has no classes). The owner's classes: **2A** (A1), **3A**
+  (A2+ into B1-), **Elementary Skills** (mid A1 to A2+, saved as A2). Picker on quiz weeks (`quiz_sets.class_id`, also
+  changeable on `/quiz/[id]`; `/quiz` filters by class), Talk Rounds (`/host`), word games and tours. Scores carry
+  `player_scores.class_id`. `src/lib/leaderboards.ts` (point values at the top): word games (`wordGameScores`, scaled)
+  and speaking (`speakingScores`: rounds + follow-ups) save at the end **only when the session has a class** and is
+  not a demo (`useSaveClassScores`); writing = `WRITING_HANDED_IN_POINTS` per marked first page in a class set
+  (`fetchWritingScores`, worked out, not saved). `/leaderboards` (dashboard "🏆 Leaderboards"): class, activity,
+  this week / `SCORE_DAYS`.
 - **GPS tours** (27 Nov 2026, design: Claude Doc "GPS tours: plan"; demo only so far, dashboard "🗺️ GPS tours" →
   `/tour-demo`): a teacher's route of stops; groups choose where to go (`aim` = how many), and a stop's tasks open only
   within its radius (or with its code word). Group work → slideshow. `src/lib/tours.ts` (types, `stopAccess`,

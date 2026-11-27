@@ -28,6 +28,8 @@ export async function saveScores(
   board: string,
   sessionId: string,
   rows: readonly ScoreRow[],
+  /** The class the game was for (its own leaderboard); null for none. */
+  classId: string | null = null,
 ): Promise<void> {
   if (rows.length === 0) return;
   const { error } = await requireSupabase()
@@ -40,6 +42,7 @@ export async function saveScores(
         name: r.name,
         points: r.points,
         details: r.details ?? {},
+        ...(classId ? { class_id: classId } : {}),
       })),
       { onConflict: 'session_id,name' },
     );
@@ -55,9 +58,13 @@ export type LeaderboardEntry = {
   totals: Record<string, number>;
 };
 
-/** Names that are the same person: "mai t." = "Mai T". */
+/**
+ * Names that are the same person: "mai t." = "Mai T" = "Mai Tran" (first name
+ * + the first letter of the family name, as the join page asks for).
+ */
 export function nameKey(name: string): string {
-  return name.trim().toLowerCase().replace(/\.$/, '').replace(/\s+/g, ' ');
+  const words = name.trim().toLowerCase().replace(/\./g, ' ').split(/\s+/).filter(Boolean);
+  return words.length <= 1 ? (words[0] ?? '') : `${words[0]} ${words[1][0]}`;
 }
 
 /** Adds up rows by name, highest first. */
@@ -84,7 +91,7 @@ export function leaderboardFrom(
  */
 export async function fetchLeaderboard(
   activity: string,
-  options: { board?: string; days?: number } = {},
+  options: { board?: string; days?: number; classId?: string | null } = {},
 ): Promise<LeaderboardEntry[]> {
   const client = requireSupabase();
   const { data: auth } = await client.auth.getUser();
@@ -94,9 +101,34 @@ export async function fetchLeaderboard(
     .eq('activity', activity)
     .eq('host_id', auth.user?.id ?? '');
   if (options.board) query = query.eq('board', options.board);
+  if (options.classId) query = query.eq('class_id', options.classId);
   const days = options.days ?? SCORE_DAYS;
   query = query.gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return leaderboardFrom(data ?? []);
+}
+
+export type SavedScore = {
+  activity: string;
+  name: string;
+  points: number;
+  details: Record<string, unknown> | null;
+  created_at: string;
+};
+
+/** Every score this host saved in the last `days` (one class, or all), for a page of leaderboards. */
+export async function fetchScores(options: { days?: number; classId?: string | null } = {}): Promise<SavedScore[]> {
+  const client = requireSupabase();
+  const { data: auth } = await client.auth.getUser();
+  const days = options.days ?? SCORE_DAYS;
+  let query = client
+    .from('player_scores')
+    .select('activity, name, points, details, created_at')
+    .eq('host_id', auth.user?.id ?? '')
+    .gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+  if (options.classId) query = query.eq('class_id', options.classId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SavedScore[];
 }

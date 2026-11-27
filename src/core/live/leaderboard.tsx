@@ -16,6 +16,8 @@ export type LeaderboardRow = {
   points: number;
   /** A short note after the points, e.g. "4 quizzes" or "🔥 3". */
   note?: string;
+  /** A second line under the name, e.g. where the points came from. */
+  detail?: string;
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -62,9 +64,14 @@ export function Leaderboard({
               row.key === highlight && { backgroundColor: theme.accentSoft },
             ]}>
             <ThemedText style={styles.place}>{medals && place <= 3 ? MEDALS[place - 1] : `${place}.`}</ThemedText>
-            <ThemedText style={styles.name} numberOfLines={1}>
-              {row.name}
-            </ThemedText>
+            <View style={styles.name}>
+              <ThemedText numberOfLines={1}>{row.name}</ThemedText>
+              {row.detail ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {row.detail}
+                </ThemedText>
+              ) : null}
+            </View>
             {row.note ? (
               <ThemedText type="small" themeColor="textSecondary">
                 {row.note}

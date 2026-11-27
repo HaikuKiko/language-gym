@@ -12,6 +12,8 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
 import { TeacherOnly } from '@/core/app/teacher-only';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { useChosenClass, useClasses } from '@/core/classes/classes';
 import { errorMessage } from '@/core/app/supabase';
 import { LEVELS } from '@/core/content/levels';
 import { pickPhotos, type PreparedPhoto } from '@/core/media/photo';
@@ -26,12 +28,15 @@ import {
   QUIZ_COUNTS,
   defaultWeekName,
   makeQuizSet,
+  setQuizSetClass,
   sortLevels,
 } from '@/lib/grammar-quiz';
 
 /** Make a week of grammar quizzes: the grammar per level, how many quizzes, and the mix. */
 function NewQuizSetScreen() {
   const theme = useTheme();
+  const classes = useClasses();
+  const [classId, setClassId] = useChosenClass(classes);
   const [name, setName] = useState(defaultWeekName());
   const [levels, setLevels] = useState<string[]>([...DEFAULT_LEVELS]);
   const [grammar, setGrammar] = useState<Record<string, string>>({});
@@ -78,6 +83,7 @@ function NewQuizSetScreen() {
         mix: mixNow,
         photos,
       });
+      if (classId) await setQuizSetClass(id, classId).catch(() => {});
       router.replace({ pathname: '/quiz/[id]', params: { id } });
     } catch (e) {
       setError(errorMessage(e));
@@ -106,6 +112,13 @@ function NewQuizSetScreen() {
           style={inputStyle}
         />
       </View>
+
+      <ClassPicker
+        classes={classes}
+        value={classId}
+        onChange={setClassId}
+        note="Each class has its own leaderboard."
+      />
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Levels in the class</ThemedText>

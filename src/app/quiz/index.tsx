@@ -9,6 +9,8 @@ import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { TeacherOnly } from '@/core/app/teacher-only';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { useChosenClass, useClasses } from '@/core/classes/classes';
 import { errorMessage } from '@/core/app/supabase';
 import { Leaderboard } from '@/core/live/leaderboard';
 import { SCORE_DAYS, fetchLeaderboard, type LeaderboardEntry } from '@/core/live/scores';
@@ -16,6 +18,8 @@ import { QUIZ_ACTIVITY, fetchQuizSets, sortLevels, type QuizSet } from '@/lib/gr
 
 /** Grammar quizzes: the teacher's weeks of quizzes, and the leaderboard over SCORE_DAYS. */
 function QuizzesScreen() {
+  const classes = useClasses();
+  const [classId, setClassId] = useChosenClass(classes);
   const [sets, setSets] = useState<QuizSet[] | null>(null);
   const [board, setBoard] = useState<LeaderboardEntry[] | null>(null);
   const [showBoard, setShowBoard] = useState(false);
@@ -28,11 +32,19 @@ function QuizzesScreen() {
   }, []);
 
   useEffect(() => {
-    if (!showBoard || board) return;
-    fetchLeaderboard(QUIZ_ACTIVITY)
-      .then(setBoard)
-      .catch((e) => setError(errorMessage(e)));
-  }, [showBoard, board]);
+    if (!showBoard) return;
+    let cancelled = false;
+    setBoard(null);
+    fetchLeaderboard(QUIZ_ACTIVITY, { classId })
+      .then((b) => !cancelled && setBoard(b))
+      .catch((e) => !cancelled && setError(errorMessage(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [showBoard, classId]);
+
+  const shown = sets?.filter((s) => !classId || s.class_id === classId) ?? null;
+  const classOf = (id: string | null | undefined) => classes?.find((c) => c.id === id)?.name;
 
   return (
     <Screen>
@@ -45,17 +57,21 @@ function QuizzesScreen() {
         <Button label="✨ Make this week's quizzes" onPress={() => router.push('/quiz/new')} />
       </View>
 
+      <ClassPicker classes={classes} value={classId} onChange={setClassId} noneLabel="All classes" />
+
       <View style={styles.section}>
         <ThemedText type="smallBold">Your weeks</ThemedText>
         {sets === null && !error && <ThemedText themeColor="textSecondary">Loading…</ThemedText>}
-        {sets?.length === 0 && (
-          <ThemedText themeColor="textSecondary">None yet. Make the first one above.</ThemedText>
+        {shown?.length === 0 && (
+          <ThemedText themeColor="textSecondary">
+            {classId ? 'None for this class yet.' : 'None yet. Make the first one above.'}
+          </ThemedText>
         )}
-        {sets?.map((s) => (
+        {shown?.map((s) => (
           <Button
             key={s.id}
             variant="secondary"
-            label={`${s.name} · ${sortLevels(s.levels).join(' + ')} · ${s.quiz_count} ${s.quiz_count === 1 ? 'quiz' : 'quizzes'}`}
+            label={`${s.name} · ${classOf(s.class_id) ? `${classOf(s.class_id)} · ` : ''}${sortLevels(s.levels).join(' + ')} · ${s.quiz_count} ${s.quiz_count === 1 ? 'quiz' : 'quizzes'}`}
             onPress={() => router.push({ pathname: '/quiz/[id]', params: { id: s.id } })}
           />
         ))}

@@ -12,6 +12,8 @@ import { LEVELS, type Level } from '@/core/content/levels';
 import { cardsForLevel, WORD_CARDS } from '@/data/word-cards';
 import { createSession } from '@/core/live/session';
 import { errorMessage } from '@/core/app/supabase';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { classFlags, useChosenClass, useClasses } from '@/core/classes/classes';
 import {
   DEFAULT_GAME_MINUTES,
   GAME_MINUTES,
@@ -39,6 +41,8 @@ export default function WordGameSetupRoute() {
   // Only mixes that give at least two rounds in a game this long.
   const mixChoices = MIX_MINUTES.filter((m) => roundCountFor(minutes, m) >= 2);
   const mixNow = mixChoices.some((m) => m === mix) ? mix : 0;
+  const classes = useClasses();
+  const [classId, setClassId] = useChosenClass(classes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = WORD_GAMES[kind];
@@ -58,7 +62,7 @@ export default function WordGameSetupRoute() {
         roundMinutes: minutes,
         roundCount: 1,
         autoAdvance: true,
-        flags: wordGameFlags(kind, groupSize, typing, mixNow),
+        flags: [...wordGameFlags(kind, groupSize, typing, mixNow), ...classFlags(classId)],
       });
       router.replace({
         pathname: '/session/[code]',
@@ -89,6 +93,14 @@ export default function WordGameSetupRoute() {
           Groups go at their own speed. The group that guesses the most words before the time runs out wins.
         </ThemedText>
       </View>
+
+      <ClassPicker
+        classes={classes}
+        value={classId}
+        onChange={setClassId}
+        note="Everyone's points go on this class's leaderboard."
+        noneNote="Without a class, points are not saved to a leaderboard."
+      />
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Level</ThemedText>

@@ -12,6 +12,8 @@ import { Spacing } from '@/core/ui/theme';
 import { createTalkSession } from '@/lib/talk-rounds';
 import { DEFAULT_ROUND_SETTINGS, type RoundSettings } from '@/lib/session';
 import { errorMessage } from '@/core/app/supabase';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { classFlags, useChosenClass, useClasses } from '@/core/classes/classes';
 
 /**
  * The teacher chooses the settings and gets a join code for the class.
@@ -24,6 +26,8 @@ export default function HostRoute() {
     ...DEFAULT_ROUND_SETTINGS,
     ...(friending ? { mode: 'friending', week: null, takeTurns: true } : { mode: 'conversation' }),
   });
+  const classes = useClasses();
+  const [classId, setClassId] = useChosenClass(classes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +35,7 @@ export default function HostRoute() {
     setBusy(true);
     setError(null);
     try {
-      const session = await createTalkSession(settings);
+      const session = await createTalkSession(settings, classFlags(classId));
       router.replace({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
       setError(errorMessage(e));
@@ -49,6 +53,14 @@ export default function HostRoute() {
             : "Discussion questions for the week's theme, with its grammar point on every phone. Choose the settings, then share the join code with your students."}
         </ThemedText>
       </View>
+
+      <ClassPicker
+        classes={classes}
+        value={classId}
+        onChange={setClassId}
+        note="Points for taking part and for follow-up questions go on this class's leaderboard."
+        noneNote="Without a class, points are not saved to a leaderboard."
+      />
 
       <RoundSettingsForm
         phones
