@@ -99,8 +99,18 @@ Things agreed for later: `BACKLOG.md`.
   `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
   Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
   words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
-  reopens past games (`fetchMyPastGames`). **Part 2** (27 Nov): setup "How guessers answer": say it, or type it (flag `typing`; `GuessBox` on the guesser's phone, `checkGuess` with `NEAR_MISS_*` → "Almost!"; wrong tries logged as `guess_wrong`; awards add Best spellers, teacher sees Hard to spell). **Team names**: anyone in a group can set it (event `team_name`, newest wins, host can clear it; `useTeamNames` polls). Planned next: part 3
-  rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
+  reopens past games (`fetchMyPastGames`). **Part 2** (27 Nov): setup "How guessers answer": say it, or type it (flag `typing`; `GuessBox` on the guesser's phone, `checkGuess` with `NEAR_MISS_*` → "Almost!"; wrong tries logged as `guess_wrong`; awards add Best spellers, teacher sees Hard to spell). **Team names**: anyone in a group can set it (event `team_name`, newest wins, host can clear it; `useTeamNames` polls). **Part 3** (27 Nov):
+  **Mix the groups** (setup "Never / Every 3 / 5 min", flag `mix:N`; `round_count` = floor(game ÷ N), the last round
+  takes what is left): when a round's time is up (`newRoundDue`) the host screen calls `startNewRound` (clock paused,
+  stage `changeover`, roster reordered with `mixGroups` + `dealOrder` from `core/live/groups.ts` so people who were
+  together before are kept apart; past groups from `round_started` events). Phones show "Find your new group" and every
+  member taps "We found each other!" (`found_round`); when all have (or "Start now") `resumeRound` restarts the clock.
+  Card numbers are `round × ROUND_CARD_BASE + n` so each round's groups start fresh; team names are per round; points
+  follow each student. Demo: `mix=1` (new groups after 1 minute).
+  **Saved names** (`core/live/saved-names.ts`, `SAVED_NAME_DAYS` = 60): table `saved_names` (host_id, name,
+  last_used_at), filled by a trigger on participants (not "Guest N"); join page shows matches after 2 letters
+  (`saved_names_for_code` RPC) and asks for a family-name initial ("Mai T."); pg_cron `delete-old-saved-names`.
+  Later: Microsoft Teams logins.
 - **GPS tours** (27 Nov 2026, design: Claude Doc "GPS tours: plan"; demo only so far, dashboard "🗺️ GPS tours" →
   `/tour-demo`): a teacher's route of stops; groups choose where to go (`aim` = how many), and a stop's tasks open only
   within its radius (or with its code word). Group work → slideshow. `src/lib/tours.ts` (types, `stopAccess`,
@@ -196,7 +206,7 @@ Things agreed for later: `BACKLOG.md`.
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
   enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions, contact_messages,
-  classes, class_students, class_sets, class_set_pages, teachers (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
+  classes, class_students, class_sets, class_set_pages, teachers, session_events, saved_names (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool

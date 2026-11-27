@@ -9,6 +9,9 @@ import type { SessionEvent } from '@/core/live/events';
 import {
   CARD_DONE,
   GAME_STARTED,
+  ROUND_CARD_BASE,
+  ROUND_STARTED,
+  type RoundStartedData,
   GUESS_WRONG,
   HINT,
   groupLabel,
@@ -93,6 +96,10 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
   const nameOf = (id: string | null | undefined) => (id ? (names.get(id) ?? 'Someone') : 'Someone');
   const start = events.find((e) => e.kind === GAME_STARTED);
   const startAt = start ? Date.parse(start.created_at) : null;
+  // "Mix the groups": each round's first word is timed from when that round started.
+  const roundStart = new Map<number, number>();
+  for (const e of events)
+    if (e.kind === ROUND_STARTED) roundStart.set((e.data as RoundStartedData).round, Date.parse(e.created_at));
 
   // Meanings opened, per word on screen and per person.
   const hintedCards = new Set<string>();
@@ -133,7 +140,7 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     seen.add(key);
     const at = Date.parse(e.created_at);
     const groupKey = `${d.round}:${d.group}`;
-    const from = lastAt.get(groupKey) ?? startAt ?? at;
+    const from = lastAt.get(groupKey) ?? roundStart.get(d.round) ?? startAt ?? at;
     lastAt.set(groupKey, at);
     cards.push({ ...d, at, seconds: Math.max(0, (at - from) / 1000), hinted: hintedCards.has(key) });
   }
@@ -280,19 +287,21 @@ export function gameResults(kind: WordGameKind, session: LiveSession, events: re
     .slice(0, HARD_WORDS_SHOWN);
 
   // Groups (a small extra).
-  const groupWords = new Map<number, number>();
-  const groupNames = new Map<number, string[]>();
+  const groupWords = new Map<string, number>();
+  const groupNames = new Map<string, { round: number; group: number; names: string[] }>();
   for (const c of cards) {
-    if (!groupNames.has(c.group)) groupNames.set(c.group, c.members.map(nameOf));
-    if (c.result === 'got') groupWords.set(c.group, (groupWords.get(c.group) ?? 0) + 1);
+    const key = `${c.round}:${c.group}`;
+    if (!groupNames.has(key)) groupNames.set(key, { round: c.round, group: c.group, names: c.members.map(nameOf) });
+    if (c.result === 'got') groupWords.set(key, (groupWords.get(key) ?? 0) + 1);
   }
   const teams = teamNames(events);
+  const rounds = new Set(cards.map((c) => c.round)).size;
   const groups = [...groupNames.entries()]
-    .map(([index, members]) => ({
-      index,
-      label: groupLabel(teams, 0, index),
-      names: members,
-      words: groupWords.get(index) ?? 0,
+    .map(([key, g]) => ({
+      index: g.round * ROUND_CARD_BASE + g.group,
+      label: (rounds > 1 ? `Round ${g.round + 1} · ` : '') + groupLabel(teams, g.round, g.group),
+      names: g.names,
+      words: groupWords.get(key) ?? 0,
     }))
     .sort((a, b) => b.words - a.words);
 
