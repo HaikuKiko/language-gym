@@ -37,6 +37,7 @@ import { PretendStudentsPanel } from '@/components/pretend-students-panel';
 import { useQuizQuestions } from '@/hooks/use-quiz-questions';
 import { QUIZ_ACTIVITY, quizOf } from '@/lib/grammar-quiz';
 import { isPretendName, usePretendStudents } from '@/lib/pretend-students';
+import { sessionClassId } from '@/core/classes/classes';
 import { useSessionBackend } from '@/lib/session-backend';
 
 type Props = {
@@ -268,6 +269,7 @@ function QuizResults({
             points: s.points,
             details: { right: s.right, questions: s.results.length, quiz: quiz.number },
           })),
+        sessionClassId(session),
       );
       setWeek(await fetchLeaderboard(QUIZ_ACTIVITY, { board: quiz.setId }));
     } catch (e) {

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
@@ -29,6 +29,7 @@ import {
   type LiveSession,
 } from '@/core/live/session';
 import { useSessionBackend } from '@/lib/session-backend';
+import { useSaveClassScores, wordGameScores } from '@/lib/leaderboards';
 import { errorMessage } from '@/core/app/supabase';
 import {
   EXTRA_TIME_MS,
@@ -65,6 +66,14 @@ type Props = {
 export function WordGameHostScreen({ kind, session, participants, onSession, onParticipants }: Props) {
   const now = useNow();
   const backend = useSessionBackend();
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  useSaveClassScores(
+    'word-game',
+    session,
+    backend.demo,
+    async () => wordGameScores(kind, session, await backend.fetchEvents(session.id)),
+    setScoreError,
+  );
   const game = WORD_GAMES[kind];
   const { save, remove, error, setError } = useHostActions({
     backend,
@@ -164,6 +173,7 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         {title}
         <ThemedText type="subtitle">Game over!</ThemedText>
         {session.roster.length > 0 && <GameAwards kind={kind} session={session} teacher />}
+        <ErrorNote message={scoreError} />
         {backend.demo ? (
           <Button
             label="Back to the setup"

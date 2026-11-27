@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
@@ -32,6 +32,7 @@ import { beginDiscussion, isFriending, isRoundRobin, roundRobinRounds, nextRound
 import { groupsForRound, type Group } from '@/core/live/groups';
 import { useSessionBackend } from '@/lib/session-backend';
 import { FinishedScreen } from '@/screens/finished-screen';
+import { speakingScores, useSaveClassScores } from '@/lib/leaderboards';
 
 type LiveHostScreenProps = {
   session: LiveSession;
@@ -57,6 +58,8 @@ export function LiveHostScreen({
   const backend = useSessionBackend();
   const { save, remove, error } = useHostActions({ backend, session, participants, onSession, onParticipants });
   const pretend = usePretendStudents(session, participants);
+  const [scoreError, setScoreError] = useState<string | null>(null);
+  useSaveClassScores('speaking', session, backend.demo, async () => speakingScores(session, participants), setScoreError);
 
   // Automatic mode: this screen moves the session on when the clock runs out.
   const playing = session.status === 'playing';
@@ -91,6 +94,7 @@ export function LiveHostScreen({
       <FinishedScreen
         roundsPlayed={session.roster.length > 0 ? session.round + 1 : 0}
         studentCount={session.roster.length}
+        error={scoreError}
         restartLabel="Back to start"
         onRestart={() => router.replace(friending ? '/' : '/dashboard')}
       />

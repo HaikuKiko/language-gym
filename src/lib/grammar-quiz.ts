@@ -14,6 +14,7 @@ import { requireSupabase } from '@/core/app/supabase';
 import { LEVELS } from '@/core/content/levels';
 import type { PreparedPhoto } from '@/core/media/photo';
 import { questionSecondsFlag, type QuizQuestion } from '@/core/live/quiz';
+import { classFlags } from '@/core/classes/classes';
 import { createSession, flagValue, type LiveSession } from '@/core/live/session';
 
 // ===========================================================================
@@ -49,6 +50,8 @@ export type QuizSet = {
   grammar: Record<string, string>;
   quiz_count: number;
   created_at: string;
+  /** The class these quizzes are for (its own leaderboard); null for none. */
+  class_id?: string | null;
 };
 
 export type SavedQuestion = QuizQuestion & { set_id: string; quiz: number; position: number };
@@ -120,7 +123,7 @@ export async function remakeQuestion(id: string): Promise<SavedQuestion> {
 export async function fetchQuizSets(): Promise<QuizSet[]> {
   const { data, error } = await requireSupabase()
     .from('quiz_sets')
-    .select('id, name, levels, grammar, quiz_count, created_at')
+    .select('*')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return data as QuizSet[];
@@ -129,7 +132,7 @@ export async function fetchQuizSets(): Promise<QuizSet[]> {
 export async function fetchQuizSet(id: string): Promise<QuizSet | null> {
   const { data, error } = await requireSupabase()
     .from('quiz_sets')
-    .select('id, name, levels, grammar, quiz_count, created_at')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -161,6 +164,12 @@ export async function deleteQuestion(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/** Which class a week's quizzes are for (null for none). */
+export async function setQuizSetClass(id: string, classId: string | null): Promise<void> {
+  const { error } = await requireSupabase().from('quiz_sets').update({ class_id: classId }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteQuizSet(id: string): Promise<void> {
   const { error } = await requireSupabase().from('quiz_sets').delete().eq('id', id);
   if (error) throw new Error(error.message);
@@ -174,6 +183,6 @@ export async function createQuizSession(set: QuizSet, number: number, seconds: n
     roundMinutes: 1,
     roundCount: questions,
     autoAdvance: false,
-    flags: quizFlags(set.id, number, seconds),
+    flags: [...quizFlags(set.id, number, seconds), ...classFlags(set.class_id)],
   });
 }

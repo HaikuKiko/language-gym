@@ -13,6 +13,8 @@ import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
 import { TeacherOnly } from '@/core/app/teacher-only';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { useClasses } from '@/core/classes/classes';
 import { errorMessage } from '@/core/app/supabase';
 import { Leaderboard } from '@/core/live/leaderboard';
 import { DEFAULT_QUESTION_SECONDS, QUESTION_KIND_LABELS, QUESTION_SECONDS } from '@/core/live/quiz';
@@ -26,6 +28,7 @@ import {
   fetchQuestions,
   fetchQuizSet,
   remakeQuestion,
+  setQuizSetClass,
   sortLevels,
   updateQuestion,
   type QuizSet,
@@ -35,6 +38,7 @@ import {
 /** One week of quizzes: check and change the questions, play a quiz, and the week's leaderboard. */
 function QuizSetScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const classes = useClasses();
   const [set, setSet] = useState<QuizSet | null>(null);
   const [questions, setQuestions] = useState<SavedQuestion[] | null>(null);
   const [quiz, setQuiz] = useState(1);
@@ -95,6 +99,22 @@ function QuizSetScreen() {
           ))}
         </View>
       </View>
+
+      <ClassPicker
+        classes={classes}
+        value={set.class_id ?? null}
+        onChange={async (classId) => {
+          const before = set.class_id ?? null;
+          setSet({ ...set, class_id: classId });
+          try {
+            await setQuizSetClass(set.id, classId);
+          } catch (e) {
+            setSet({ ...set, class_id: before });
+            setError(errorMessage(e));
+          }
+        }}
+        note="Points from these quizzes go on this class's leaderboard."
+      />
 
       <View style={styles.chips}>
         {Array.from({ length: set.quiz_count }, (_, i) => i + 1).map((n) => (

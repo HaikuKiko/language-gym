@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
+import { ErrorNote } from '@/core/ui/notice';
 import { Screen } from '@/core/ui/screen';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
@@ -10,6 +11,7 @@ type FinishedScreenProps = {
   studentCount: number;
   onRestart: () => void;
   restartLabel?: string;
+  error?: string | null;
 };
 
 export function FinishedScreen({
@@ -17,6 +19,7 @@ export function FinishedScreen({
   studentCount,
   onRestart,
   restartLabel = 'New session',
+  error = null,
 }: FinishedScreenProps) {
   return (
     <Screen>
@@ -26,6 +29,7 @@ export function FinishedScreen({
           {studentCount} students · {roundsPlayed} {roundsPlayed === 1 ? 'round' : 'rounds'}
         </ThemedText>
       </View>
+      <ErrorNote message={error} />
       <Button label={restartLabel} onPress={onRestart} />
     </Screen>
   );

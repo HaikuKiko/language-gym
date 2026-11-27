@@ -49,7 +49,7 @@ export default function PrivacyRoute() {
           Saved names: the teacher, and people joining that teacher&apos;s sessions who type the name&apos;s first
           letters.
         </Line>
-        <Line>Quiz scores (a name and points, for the leaderboard): only the teacher.</Line>
+        <Line>Scores from quizzes and class games (a name and points, for the class leaderboard): only the teacher.</Line>
       </Part>
 
       <Part title="Where it is kept">
@@ -63,7 +63,7 @@ export default function PrivacyRoute() {
       <Part title="How long">
         <Line>Sessions, and the names in them, are deleted automatically after {RETENTION_DAYS} days.</Line>
         <Line>Saved names are deleted automatically after {SAVED_NAME_DAYS} days without use.</Line>
-        <Line>Quiz scores are deleted automatically after {SCORE_DAYS} days.</Line>
+        <Line>Scores are deleted automatically after {SCORE_DAYS} days.</Line>
         <Line>Contact messages are kept until we have answered them, or until you ask us to delete them.</Line>
       </Part>
 

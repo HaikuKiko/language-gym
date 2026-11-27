@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { errorMessage } from '@/core/app/supabase';
+import { ClassPicker } from '@/core/classes/class-picker';
+import { classFlags, useChosenClass, useClasses } from '@/core/classes/classes';
 import { MAX_FROM_ADULT_M } from '@/core/classes/safety-rules';
 import { createSession } from '@/core/live/session';
 import { Button } from '@/core/ui/button';
@@ -18,6 +20,8 @@ import { TOUR_MINUTES, tourFlags } from '@/lib/tour-live';
 export default function TourSetupRoute() {
   const [tourId, setTourId] = useState(TOURS[0].id);
   const [under18, setUnder18] = useState(true);
+  const classes = useClasses();
+  const [classId, setClassId] = useChosenClass(classes);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tour = TOURS.find((t) => t.id === tourId) ?? TOURS[0];
@@ -32,7 +36,7 @@ export default function TourSetupRoute() {
         roundMinutes: TOUR_MINUTES,
         roundCount: 1,
         autoAdvance: false,
-        flags: tourFlags(tour.id, under18),
+        flags: [...tourFlags(tour.id, under18), ...classFlags(classId)],
       });
       router.replace({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
@@ -50,6 +54,8 @@ export default function TourSetupRoute() {
           there. Their work becomes a slideshow to present.
         </ThemedText>
       </View>
+
+      <ClassPicker classes={classes} value={classId} onChange={setClassId} />
 
       <View style={styles.section}>
         <ThemedText type="smallBold">Route</ThemedText>
