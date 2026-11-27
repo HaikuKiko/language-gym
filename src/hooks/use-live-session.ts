@@ -10,6 +10,16 @@ import { ensureSignedIn, errorMessage, requireSupabase } from '@/lib/supabase';
 
 /** How often to re-read the session, as a safety net behind live updates. */
 const REFRESH_INTERVAL_MS = 5000;
+/**
+ * Big groups (assemblies): every change to a student's row goes live to every
+ * phone, so 50 phones tapping at once means thousands of messages, more than
+ * Supabase allows per second, and live updates stop for everyone. Above this
+ * many students, students' phones stop listening for other students' changes
+ * and re-read the list every BIG_GROUP_REFRESH_MS instead. The teacher's screen
+ * and the teacher's own changes (next round, start, stop) stay live.
+ */
+const LIVE_STUDENT_UPDATES_UP_TO = 20;
+const BIG_GROUP_REFRESH_MS = 2000;
 /** Stop waiting for the first connection after this long and offer "Try again". */
 const CONNECT_TIMEOUT_MS = 15_000;
 
@@ -48,12 +58,7 @@ export function useLiveSession(code: string) {
 
       setState({ status: 'ready', session, participants, userId });
 
-      const reloadParticipants = async () => {
-        const latest = await fetchParticipants(session.id).catch(() => null);
-        if (cancelled || !latest) return;
-        setState((prev) => (prev.status === 'ready' ? { ...prev, participants: latest } : prev));
-      };
-
+      const isHost = session.host_id === userId;
       const channel = client
         .channel(`session-${session.id}`)
         .on(
@@ -64,6 +69,12 @@ export function useLiveSession(code: string) {
             setState((prev) => (prev.status === 'ready' ? { ...prev, session: latest } : prev));
           },
         )
+        .subscribe();
+
+      // Students' changes (joining, taps): live while the group is small (see
+      // LIVE_STUDENT_UPDATES_UP_TO); always live on the teacher's screen.
+      let studentChannel: ReturnType<typeof client.channel> | null = client
+        .channel(`session-students-${session.id}`)
         .on(
           'postgres_changes',
           {
@@ -72,24 +83,43 @@ export function useLiveSession(code: string) {
             table: 'participants',
             filter: `session_id=eq.${session.id}`,
           },
-          reloadParticipants,
+          () => reloadStudents(),
         )
         .subscribe();
+      let bigGroup = false;
+      const reloadStudents = async () => {
+        const latest = await fetchParticipants(session.id).catch(() => null);
+        if (cancelled || !latest) return;
+        setState((prev) => (prev.status === 'ready' ? { ...prev, participants: latest } : prev));
+        if (!isHost && !bigGroup && latest.length > LIVE_STUDENT_UPDATES_UP_TO) {
+          bigGroup = true;
+          if (studentChannel) client.removeChannel(studentChannel);
+          studentChannel = null;
+        }
+      };
+      if (participants.length > LIVE_STUDENT_UPDATES_UP_TO) reloadStudents();
 
       // Only the host changes the session, so the host's own copy is always
       // the newest and does not need re-reading.
-      const isHost = session.host_id === userId;
+      let lastSessionRead = Date.now();
+      let lastStudentsRead = Date.now();
       const interval = setInterval(async () => {
-        reloadParticipants();
-        if (isHost) return;
+        const now = Date.now();
+        if (now - lastStudentsRead >= (bigGroup ? BIG_GROUP_REFRESH_MS : REFRESH_INTERVAL_MS)) {
+          lastStudentsRead = now;
+          reloadStudents();
+        }
+        if (isHost || now - lastSessionRead < REFRESH_INTERVAL_MS) return;
+        lastSessionRead = now;
         const latest = await fetchSessionByCode(code).catch(() => null);
         if (cancelled || !latest) return;
         setState((prev) => (prev.status === 'ready' ? { ...prev, session: latest } : prev));
-      }, REFRESH_INTERVAL_MS);
+      }, 500);
 
       cleanUp = () => {
         clearInterval(interval);
         client.removeChannel(channel);
+        if (studentChannel) client.removeChannel(studentChannel);
       };
       if (cancelled) cleanUp();
     }
