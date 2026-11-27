@@ -11,8 +11,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { sessionFlags, type LiveParticipant, type LiveSession } from '@/lib/live-session';
 import { groupsForRound } from '@/lib/round-robin';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';
+import type { SessionEvent } from '@/lib/session-events';
 import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
-import { WORD_GAMES, groupProgress, isWordGameKind, wordGameFlags, wordGameKind } from '@/lib/word-game';
+import { WORD_GAMES, finishCard, groupProgress, isWordGameKind, wordGameFlags, wordGameKind } from '@/lib/word-game';
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';
 import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { LiveHostScreen } from '@/screens/live-host-screen';
@@ -116,6 +117,8 @@ export default function DemoRoute() {
   const [tab, setTab] = useState<string>('teacher');
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  // Word games: the record of every word, kept only in memory.
+  const eventsRef = useRef<SessionEvent[]>([]);
 
   const backend = useMemo<SessionBackend>(
     () => ({
@@ -139,6 +142,16 @@ export default function DemoRoute() {
         participantsRef.current = next;
         setParticipants(next);
       },
+      logEvent: async (sessionId, participantId, kind, data = {}) => {
+        eventsRef.current.push({
+          session_id: sessionId,
+          participant_id: participantId,
+          kind,
+          data,
+          created_at: new Date().toISOString(),
+        });
+      },
+      fetchEvents: async () => [...eventsRef.current],
       toggleFollowUp: async (me, key) => {
         const next = participantsRef.current.map((p) => {
           if (p.id !== me.id) return p;
@@ -218,7 +231,10 @@ export default function DemoRoute() {
         const tapperId =
           game === 'hot-seat' ? group.members.find((m) => m.id !== group.player?.id)?.id : group.player.id;
         const tapper = participantsRef.current.find((p) => p.id === tapperId);
-        if (tapper) backend.recordCard(tapper, group.card, Math.random() >= SKIP_CHANCE);
+        // Explain It: someone else in the group guessed it.
+        const others = group.members.filter((m) => m.id !== group.player?.id);
+        const guesser = others[Math.floor(Math.random() * others.length)]?.id ?? null;
+        if (tapper) finishCard(backend, sessionRef.current, game, group, tapper, Math.random() >= SKIP_CHANCE, guesser);
       }
     }, 500);
     return () => {
