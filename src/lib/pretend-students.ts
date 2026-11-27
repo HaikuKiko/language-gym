@@ -4,13 +4,16 @@
  * its own anonymous guest) and tap by themselves while the page is open.
  * Speed friending: they tap "We found each other!" (only when their whole
  * group is pretend, so a real tester taps for themselves). Word games: they
- * tap "Got it" or "Skip" when it is their turn to.
+ * tap "Got it" or "Skip" when it is their turn to. Quizzes: they answer each
+ * question (mostly right).
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useRef, useState } from 'react';
 
 import type { LiveParticipant, LiveSession } from '@/core/live/session';
+import { questionSeconds, type QuizQuestion } from '@/core/live/quiz';
 import { groupsForRound } from '@/core/live/groups';
+import { quizOf } from '@/lib/grammar-quiz';
 import { finishCard, groupProgress, wordGameKind } from '@/lib/word-game';
 
 // ===========================================================================
@@ -31,6 +34,11 @@ const GUESS_MIN_MS = 5000;
 const GUESS_MAX_MS = 10000;
 /** Word games: how often a pretend student skips a word instead of guessing it. */
 const SKIP_CHANCE = 0.2;
+/** Quizzes: how often a pretend student picks the right answer. */
+const QUIZ_RIGHT_CHANCE = 0.7;
+/** Quizzes: a pretend student answers between these fractions of the question time. */
+const QUIZ_ANSWER_FROM = 0.1;
+const QUIZ_ANSWER_TO = 0.6;
 /** How often the pretend students look at the session. */
 const CHECK_EVERY_MS = 500;
 
@@ -88,7 +96,14 @@ async function joinPretend(session: LiveSession, name: string): Promise<Pretend>
  * Keeps the pretend students of this teacher page running. Call it at the top
  * of the host screen so they keep going from the lobby to the end.
  */
-export function usePretendStudents(session: LiveSession, participants: readonly LiveParticipant[]) {
+export function usePretendStudents(
+  session: LiveSession,
+  participants: readonly LiveParticipant[],
+  /** Quizzes: the questions, so the pretend students can answer them. */
+  quizQuestions?: readonly QuizQuestion[],
+) {
+  const quizRef = useRef(quizQuestions);
+  quizRef.current = quizQuestions;
   const pretends = useRef<Pretend[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +150,30 @@ export function usePretendStudents(session: LiveSession, participants: readonly 
           tap().catch(() => {});
         }
       };
+
+      // Quizzes: each pretend student answers each question once, a few seconds in.
+      if (quizOf(s)) {
+        const question = quizRef.current?.[s.round];
+        if (!question || s.stage !== 'discussion') return;
+        const seconds = questionSeconds(s);
+        for (const p of mine) {
+          const from = seconds * 1000 * QUIZ_ANSWER_FROM;
+          const to = seconds * 1000 * QUIZ_ANSWER_TO;
+          const start = now;
+          tapWhenDue(`quiz:${s.round}:${p.id}`, from, to, async () => {
+            const wrong = question.options.map((_, i) => i).filter((i) => i !== question.answer);
+            const choice =
+              Math.random() < QUIZ_RIGHT_CHANCE ? question.answer : wrong[Math.floor(Math.random() * wrong.length)];
+            await p.client.rpc('answer_quiz', {
+              p_participant_id: p.id,
+              p_question: s.round,
+              p_choice: choice,
+              p_ms: Math.round(Date.now() - start + from),
+            });
+          });
+        }
+        return;
+      }
 
       const game = wordGameKind(s);
       if (!game) {

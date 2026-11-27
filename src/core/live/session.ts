@@ -57,6 +57,8 @@ export type LiveParticipant = {
    * they asked). For a leaderboard later.
    */
   asked_follow_ups?: string[] | null;
+  /** Quizzes: this student's answers, by question number ("0", "1", …): choice and time taken. */
+  quiz_answers?: Record<string, { c: number; ms: number }> | null;
 };
 
 /** What the host may change on a session. */

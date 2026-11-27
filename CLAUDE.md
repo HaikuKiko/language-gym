@@ -116,6 +116,17 @@ Things agreed for later: `BACKLOG.md`.
   last_used_at), filled by a trigger on participants (not "Guest N"); join page shows matches after 2 letters
   (`saved_names_for_code` RPC) and asks for a family-name initial ("Mai T."); pg_cron `delete-old-saved-names`.
   Later: Microsoft Teams logins.
+- **Grammar quizzes** (27 Nov 2026, dashboard "❓ Grammar quizzes" → `/quiz`; replaces Kahoot): the teacher types or
+  photographs the week's grammar per level (the afternoon class mixes **A1 and A2**), edge function `make-quiz` (Claude,
+  limits at the top of its index.ts) writes N quizzes and saves them (tables `quiz_sets`, `quiz_questions`; kinds
+  choose / right-wrong / find-mistake, level label, "why" line). `/quiz/[id]`: check, ✏️ change, 🔄 new question
+  (`mode: "remake"`), ✕ remove, seconds per question, "▶ Play Quiz n" (a session with flags `quiz:<set id>`,
+  `quiz-number:n`, `quiz-seconds:s`), demo with pretend students (`/demo?quiz=…&number=…`). `src/lib/grammar-quiz.ts`
+  (settings at the top), `screens/quiz-host-screen.tsx` (the board: question + clock, answer bars + why + top 5, end:
+  ranking, the week's leaderboard, hardest questions), `quiz-student-screen.tsx`, `hooks/use-quiz-questions.ts`.
+  Answers: participants `quiz_answers` jsonb via RPC `answer_quiz` (once, only while open). Scores: saved at the end
+  to **`player_scores`** (shared by any game: activity, board, name, points; kept `SCORE_DAYS` = 60, pg_cron
+  `delete-old-player-scores`); leaderboards add up by name ("Mai T.").
 - **GPS tours** (27 Nov 2026, design: Claude Doc "GPS tours: plan"; demo only so far, dashboard "🗺️ GPS tours" →
   `/tour-demo`): a teacher's route of stops; groups choose where to go (`aim` = how many), and a stop's tasks open only
   within its radius (or with its code word). Group work → slideshow. `src/lib/tours.ts` (types, `stopAccess`,
@@ -132,14 +143,17 @@ Things agreed for later: `BACKLOG.md`.
   IELTS). `ui/` (App basics, look): `theme.ts` (colours, `Spacing`), `use-theme`, Button, Chip, Pill, Screen,
   ThemedText/View, Avatar, ProgressBar, BusyOverlay, ExternalLink, AppLoading, FooterLinks, `notice.tsx` (`Notice`,
   `ErrorNote`: use it for every red error line), `confirm-button.tsx` (`ConfirmButton`: any "Are you sure?" step). `app/` (App basics, logic): `error-boundary.tsx` (no white screens; `_layout` re-exports it),
-  `connection.ts` (friendly "no internet" message), `supabase.ts`, `teachers.ts` + `teacher-only.tsx` (teacher
+  `connection.ts` (friendly "no internet" message), `supabase.ts`, `functions.ts` (`callFunction`: call an edge function
+  and get its error message; use it for new calls), `teachers.ts` + `teacher-only.tsx` (teacher
   login), `account.ts` (student code + PIN), `contact.ts`, `text.ts` (`countWords`), `use-now`, `use-countdown`,
   `use-saved-state`, `load-script.ts` (cdnjs loader; pdf.js uses it). `media/`: `photo.ts` (pick photos),
   `slideshow.tsx`. `content/` (Content kit): `levels.ts` (CEFR `LEVELS`), `shuffle.ts` (`shuffle` with a seed, `pickForSeat`:
   each person their own item, no repeats), `custom-sets.ts` (custom sets: type + loading). `live/` (Live classroom kit, any activity students join on
   their phones): `session.ts` (sessions + participants, join codes, create/join/update, flags `hasFlag`/`flagValue`,
   timer steps), `groups.ts` (round robin), `ready-check.ts` ("We found each other!"), `turns.ts` (take turns),
-  `events.ts` (`session_events`), `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase
+  `events.ts` (`session_events`), **`quiz.ts` + `quiz-view.tsx` (live multiple-choice quiz engine: points for right +
+  fast, streaks, ranking; A–D coloured answer buttons, answer bars)**, **`leaderboard.tsx` + `scores.ts` (ranked list for
+  any game; `player_scores` across games)**, `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase
   or demo; apps add their own actions), `use-host-actions.ts` (save/remove/error), `lobby.tsx` (`StudentRoster`,
   `LobbyButtons`, `StudentLobby`), `leave.ts`, `join-code-hero`, `join-qr-code`, **`late-join-qr.tsx` (put
   `LateJoinQr` on every teacher screen while an activity runs)**, `live-timer`. `marking/` (Marking kit, every writing tool): `marks.ts` (corrections on the student's text, line by line,
@@ -212,7 +226,7 @@ Things agreed for later: `BACKLOG.md`.
 
 - Tables: sessions, participants, questions, weeks, writing_submissions, tracks, students,
   enrolments, writing_prompts, response_cache, calibration_marks, shared_essays, fun_questions (old), friending_questions, custom_question_sets, custom_questions, contact_messages,
-  classes, class_students, class_sets, class_set_pages, teachers, session_events, saved_names (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
+  classes, class_students, class_sets, class_set_pages, teachers, session_events, saved_names, quiz_sets, quiz_questions, player_scores (+ storage buckets `shared-essay-photos`, `class-set-photos`). Anonymous sign-in; RLS on.
 - **Schema changes:** the owner prefers that you run them yourself with the Supabase tool's
   `apply_migration` (it works; earlier its approval prompt timed out). Also write the SQL to
   `supabase/updates/<date>-<name>.sql` and append it to `supabase/schema.sql`. Only if the tool
@@ -232,6 +246,8 @@ Things agreed for later: `BACKLOG.md`.
   Cache: results are saved for `CACHE_DAYS` (7) in the `response_cache` table under a SHA-256
   fingerprint of the request (prompt, model, inputs, `CACHE_VERSION`). The same writing/photo
   again returns the saved result with `cached: true`: no Claude call, no check used.
+- `make-quiz` (index.ts, deno.json): grammar quizzes (teachers only; `SETS_PER_DAY`, `REMAKES_PER_SET`, model and
+  effort at the top). Deploy with both files, `import_map_path: "deno.json"`, `verify_jwt: true`.
 - `student-account`: save with PIN, sign in, join a course.
 - `teacher-account` (index.ts, deno.json): the first teacher, and teachers adding teachers.
 - The Anthropic API key is a Supabase secret (`ANTHROPIC_API_KEY`), never in the app.

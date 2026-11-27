@@ -30,6 +30,10 @@ import {
 import { WordGameHostScreen } from '@/screens/word-game-host-screen';
 import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { LiveHostScreen } from '@/screens/live-host-screen';
+import { QuizHostScreen } from '@/screens/quiz-host-screen';
+import { QuizStudentScreen } from '@/screens/quiz-student-screen';
+import { answerOf, isQuestionOpen, questionSeconds, DEFAULT_QUESTION_SECONDS } from '@/core/live/quiz';
+import { fetchQuestions, quizFlags, quizOf } from '@/lib/grammar-quiz';
 import { LiveStudentScreen } from '@/screens/live-student-screen';
 
 // ===========================================================================
@@ -65,6 +69,10 @@ const TEAM_NAME_AFTER_MS = 6000;
 const MISSPELL_CHANCE = 0.3;
 /** Word games with "Mix the groups": new groups every minute, so the 2-minute demo has 2 rounds. */
 const DEMO_MIX_MINUTES = 1;
+/** Quizzes: how often a pretend student picks the right answer, and when they answer (fractions of the time). */
+const QUIZ_RIGHT_CHANCE = 0.7;
+const QUIZ_ANSWER_FROM = 0.15;
+const QUIZ_ANSWER_TO = 0.6;
 /** Screens at least this wide show the teacher screen and the phones side by side. */
 const SIDE_BY_SIDE_WIDTH = 1000;
 
@@ -86,6 +94,10 @@ type DemoParams = {
   students?: string;
   /** Word games: "1" to mix the groups. */
   mix?: string;
+  /** Quizzes: the quiz set's id, the quiz number and the seconds per question. */
+  quiz?: string;
+  number?: string;
+  seconds?: string;
 };
 
 /** A session kept only on this device: never saved, so it never mixes with real ones. */
@@ -110,7 +122,9 @@ function demoSession(params: DemoParams): LiveSession {
     remaining_ms: null,
     roster: [],
     seed: Math.floor(Math.random() * 2 ** 31),
-    categories: game
+    categories: params.quiz
+      ? quizFlags(params.quiz, Number(params.number) || 1, Number(params.seconds) || DEFAULT_QUESTION_SECONDS)
+      : game
       ? wordGameFlags(
           game,
           Number(params.size) || GAME_DEMO_GROUP_SIZE,
@@ -154,7 +168,8 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
   const [session, setSession] = useState<LiveSession>(() => demoSession(params));
   const [participants, setParticipants] = useState<LiveParticipant[]>([]);
   const game = wordGameKind(session);
-  const names = useMemo(() => (game ? GAME_DEMO_NAMES : DEMO_NAMES).slice(0, count), [game, count]);
+  const quiz = quizOf(session);
+  const names = useMemo(() => (game || quiz ? GAME_DEMO_NAMES : DEMO_NAMES).slice(0, count), [game, quiz, count]);
   const participantsRef = useRef(participants);
   participantsRef.current = participants;
   const [tab, setTab] = useState<string>('teacher');
@@ -195,6 +210,23 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
         });
       },
       fetchEvents: async () => [...eventsRef.current],
+      // Quizzes: the real questions (the teacher's own), answers kept here.
+      loadQuizQuestions: (setId, number) => fetchQuestions(setId, number),
+      answerQuiz: async (participantId, question, choice, ms) => {
+        const current = sessionRef.current;
+        if (!isQuestionOpen(current, Date.now()) || current.round !== question) return false;
+        const me = participantsRef.current.find((p) => p.id === participantId);
+        if (!me || answerOf(me, question)) return false;
+        const next = participantsRef.current.map((p) =>
+          p.id === participantId
+            ? { ...p, quiz_answers: { ...(p.quiz_answers ?? {}), [String(question)]: { c: choice, ms } } }
+            : p,
+        );
+        participantsRef.current = next;
+        setParticipants(next);
+        return true;
+      },
+      saveScores: async () => {},
       toggleFollowUp: async (me, key) => {
         const next = participantsRef.current.map((p) => {
           if (p.id !== me.id) return p;
@@ -305,6 +337,38 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
     };
   }, [game, session.status, clockRunning, backend]);
 
+  // Quizzes: each pretend student answers a few seconds into every question (mostly right).
+  const quizOpen = !!quiz && session.status === 'playing' && session.stage === 'discussion';
+  useEffect(() => {
+    if (!quizOpen) return;
+    const round = sessionRef.current.round;
+    const seconds = questionSeconds(sessionRef.current);
+    const shown = Date.now();
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    fetchQuestions(quiz.setId, quiz.number)
+      .then((questions) => {
+        const question = questions[round];
+        if (cancelled || !question) return;
+        for (const p of participantsRef.current) {
+          const wait = seconds * 1000 * (QUIZ_ANSWER_FROM + Math.random() * (QUIZ_ANSWER_TO - QUIZ_ANSWER_FROM));
+          timers.push(
+            setTimeout(() => {
+              const wrong = question.options.map((_, i) => i).filter((i) => i !== question.answer);
+              const choice =
+                Math.random() < QUIZ_RIGHT_CHANCE ? question.answer : wrong[Math.floor(Math.random() * wrong.length)];
+              backend.answerQuiz(p.id, round, choice, Date.now() - shown);
+            }, wait),
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [quizOpen, session.round, quiz?.setId, quiz?.number, backend]);
+
   // Word games: each pretend team names itself a few seconds in.
   useEffect(() => {
     if (!game || session.status !== 'playing' || session.stage !== 'discussion') return;
@@ -321,7 +385,14 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
     return () => clearTimeout(timer);
   }, [game, session.status, session.stage, session.round, backend]);
 
-  const host = game ? (
+  const host = quiz ? (
+    <QuizHostScreen
+      session={session}
+      participants={participants}
+      onSession={setSession}
+      onParticipants={setParticipants}
+    />
+  ) : game ? (
     <WordGameHostScreen
       kind={game}
       session={session}
@@ -340,7 +411,9 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
   const phone = (name: string) => {
     const me = participants.find((p) => p.name === name);
     return me ? (
-      game ? (
+      quiz ? (
+        <QuizStudentScreen session={session} participants={participants} me={me} />
+      ) : game ? (
         <WordGameStudentScreen kind={game} session={session} participants={participants} me={me} />
       ) : (
         <LiveStudentScreen session={session} participants={participants} me={me} />
@@ -358,7 +431,9 @@ function Demo({ params, count, onCount }: { params: DemoParams; count: number; o
       <ThemedView style={styles.page}>
         <View style={[styles.banner, { backgroundColor: theme.noticeBg }]}>
           <Text style={styles.bannerText}>
-            {game
+            {quiz
+              ? `Quiz demo with ${names.length} pretend students. They join and answer by themselves (mostly right); you can answer for them too. Nothing is saved.`
+              : game
               ? `${WORD_GAMES[game].name} demo with ${names.length} pretend students. They join, and their groups guess words by themselves; you can tap for them too. Nothing is saved.`
               : `Demo with ${names.length} pretend students. They join, find each other and tap by themselves; you can tap for them too. Nothing is saved.`}
           </Text>
