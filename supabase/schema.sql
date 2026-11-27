@@ -3149,3 +3149,7 @@ where t.id = split_part(d.line, '|', 1)::bigint;
 -- as card numbers within their group. Students update their own row.
 alter table public.participants add column if not exists got_cards integer[] not null default '{}';
 alter table public.participants add column if not exists skipped_cards integer[] not null default '{}';
+
+-- Take turns: the follow-up questions each student tapped as asked
+-- ("round.turn.number" keys), for a leaderboard later. Students update their own row.
+alter table public.participants add column if not exists asked_follow_ups text[] not null default '{}';

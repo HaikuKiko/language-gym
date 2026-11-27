@@ -5,7 +5,7 @@
  */
 import { createContext, use, type ReactNode } from 'react';
 
-import { markFound, removeParticipant, updateSession } from '@/lib/live-session';
+import { markFound, removeParticipant, toggleFollowUp, updateSession } from '@/lib/live-session';
 import { recordCard } from '@/lib/word-game';
 
 export type SessionBackend = {
@@ -14,11 +14,20 @@ export type SessionBackend = {
   markFound: typeof markFound;
   /** Word games: a student taps "Got it" or "Skip". */
   recordCard: typeof recordCard;
+  /** Take turns: a student taps a follow-up question they asked. */
+  toggleFollowUp: typeof toggleFollowUp;
   /** The solo demo: nothing is saved and no real students can join. */
   demo: boolean;
 };
 
-const SUPABASE_BACKEND: SessionBackend = { updateSession, removeParticipant, markFound, recordCard, demo: false };
+const SUPABASE_BACKEND: SessionBackend = {
+  updateSession,
+  removeParticipant,
+  markFound,
+  recordCard,
+  toggleFollowUp,
+  demo: false,
+};
 
 const SessionBackendContext = createContext<SessionBackend>(SUPABASE_BACKEND);
 
