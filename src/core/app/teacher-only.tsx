@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
 import { Screen } from '@/core/ui/screen';
@@ -8,31 +8,79 @@ import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { errorMessage } from '@/core/app/supabase';
-import { currentTeacher, signInTeacher, teacherCount, type Teacher } from '@/core/app/teachers';
+import { errorMessage, takeProviderSignInError } from '@/core/app/supabase';
+import {
+  currentTeacher,
+  signedInEmail,
+  signInTeacher,
+  signInTeacherWithGoogle,
+  signOutTeacher,
+  teacherCount,
+  type Teacher,
+} from '@/core/app/teachers';
+
+/** Google sign-in needs the browser (it is set up for the website). */
+const GOOGLE_SIGN_IN = Platform.OS === 'web';
 
 /** The signed-in teacher (undefined while checking, null when not a teacher). */
 export function useTeacher() {
   const [teacher, setTeacher] = useState<Teacher | null | undefined>(undefined);
+  const hash = useLocalSearchParams<{ '#'?: string }>()['#'];
   const refresh = useCallback(() => {
     currentTeacher()
       .then(setTeacher)
       .catch(() => setTeacher(null));
   }, []);
   useEffect(() => {
+    // Back from Google: the router keeps the address's #access_token=… as a
+    // param; once the session is saved (by currentTeacher), take it out.
+    if (teacher !== undefined && hash && /access_token=|error=/.test(hash)) {
+      router.setParams({ '#': undefined } as never);
+    }
+  }, [teacher, hash]);
+  useEffect(() => {
     refresh();
   }, [refresh]);
   return { teacher, refresh };
 }
 
-/** Username and password; calls onSignedIn when they are right. */
+/**
+ * "Sign in with Google", or username and password; calls onSignedIn when they
+ * are right. Also says so when this device is signed in with a Google account
+ * that is not a teacher.
+ */
 export function TeacherSignIn({ onSignedIn }: { onSignedIn: () => void }) {
   const theme = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notTeacherEmail, setNotTeacherEmail] = useState<string | null>(null);
   const inputStyle = [styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }];
+
+  useEffect(() => {
+    // Back from Google: any problem, or a Google account that is not a teacher here.
+    setError(takeProviderSignInError());
+    signedInEmail()
+      .then((email) => setNotTeacherEmail(email && !email.endsWith('.invalid') ? email : null))
+      .catch(() => {});
+  }, []);
+
+  async function google() {
+    setBusy(true);
+    setError(null);
+    try {
+      await signInTeacherWithGoogle(); // leaves the page
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  async function useAnotherAccount() {
+    await signOutTeacher();
+    setNotTeacherEmail(null);
+  }
 
   async function signIn() {
     setBusy(true);
@@ -48,6 +96,23 @@ export function TeacherSignIn({ onSignedIn }: { onSignedIn: () => void }) {
 
   return (
     <View style={styles.form}>
+      {notTeacherEmail && (
+        <View style={[styles.note, { backgroundColor: theme.backgroundElement }]}>
+          <ThemedText type="small">
+            You are signed in as {notTeacherEmail}, but that is not a teacher account here. Ask a teacher to add
+            this Gmail address on the Teachers page, or sign in another way.
+          </ThemedText>
+          <Button label="Use another account" variant="secondary" onPress={useAnotherAccount} />
+        </View>
+      )}
+      {GOOGLE_SIGN_IN && (
+        <>
+          <Button label={busy ? 'Opening Google…' : 'Sign in with Google'} disabled={busy} onPress={google} />
+          <ThemedText type="small" themeColor="textSecondary">
+            Or use your username and password:
+          </ThemedText>
+        </>
+      )}
       <TextInput
         value={username}
         onChangeText={setUsername}
@@ -68,7 +133,12 @@ export function TeacherSignIn({ onSignedIn }: { onSignedIn: () => void }) {
         onSubmitEditing={signIn}
         style={inputStyle}
       />
-      <Button label={busy ? 'Signing in…' : 'Sign in'} disabled={busy || !username.trim() || !password} onPress={signIn} />
+      <Button
+        label={busy ? 'Signing in…' : 'Sign in'}
+        variant={GOOGLE_SIGN_IN ? 'secondary' : 'primary'}
+        disabled={busy || !username.trim() || !password}
+        onPress={signIn}
+      />
       <ErrorNote message={error} align="left" />
     </View>
   );
@@ -104,7 +174,7 @@ export function TeacherOnly({ children }: { children: ReactNode }) {
         </ThemedText>
         <ThemedText type="subtitle">Teacher sign in</ThemedText>
         <ThemedText themeColor="textSecondary">
-          This page is for teachers. Sign in with your teacher username and password.
+          This page is for teachers. Sign in with Google, or with your teacher username and password.
         </ThemedText>
       </View>
       <TeacherSignIn onSignedIn={refresh} />
@@ -125,6 +195,11 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   form: {
+    gap: Spacing.two,
+  },
+  note: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
     gap: Spacing.two,
   },
   input: {

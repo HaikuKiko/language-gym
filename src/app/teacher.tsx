@@ -15,6 +15,7 @@ import {
   addTeacher,
   createFirstTeacher,
   listTeachers,
+  setMyGmail,
   signOutTeacher,
   teacherCount,
   type Teacher,
@@ -54,30 +55,46 @@ export default function TeacherRoute() {
         <ThemedText type="subtitle">{teacher ? `Hello, ${teacher.displayName}` : 'Teacher sign in'}</ThemedText>
         <ThemedText themeColor="textSecondary">
           {teacher
-            ? `Signed in as ${teacher.username}. Sign in with the same username and password on your other devices to see the same classes.`
-            : 'Sign in with your teacher username and password.'}
+            ? `Signed in as ${teacher.username}. Sign in the same way (Google, or username and password) on your other devices to see the same classes.`
+            : 'Sign in with Google, or with your teacher username and password.'}
         </ThemedText>
       </View>
 
       {teacher ? (
         <>
           <Button label="Class writing" onPress={() => router.push('/class-sets')} />
+          <GmailForm
+            gmail={teacher.gmail}
+            onSaved={async () => {
+              refresh();
+              setTeachers(await listTeachers());
+            }}
+          />
           <View style={styles.section}>
             <ThemedText type="smallBold">Teachers</ThemedText>
             {teachers.map((t) => (
               <ThemedText key={t.userId}>
-                {t.displayName} <ThemedText themeColor="textSecondary">({t.username})</ThemedText>
+                {t.displayName}{' '}
+                <ThemedText themeColor="textSecondary">
+                  ({t.username}
+                  {t.gmail ? ` · Google: ${t.gmail}` : ''})
+                </ThemedText>
               </ThemedText>
             ))}
           </View>
           <AccountForm
             title="Add a teacher"
-            note="Give them the username and password; they can sign in straight away. Each teacher sees only their own classes."
+            note="Type their Gmail address so they can use “Sign in with Google”, and/or give them a password to use with the username. Each teacher sees only their own classes."
             buttonLabel="Add the teacher"
-            onSave={async (username, name, password) => {
-              await addTeacher(username, name, password);
+            withGmail
+            onSave={async (username, name, password, gmail) => {
+              await addTeacher(username, name, password, gmail);
               setTeachers(await listTeachers());
-              return `${name} can now sign in as ${username.trim().toLowerCase()}.`;
+              const ways = [
+                gmail.trim() ? `with Google (${gmail.trim().toLowerCase()})` : '',
+                password ? `as ${username.trim().toLowerCase()} with the password` : '',
+              ].filter(Boolean);
+              return `${name} can now sign in ${ways.join(' or ')}.`;
             }}
           />
           <Button label="Sign out" variant="secondary" onPress={signOut} />
@@ -104,22 +121,85 @@ export default function TeacherRoute() {
   );
 }
 
-/** Username, name and password (twice), for a new teacher account. */
+/** The Gmail address this teacher uses for "Sign in with Google". */
+function GmailForm({ gmail, onSaved }: { gmail: string | null; onSaved: () => void }) {
+  const theme = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(gmail ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await setMyGmail(value);
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+    setBusy(false);
+  }
+
+  return (
+    <View style={[styles.box, { backgroundColor: theme.accentSoft }]}>
+      <ThemedText type="smallBold">Sign in with Google</ThemedText>
+      {!editing ? (
+        <>
+          <ThemedText type="small" themeColor="textSecondary">
+            {gmail
+              ? `You can sign in with Google as ${gmail}.`
+              : 'Add your Gmail address to sign in with Google instead of a password.'}
+          </ThemedText>
+          <Button
+            label={gmail ? 'Change Gmail address' : 'Add my Gmail address'}
+            variant="secondary"
+            onPress={() => setEditing(true)}
+          />
+        </>
+      ) : (
+        <>
+          <TextInput
+            value={value}
+            onChangeText={setValue}
+            placeholder="name@gmail.com"
+            placeholderTextColor={theme.textSecondary}
+            accessibilityLabel="Your Gmail address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            style={[styles.input, { color: theme.text, backgroundColor: theme.background }]}
+          />
+          <Button label={busy ? 'Saving…' : 'Save'} disabled={busy || !value.includes('@')} onPress={save} />
+          <Button label="Cancel" variant="secondary" onPress={() => setEditing(false)} />
+          <ErrorNote message={error} align="left" />
+        </>
+      )}
+    </View>
+  );
+}
+
+/** Username, name and password (twice), and maybe a Gmail address, for a new teacher account. */
 function AccountForm({
   title,
   note,
   buttonLabel,
+  withGmail = false,
   onSave,
 }: {
   title: string;
   note: string;
   buttonLabel: string;
+  /** Ask for a Gmail address too; then the password may be left empty. */
+  withGmail?: boolean;
   /** Returns a message to show after saving, or null. */
-  onSave: (username: string, name: string, password: string) => Promise<string | null>;
+  onSave: (username: string, name: string, password: string, gmail: string) => Promise<string | null>;
 }) {
   const theme = useTheme();
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
+  const [gmail, setGmail] = useState('');
   const [password, setPassword] = useState('');
   const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
@@ -138,9 +218,10 @@ function AccountForm({
     setError(null);
     setMessage(null);
     try {
-      setMessage(await onSave(username, name, password));
+      setMessage(await onSave(username, name, password, gmail));
       setUsername('');
       setName('');
+      setGmail('');
       setPassword('');
       setAgain('');
     } catch (e) {
@@ -173,10 +254,27 @@ function AccountForm({
         autoCorrect={false}
         style={inputStyle}
       />
+      {withGmail && (
+        <TextInput
+          value={gmail}
+          onChangeText={setGmail}
+          placeholder="Gmail address (for Sign in with Google)"
+          placeholderTextColor={theme.textSecondary}
+          accessibilityLabel="Their Gmail address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          style={inputStyle}
+        />
+      )}
       <TextInput
         value={password}
         onChangeText={setPassword}
-        placeholder={`Password (at least ${MIN_PASSWORD_LENGTH} characters)`}
+        placeholder={
+          withGmail
+            ? `Password (${MIN_PASSWORD_LENGTH}+ letters, or none)`
+            : `Password (at least ${MIN_PASSWORD_LENGTH} characters)`
+        }
         placeholderTextColor={theme.textSecondary}
         accessibilityLabel="New password"
         secureTextEntry
@@ -194,7 +292,14 @@ function AccountForm({
       <ErrorNote message={problem} align="left" />
       <Button
         label={busy ? 'Saving…' : buttonLabel}
-        disabled={busy || !name.trim() || !username.trim() || !password || password !== again || !!problem}
+        disabled={
+          busy ||
+          !name.trim() ||
+          !username.trim() ||
+          (!password && !(withGmail && gmail.includes('@'))) ||
+          password !== again ||
+          !!problem
+        }
         onPress={save}
       />
       {message && <ThemedText type="small">{message}</ThemedText>}
