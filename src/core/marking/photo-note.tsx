@@ -3,7 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import type { PhotoReading } from '@/lib/writing';
+import { GuessedWordsList } from '@/core/marking/guessed';
+import type { PhotoReading } from '@/core/marking/photo-reading';
 
 /**
  * Shown after reading a photo of handwriting: check the text, and which hard
@@ -23,17 +24,7 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
       </ThemedText>
       {guessed.length > 0 ? (
         <ThemedText type="small">
-          <ThemedText type="smallBold">
-            {guessed.length === 1 ? 'We guessed this word: ' : `We guessed these ${guessed.length} words: `}
-          </ThemedText>
-          {guessed.map((w, i) => (
-            <ThemedText key={i} type="small">
-              {i > 0 ? ', ' : ''}
-              <ThemedText type="small" style={[styles.guess, { backgroundColor: theme.guessBg }]}>
-                {`\u202F${w}\u202F`}
-              </ThemedText>
-            </ThemedText>
-          ))}
+          <GuessedWordsList words={guessed} bold padded />
           {'. They are highlighted in pink below.'}
         </ThemedText>
       ) : null}
@@ -53,9 +44,6 @@ export function PhotoNote({ photo }: { photo: PhotoReading }) {
 }
 
 const styles = StyleSheet.create({
-  guess: {
-    borderRadius: 3,
-  },
   note: {
     padding: Spacing.three,
     borderRadius: Spacing.three,

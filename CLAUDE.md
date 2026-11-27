@@ -127,9 +127,15 @@ Things agreed for later: `BACKLOG.md`.
   `events.ts` (`session_events`), `use-live-session.ts` (live updates + re-reading, reconnect), `backend.tsx` (Supabase
   or demo; apps add their own actions), `use-host-actions.ts` (save/remove/error), `lobby.tsx` (`StudentRoster`,
   `LobbyButtons`, `StudentLobby`), `leave.ts`, `join-code-hero`, `join-qr-code`, **`late-join-qr.tsx` (put
-  `LateJoinQr` on every teacher screen while an activity runs)**, `live-timer`. `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
+  `LateJoinQr` on every teacher screen while an activity runs)**, `live-timer`. `marking/` (Marking kit, every writing tool): `marks.ts` (corrections on the student's text, line by line,
+  guessed words: `guessParts`, `withoutGuessCorrections`), **`guessed.tsx` (`Guessed`, `GuessedText`, `GuessedWordsList`:
+  the pink guessed words everywhere; change the look only here)**, `photo-reading.ts` (`readPhoto`, `writingProblem`),
+  `feedback-parts.tsx` (marked writing, line view, corrections, `WritingWithCorrections`, `BulletSection`, `usageText`),
+  `marked-text-input`, `photo-note`, `photo-pages`, `writing-box`, `use-writing-draft`, `report-html.ts` (PDF building
+  blocks + CSS, guessed words pink), `report-pdf.ts`, `share-report-button.tsx`. `app/share.ts` (share menu / copy /
+  email link). `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`, `place-map.tsx` Leaflet
   + OpenStreetMap from cdnjs, web only). `classes/safety-rules.ts`.
-- **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
+- **General English writing:** `write.tsx`, `src/lib/writing.ts` (General English feedback request; photo reading is in `core/marking`),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
 - **Class writing** (teachers): `class-sets/` (writing marked from a scan), `classes/[id]` (a class:
@@ -180,11 +186,11 @@ Things agreed for later: `BACKLOG.md`.
   `calibration.tsx`, `src/lib/ielts.ts`, `calibration.ts`, `components/ielts-feedback.tsx`,
   `calibration-card.tsx`. "Share results": `share-calibration-card.tsx`, `src/lib/shared-essay.ts`,
   `calibrate/[code].tsx` (the AI's full feedback + everyone's marks so far; others add theirs).
-- **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem`: change those, not
-  each screen.
+- **Writing screens share** `useWritingDraft` + `WritingBox` + `writingProblem` (all in `src/core/marking/`): change
+  those, not each screen.
 - **Accounts:** `account.tsx`, `src/core/app/account.ts` (student code + PIN, self-enrol on IELTS).
-- **Sharing:** `share-report-button.tsx`, `src/lib/share-report.ts` (text),
-  `report-html.ts` + `report-pdf.ts` (PDF that looks like the screen, print).
+- **Sharing:** `core/marking/share-report-button.tsx`, `src/lib/share-report.ts` (the text reports),
+  `src/lib/report-html.ts` (GE + IELTS reports from the core blocks) + `core/marking/report-pdf.ts` (PDF, print).
 
 ## Database (Supabase project `pzvjttzapbzoozpxndbd`)
 

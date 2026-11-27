@@ -6,13 +6,14 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from
 import { BusyOverlay } from '@/core/ui/busy-overlay';
 import { Button } from '@/core/ui/button';
 import { ConfirmButton } from '@/core/ui/confirm-button';
+import { GuessedWordsList } from '@/core/marking/guessed';
 import { Chip } from '@/core/ui/chip';
 import { Pill } from '@/core/ui/pill';
 import { Screen } from '@/core/ui/screen';
 import { TeacherOnly } from '@/core/app/teacher-only';
 import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
-import { MarkedTextInput } from '@/components/marked-text-input';
+import { MarkedTextInput } from '@/core/marking/marked-text-input';
 import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/core/ui/theme';
@@ -46,7 +47,7 @@ import {
   type ClassSetPage,
 } from '@/lib/class-sets';
 import { errorMessage } from '@/core/app/supabase';
-import { guessAnchorsFrom } from '@/lib/writing';
+import { guessAnchorsFrom } from '@/core/marking/marks';
 
 // ===========================================================================
 // Settings
@@ -339,15 +340,7 @@ function ReadingCheck({
           <ThemedText type="smallBold">Check the text against the paper. </ThemedText>
           {guessed.length > 0 ? (
             <>
-              {guessed.length === 1 ? 'We guessed this word: ' : `We guessed these ${guessed.length} words: `}
-              {guessed.map((w, i) => (
-                <ThemedText key={i} type="small">
-                  {i > 0 ? ', ' : ''}
-                  <ThemedText type="small" style={{ backgroundColor: theme.guessBg }}>
-                    {w}
-                  </ThemedText>
-                </ThemedText>
-              ))}
+              <GuessedWordsList words={guessed} />
               {'. '}
             </>
           ) : (

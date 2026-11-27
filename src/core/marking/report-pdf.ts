@@ -4,7 +4,7 @@
  * so the PDF looks just like the screen; a block that doesn't fit on the
  * page starts on the next one. The PDF libraries load only when needed.
  */
-import { REPORT_CSS, reportPage } from '@/lib/report-html';
+import { REPORT_CSS, reportPage } from '@/core/marking/report-html';
 
 const PAGE_W = 210; // mm, A4
 const PAGE_H = 297;

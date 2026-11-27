@@ -9,7 +9,7 @@ import { Chip } from '@/core/ui/chip';
 import { Screen } from '@/core/ui/screen';
 import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
-import { WritingBox } from '@/components/writing-box';
+import { WritingBox } from '@/core/marking/writing-box';
 import { WritingFeedbackView } from '@/components/writing-feedback';
 import { Spacing } from '@/core/ui/theme';
 import { LEVELS, type Level } from '@/core/content/levels';
@@ -17,15 +17,10 @@ import { WEEKS_PER_LEVEL, findWeek } from '@/data/weeks';
 import { useWeeks } from '@/hooks/use-questions';
 import { useSavedState } from '@/core/app/use-saved-state';
 import { useTheme } from '@/core/ui/use-theme';
-import { useWritingDraft } from '@/hooks/use-writing-draft';
+import { useWritingDraft } from '@/core/marking/use-writing-draft';
 import { errorMessage, supabase } from '@/core/app/supabase';
-import {
-  MAX_WORDS,
-  MIN_WORDS,
-  requestFeedback,
-  writingProblem,
-  type WritingResponse,
-} from '@/lib/writing';
+import { writingProblem } from '@/core/marking/photo-reading';
+import { MAX_WORDS, MIN_WORDS, requestFeedback, type WritingResponse } from '@/lib/writing';
 
 
 

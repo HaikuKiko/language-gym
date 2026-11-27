@@ -8,7 +8,7 @@ import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
 import type { IeltsFeedback } from '@/lib/ielts';
 import type { PreparedPhoto } from '@/core/media/photo';
-import { shareReport } from '@/lib/share-report';
+import { shareReport } from '@/core/app/share';
 import { calibrateUrl, shareEssay } from '@/lib/shared-essay';
 import { errorMessage } from '@/core/app/supabase';
 

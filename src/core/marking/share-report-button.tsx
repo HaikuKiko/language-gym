@@ -6,7 +6,7 @@ import { Button } from '@/core/ui/button';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { emailLink, shareReport } from '@/lib/share-report';
+import { emailLink, shareReport } from '@/core/app/share';
 
 type Status = 'idle' | 'copied' | 'failed' | 'saved' | 'needs-tap' | 'pdf-failed' | 'print-failed';
 
@@ -42,7 +42,7 @@ export function ShareReportButton({
   }
 
   async function sendPdf(pdf: Blob, filename: string) {
-    const { shareOrSavePdf } = await import('@/lib/report-pdf');
+    const { shareOrSavePdf } = await import('@/core/marking/report-pdf');
     const outcome = await shareOrSavePdf(pdf, filename, title);
     if (outcome === 'needs-tap') {
       ready.current = { pdf, filename };
@@ -58,7 +58,7 @@ export function ShareReportButton({
     setStatus('idle');
     setMaking(true);
     try {
-      const { makeReportPdf, reportFilename } = await import('@/lib/report-pdf');
+      const { makeReportPdf, reportFilename } = await import('@/core/marking/report-pdf');
       const pdf = await makeReportPdf(html());
       setMaking(false);
       await sendPdf(pdf, reportFilename(pdfName));
@@ -72,7 +72,7 @@ export function ShareReportButton({
   async function print() {
     if (!html) return;
     setStatus('idle');
-    const { printReport } = await import('@/lib/report-pdf');
+    const { printReport } = await import('@/core/marking/report-pdf');
     if (!printReport(title, html())) setStatus('print-failed');
   }
 

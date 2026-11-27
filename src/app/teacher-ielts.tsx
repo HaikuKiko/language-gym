@@ -11,11 +11,11 @@ import { IeltsFeedbackView } from '@/components/ielts-feedback';
 import { Screen } from '@/core/ui/screen';
 import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
-import { WritingBox } from '@/components/writing-box';
+import { WritingBox } from '@/core/marking/writing-box';
 import { Spacing } from '@/core/ui/theme';
 import { useSavedState } from '@/core/app/use-saved-state';
 import { useTheme } from '@/core/ui/use-theme';
-import { useWritingDraft } from '@/hooks/use-writing-draft';
+import { useWritingDraft } from '@/core/marking/use-writing-draft';
 import { aiMarking, linkCalibration } from '@/lib/calibration';
 import {
   IELTS_HARD_MIN_WORDS,
@@ -26,14 +26,8 @@ import {
 } from '@/lib/ielts';
 import { pickPhoto } from '@/core/media/photo';
 import { errorMessage, supabase } from '@/core/app/supabase';
-import {
-  guessesStillIn,
-  joinLines,
-  readPhoto,
-  writingProblem,
-  writtenLines,
-  type PhotoReading,
-} from '@/lib/writing';
+import { guessesStillIn, joinLines, writtenLines } from '@/core/marking/marks';
+import { readPhoto, writingProblem, type PhotoReading } from '@/core/marking/photo-reading';
 
 /**
  * Teachers mark any IELTS Writing Task 2 essay: type or paste the question
