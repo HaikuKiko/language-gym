@@ -99,7 +99,7 @@ Things agreed for later: `BACKLOG.md`.
   `src/lib/word-game-results.ts` (point values as constants at the top) works out points and awards (Points,
   Fastest guessers, Best explainers/describers, Strong pairs (Explain It: explainer + guesser), No hints needed; teacher also sees Hardest
   words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
-  reopens past games (`fetchMyPastGames`). Planned next: part 2 typing the answer + team names; part 3
+  reopens past games (`fetchMyPastGames`). **Part 2** (27 Nov): setup "How guessers answer": say it, or type it (flag `typing`; `GuessBox` on the guesser's phone, `checkGuess` with `NEAR_MISS_*` → "Almost!"; wrong tries logged as `guess_wrong`; awards add Best spellers, teacher sees Hard to spell). **Team names**: anyone in a group can set it (event `team_name`, newest wins, host can clear it; `useTeamNames` polls). Planned next: part 3
   rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:

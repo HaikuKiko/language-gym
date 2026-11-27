@@ -32,6 +32,7 @@ export default function WordGameSetupRoute() {
   const [level, setLevel] = useState<Level>('B1');
   const [groupSize, setGroupSize] = useState<number>(WORD_GAMES[kind].defaultGroupSize);
   const [minutes, setMinutes] = useState<number>(DEFAULT_GAME_MINUTES);
+  const [typing, setTyping] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const game = WORD_GAMES[kind];
@@ -56,7 +57,7 @@ export default function WordGameSetupRoute() {
           roundRobin: false,
           autoAdvance: true,
         },
-        wordGameFlags(kind, groupSize),
+        wordGameFlags(kind, groupSize, typing),
       );
       router.replace({
         pathname: '/session/[code]',
@@ -123,6 +124,19 @@ export default function WordGameSetupRoute() {
       </View>
 
       <View style={styles.section}>
+        <ThemedText type="smallBold">How guessers answer</ThemedText>
+        <View style={styles.chips}>
+          <Chip label="🗣️ Say it" selected={!typing} onPress={() => setTyping(false)} />
+          <Chip label="⌨️ Type it (spelling counts)" selected={typing} onPress={() => setTyping(true)} />
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          {typing
+            ? 'Guessers type the word on their phone. The phone checks it, says "Almost!" for a small spelling mistake, and moves on when it is right.'
+            : 'Guessers say the word, and the group taps "Got it".'}
+        </ThemedText>
+      </View>
+
+      <View style={styles.section}>
         <Button label={busy ? 'Creating…' : 'Create game'} disabled={busy} onPress={create} />
         {error && (
           <ThemedText type="small" themeColor="warning" style={styles.centered}>
@@ -136,7 +150,7 @@ export default function WordGameSetupRoute() {
             router.push({
               pathname: '/demo',
               // The demo always has two groups of 3 pretend students.
-              params: { game: kind, level, minutes: String(DEMO_MINUTES) },
+              params: { game: kind, level, minutes: String(DEMO_MINUTES), typing: typing ? '1' : '0' },
             })
           }
         />

@@ -13,6 +13,7 @@ import { ThemedView } from '@/components/themed-view';
 import { GameClock, WordCardView } from '@/components/word-card-view';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
+import { useTeamNames } from '@/hooks/use-team-names';
 import { useTheme } from '@/hooks/use-theme';
 import {
   endSession,
@@ -27,6 +28,9 @@ import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
 import {
   EXTRA_TIME_MS,
+  TEAM_NAME,
+  isTyping,
+  type TeamNameData,
   GAME_STARTED,
   WORD_GAMES,
   addLateJoiners,
@@ -61,6 +65,15 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
     } catch (e) {
       setError(errorMessage(e));
     }
+  }
+
+  const { names: teams, reload: reloadTeams } = useTeamNames(session);
+
+  /** The teacher removes a team name (e.g. a rude one). */
+  async function clearTeamName(group: number) {
+    const data: TeamNameData = { round: 0, group, name: '' };
+    await backend.logEvent(session.id, null, TEAM_NAME, data).catch((e) => setError(errorMessage(e)));
+    await reloadTeams();
   }
 
   async function start() {
@@ -178,16 +191,13 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
           <Pill label={`Level ${session.level}`} />
           <Pill label={`Groups of about ${size}`} />
           <Pill label={`${session.round_minutes} min game`} />
+          <Pill label={isTyping(session) ? 'Guessers type the word' : 'Guessers say the word'} />
         </View>
         <ThemedText type="small" themeColor="textSecondary">
           {game.summary}
         </ThemedText>
         <View style={styles.section}>
-          <Button
-            label="Start the game"
-            disabled={participants.length < 2}
-            onPress={start}
-          />
+          <Button label="Start the game" disabled={participants.length < 2} onPress={start} />
           {participants.length < 2 && (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
               At least two students need to join before you can start.
@@ -226,13 +236,22 @@ export function WordGameHostScreen({ kind, session, participants, onSession, onP
         {progress.map((g) => (
           <ThemedView key={g.index} type="backgroundElement" style={[styles.card, styles.group]}>
             <View style={styles.rowBetween}>
-              <ThemedText type="smallBold">Group {g.index + 1}</ThemedText>
+              <ThemedText type="smallBold">
+                {g.index + 1}. {teams.get(`0:${g.index}`) ?? 'No team name yet'}
+              </ThemedText>
               <Pill label={`${g.score} ${g.score === 1 ? 'word' : 'words'}`} tone="accent" />
             </View>
             <ThemedText type="small" themeColor="textSecondary">
               {g.members.map((m) => (m.id === g.player?.id ? `${m.name} (${role.toLowerCase()})` : m.name)).join(' · ')}
             </ThemedText>
             {g.word && <WordCardView card={g.word} compact />}
+            {teams.has(`0:${g.index}`) && (
+              <Pressable accessibilityRole="button" onPress={() => clearTeamName(g.index)}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  ✕ Clear the team name
+                </ThemedText>
+              </Pressable>
+            )}
           </ThemedView>
         ))}
       </View>
