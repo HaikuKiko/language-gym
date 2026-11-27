@@ -8,6 +8,7 @@
  * question (mostly right).
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import type { LiveParticipant, LiveSession } from '@/core/live/session';
@@ -128,6 +129,17 @@ export function usePretendStudents(
       setBusy(false);
     }
   }
+
+  // Opened from the demo's "Join with your own phone" (?pretend=N): add them once, straight away.
+  const { pretend: fromLink } = useLocalSearchParams<{ pretend?: string }>();
+  const autoAdded = useRef(false);
+  useEffect(() => {
+    const n = Number(fromLink);
+    if (autoAdded.current || !(n > 0) || session.status !== 'lobby') return;
+    autoAdded.current = true;
+    add(Math.min(n, Math.max(...PRETEND_STUDENT_CHOICES)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromLink, session.status]);
 
   // Taps that are waiting: what they are for, and when they are due.
   const pending = useRef(new Map<string, number>());

@@ -79,6 +79,8 @@ Things agreed for later: `BACKLOG.md`.
   `src/lib/session-backend.tsx`, built on `core/live/backend.tsx`, swaps Supabase for local state; the host and student screens use
   `useSessionBackend()` for every change). 2 or 3 pretend students (chips in the banner, param `students`) join, find each other
   and tap; teacher screen + phones side by side (tabs when narrow). Never saved.
+  "📱 Join with your own phone" in the banner starts a real session with the same settings and opens its
+  teacher page (QR code) with `?pretend=N` (one fewer pretend student, so the owner's phone takes a place).
   **Pretend students in a real session** (`src/lib/pretend-students.ts`, `components/pretend-students-panel.tsx`,
   in the lobby of Talk Rounds and word games): "Add pretend students: 1, 2, 3" adds made-up "Name (pretend)"
   students, each its own anonymous guest run from the teacher's page, so the owner can test with their own
