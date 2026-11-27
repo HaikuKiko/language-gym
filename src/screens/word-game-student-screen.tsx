@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { remainingMs, type LiveParticipant, type LiveSession } from '@/lib/live-session';
 import { useSessionBackend } from '@/lib/session-backend';
 import { errorMessage } from '@/lib/supabase';
-import { WORD_GAMES, groupOf, groupProgress, recordCard, type WordGameKind } from '@/lib/word-game';
+import { WORD_GAMES, groupOf, groupProgress, type WordGameKind } from '@/lib/word-game';
 import { Results } from '@/screens/word-game-host-screen';
 
 type Props = {
@@ -44,7 +44,7 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
     setError(null);
     (guessed ? setMyGot : setMySkipped)((list) => [...list, card]);
     try {
-      await recordCard(meNow, card, guessed);
+      await backend.recordCard(meNow, card, guessed);
     } catch (e) {
       (guessed ? setMyGot : setMySkipped)((list) => list.filter((n) => n !== card));
       setError(errorMessage(e));
@@ -53,7 +53,11 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
 
   async function leave() {
     await backend.removeParticipant(me.id).catch(() => {});
-    router.replace({ pathname: '/join/[code]', params: { code: session.code } });
+    if (backend.demo) return;
+    router.replace({
+      pathname: '/join/[code]',
+      params: { code: session.code },
+    });
   }
 
   if (session.status === 'finished') {
@@ -101,7 +105,9 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
       <Screen>
         <View style={styles.message}>
           <ThemedText type="subtitle">Joining a group…</ThemedText>
-          <ThemedText themeColor="textSecondary">The game has started. You&apos;ll be put in a group in a moment.</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            The game has started. You&apos;ll be put in a group in a moment.
+          </ThemedText>
         </View>
       </Screen>
     );
@@ -141,7 +147,9 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
       {over ? (
         <View style={styles.message}>
           <ThemedText type="subtitle">Time&apos;s up!</ThemedText>
-          <ThemedText themeColor="textSecondary">Your group guessed {group.score} {group.score === 1 ? 'word' : 'words'}.</ThemedText>
+          <ThemedText themeColor="textSecondary">
+            Your group guessed {group.score} {group.score === 1 ? 'word' : 'words'}.
+          </ThemedText>
         </View>
       ) : seesWord && group.word ? (
         <>
@@ -150,7 +158,13 @@ export function WordGameStudentScreen({ kind, session, participants, me }: Props
           </ThemedText>
           <WordCardView card={group.word} />
           <View style={styles.buttons}>
-            <Button label="Skip" variant="secondary" disabled={!canTap} onPress={() => tap(group.card, false)} style={styles.button} />
+            <Button
+              label="Skip"
+              variant="secondary"
+              disabled={!canTap}
+              onPress={() => tap(group.card, false)}
+              style={styles.button}
+            />
             <Button
               label={myTurn ? 'Got it ✓' : `${playerName} got it ✓`}
               disabled={!canTap}

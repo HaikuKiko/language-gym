@@ -12,6 +12,9 @@ import { sessionFlags, type LiveParticipant, type LiveSession } from '@/lib/live
 import { groupsForRound } from '@/lib/round-robin';
 import { SessionBackendProvider, type SessionBackend } from '@/lib/session-backend';
 import { DEFAULT_ROUND_SETTINGS } from '@/lib/session';
+import { WORD_GAMES, groupProgress, isWordGameKind, wordGameFlags, wordGameKind } from '@/lib/word-game';
+import { WordGameHostScreen } from '@/screens/word-game-host-screen';
+import { WordGameStudentScreen } from '@/screens/word-game-student-screen';
 import { LiveHostScreen } from '@/screens/live-host-screen';
 import { LiveStudentScreen } from '@/screens/live-student-screen';
 
@@ -28,18 +31,39 @@ const FIND_MIN_MS = 2500;
 const FIND_MAX_MS = 7000;
 /** Minutes per round when the demo is opened without settings (e.g. from the landing page). */
 const DEMO_ROUND_MINUTES = 1;
+/** Word games: the pretend students (6, so there are two groups of 3). */
+const GAME_DEMO_NAMES = ['Ana', 'Ben', 'Chen', 'Dara', 'Eli', 'Fay'];
+/** Word games: group size and game length when the demo is opened without settings. */
+const GAME_DEMO_GROUP_SIZE = 3;
+const GAME_DEMO_MINUTES = 2;
+/** Word games: a pretend group gets its word between these times after it appears. */
+const GUESS_MIN_MS = 4000;
+const GUESS_MAX_MS = 9000;
+/** Word games: how often a pretend group skips a word instead of guessing it. */
+const SKIP_CHANCE = 0.2;
 /** Screens at least this wide show the teacher screen and the phones side by side. */
 const SIDE_BY_SIDE_WIDTH = 1000;
 
 // ===========================================================================
 
-type DemoParams = { level?: string; week?: string; custom?: string; turns?: string; minutes?: string };
+type DemoParams = {
+  level?: string;
+  week?: string;
+  custom?: string;
+  turns?: string;
+  minutes?: string;
+  /** A word game (hot-seat or explain-it) instead of speed friending. */
+  game?: string;
+  /** Word games: the group size. */
+  size?: string;
+};
 
 /** A session kept only on this device: never saved, so it never mixes with real ones. */
 function demoSession(params: DemoParams): LiveSession {
   const level: Level = LEVELS.includes(params.level as Level) ? (params.level as Level) : DEFAULT_ROUND_SETTINGS.level;
   const week = params.week ? Number(params.week) : null;
-  const minutes = Number(params.minutes) || DEMO_ROUND_MINUTES;
+  const game = isWordGameKind(params.game) ? params.game : null;
+  const minutes = Number(params.minutes) || (game ? GAME_DEMO_MINUTES : DEMO_ROUND_MINUTES);
   return {
     id: 'demo',
     code: '000000',
@@ -56,17 +80,19 @@ function demoSession(params: DemoParams): LiveSession {
     remaining_ms: null,
     roster: [],
     seed: Math.floor(Math.random() * 2 ** 31),
-    categories: sessionFlags({
-      ...DEFAULT_ROUND_SETTINGS,
-      level,
-      week,
-      roundMinutes: minutes,
-      roundRobin: true,
-      autoAdvance: true,
-      mode: 'friending',
-      customSetId: params.custom || null,
-      takeTurns: params.turns !== '0',
-    }),
+    categories: game
+      ? wordGameFlags(game, Number(params.size) || GAME_DEMO_GROUP_SIZE)
+      : sessionFlags({
+          ...DEFAULT_ROUND_SETTINGS,
+          level,
+          week,
+          roundMinutes: minutes,
+          roundRobin: true,
+          autoAdvance: true,
+          mode: 'friending',
+          customSetId: params.custom || null,
+          takeTurns: params.turns !== '0',
+        }),
     created_at: new Date().toISOString(),
     found_ids: [],
   } as LiveSession;
@@ -83,6 +109,10 @@ export default function DemoRoute() {
   const { width } = useWindowDimensions();
   const [session, setSession] = useState<LiveSession>(() => demoSession(params));
   const [participants, setParticipants] = useState<LiveParticipant[]>([]);
+  const game = wordGameKind(session);
+  const names = game ? GAME_DEMO_NAMES : DEMO_NAMES;
+  const participantsRef = useRef(participants);
+  participantsRef.current = participants;
   const [tab, setTab] = useState<string>('teacher');
   const sessionRef = useRef(session);
   sessionRef.current = session;
@@ -101,33 +131,44 @@ export default function DemoRoute() {
       removeParticipant: async (id) => setParticipants((list) => list.filter((p) => p.id !== id)),
       markFound: async (id, round) =>
         setParticipants((list) => list.map((p) => (p.id === id ? { ...p, found_round: round } : p))),
+      recordCard: async (me, card, guessed) => {
+        const column = guessed ? 'got_cards' : 'skipped_cards';
+        const next = participantsRef.current.map((p) =>
+          p.id === me.id && !(p[column] ?? []).includes(card) ? { ...p, [column]: [...(p[column] ?? []), card] } : p,
+        );
+        participantsRef.current = next;
+        setParticipants(next);
+      },
     }),
     [],
   );
 
   // The pretend students join one after another.
   useEffect(() => {
-    const timers = DEMO_NAMES.map((name, i) =>
-      setTimeout(() => {
-        setParticipants((list) =>
-          list.some((p) => p.name === name)
-            ? list
-            : [
-                ...list,
-                {
-                  id: `demo-${i}`,
-                  session_id: 'demo',
-                  user_id: `demo-user-${i}`,
-                  name,
-                  joined_at: new Date().toISOString(),
-                  found_round: null,
-                },
-              ],
-        );
-      }, (i + 1) * JOIN_EVERY_MS),
+    const timers = names.map((name, i) =>
+      setTimeout(
+        () => {
+          setParticipants((list) =>
+            list.some((p) => p.name === name)
+              ? list
+              : [
+                  ...list,
+                  {
+                    id: `demo-${i}`,
+                    session_id: 'demo',
+                    user_id: `demo-user-${i}`,
+                    name,
+                    joined_at: new Date().toISOString(),
+                    found_round: null,
+                  },
+                ],
+          );
+        },
+        (i + 1) * JOIN_EVERY_MS,
+      ),
     );
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [names]);
 
   // Each round, every pretend pair finds each other after a few seconds.
   useEffect(() => {
@@ -144,7 +185,48 @@ export default function DemoRoute() {
     return () => timers.forEach(clearTimeout);
   }, [session.status, session.stage, session.round, session.roster, backend]);
 
-  const host = (
+  // Word games: each pretend group guesses (or skips) its word a few seconds after it appears.
+  // A clock checks every half second, so one group's tap never delays another's.
+  const clockRunning = session.ends_at !== null;
+  const pendingTaps = useRef(new Map<number, { card: number; due: number }>());
+  useEffect(() => {
+    if (!game || session.status !== 'playing' || !clockRunning) return;
+    const pending = pendingTaps.current;
+    const tick = setInterval(() => {
+      const now = Date.now();
+      for (const group of groupProgress(sessionRef.current, participantsRef.current)) {
+        const due = pending.get(group.index);
+        if (!due || due.card !== group.card) {
+          pending.set(group.index, {
+            card: group.card,
+            due: now + GUESS_MIN_MS + Math.random() * (GUESS_MAX_MS - GUESS_MIN_MS),
+          });
+          continue;
+        }
+        if (now < due.due || !group.player) continue;
+        pending.set(group.index, { card: group.card, due: Infinity });
+        // Hot Seat: someone describing taps. Explain It: the explainer taps.
+        const tapperId =
+          game === 'hot-seat' ? group.members.find((m) => m.id !== group.player?.id)?.id : group.player.id;
+        const tapper = participantsRef.current.find((p) => p.id === tapperId);
+        if (tapper) backend.recordCard(tapper, group.card, Math.random() >= SKIP_CHANCE);
+      }
+    }, 500);
+    return () => {
+      clearInterval(tick);
+      pending.clear();
+    };
+  }, [game, session.status, clockRunning, backend]);
+
+  const host = game ? (
+    <WordGameHostScreen
+      kind={game}
+      session={session}
+      participants={participants}
+      onSession={setSession}
+      onParticipants={setParticipants}
+    />
+  ) : (
     <LiveHostScreen
       session={session}
       participants={participants}
@@ -155,7 +237,11 @@ export default function DemoRoute() {
   const phone = (name: string) => {
     const me = participants.find((p) => p.name === name);
     return me ? (
-      <LiveStudentScreen session={session} participants={participants} me={me} />
+      game ? (
+        <WordGameStudentScreen kind={game} session={session} participants={participants} me={me} />
+      ) : (
+        <LiveStudentScreen session={session} participants={participants} me={me} />
+      )
     ) : (
       <View style={styles.joining}>
         <ThemedText themeColor="textSecondary">{name} is joining…</ThemedText>
@@ -169,8 +255,9 @@ export default function DemoRoute() {
       <ThemedView style={styles.page}>
         <View style={[styles.banner, { backgroundColor: theme.noticeBg }]}>
           <Text style={styles.bannerText}>
-            Demo with {DEMO_NAMES.length} pretend students. They join, find each other and tap by themselves; you
-            can tap for them too. Nothing is saved.
+            {game
+              ? `${WORD_GAMES[game].name} demo with ${names.length} pretend students. They join, and their groups guess words by themselves; you can tap for them too. Nothing is saved.`
+              : `Demo with ${names.length} pretend students. They join, find each other and tap by themselves; you can tap for them too. Nothing is saved.`}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -187,7 +274,7 @@ export default function DemoRoute() {
             </View>
             {/* The phones scroll (on an iPad in landscape only two fit). */}
             <ScrollView style={styles.fill} contentContainerStyle={styles.phones}>
-              {DEMO_NAMES.map((name) => (
+              {names.map((name) => (
                 <View key={name} style={styles.phoneWrap}>
                   <Text style={[styles.label, { color: theme.textSecondary }]}>{name.toUpperCase()}&apos;S PHONE</Text>
                   <View style={[styles.phone, { backgroundColor: theme.background }]}>{phone(name)}</View>
@@ -199,7 +286,7 @@ export default function DemoRoute() {
           <>
             <View style={styles.tabs}>
               <Chip label="Teacher" selected={tab === 'teacher'} onPress={() => setTab('teacher')} />
-              {DEMO_NAMES.map((name) => (
+              {names.map((name) => (
                 <Chip key={name} label={name} selected={tab === name} onPress={() => setTab(name)} />
               ))}
             </View>

@@ -34,7 +34,7 @@ export function JoinCodeHero({ code, demo = false }: { code: string; demo?: bool
         ) : (
           <Text style={[styles.heroBody, { color: theme.onHeroMuted }]}>
             {demo
-              ? 'In the demo, pretend students join by themselves. Press "Start session" when you are ready.'
+              ? 'In the demo, pretend students join by themselves. Press Start when you are ready.'
               : 'Students open the app and enter this code.'}
           </Text>
         )}
