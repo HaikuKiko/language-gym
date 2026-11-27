@@ -101,6 +101,20 @@ Things agreed for later: `BACKLOG.md`.
   words, Groups, Everyone); `components/game-awards.tsx` shows them at the end; dashboard "Word game results"
   reopens past games (`fetchMyPastGames`). **Part 2** (27 Nov): setup "How guessers answer": say it, or type it (flag `typing`; `GuessBox` on the guesser's phone, `checkGuess` with `NEAR_MISS_*` → "Almost!"; wrong tries logged as `guess_wrong`; awards add Best spellers, teacher sees Hard to spell). **Team names**: anyone in a group can set it (event `team_name`, newest wins, host can clear it; `useTeamNames` polls). Planned next: part 3
   rotating groups + saved student names (initial, autocomplete, kept 60 days after last use).
+- **GPS tours** (27 Nov 2026, design: Claude Doc "GPS tours: plan"; demo only so far, dashboard "🗺️ GPS tours" →
+  `/tour-demo`): a teacher's route of stops; groups choose where to go (`aim` = how many), and a stop's tasks open only
+  within its radius (or with its code word). Group work → slideshow. `src/lib/tours.ts` (types, `stopAccess`,
+  `tourSlides`), `src/data/tour-routes.ts` (Brighton trial route: The Level, St Peter's, North Laine, Pavilion
+  Gardens, Old Steine, beach; places approximate), `screens/tour-group-screen.tsx`, `tour-teacher-screen.tsx`,
+  `app/tour-demo.tsx` (pretend walk by tapping the map, or real GPS; pretend groups; nothing saved).
+  **Under-18 rules (agreed with the owner)** live only in `src/core/classes/safety-rules.ts`: default under 18; anyone
+  under 18 → whole group; under-18 groups share their newest place with the adults (no trail, deleted at the end) and
+  must stay within `MAX_FROM_ADULT_M` (100 m) of a supervising adult (any number of teachers + helper adults, never
+  adult students); stops and talk-to-a-person tasks open only with an adult near; they may talk to adults only,
+  voice only unless the teacher allows video. Next: live runs (tables, join, live places), route builder, recording.
+- **Core (`src/core/`)**: shared kits (plan: `shared-code-plan.md` in project files). So far: `app/load-script.ts`
+  (cdnjs loader; pdf.js uses it), `place/` (Place kit: `geo.ts` distances/warmth/unlock, `use-position.ts`,
+  `place-map.tsx` Leaflet + OpenStreetMap from cdnjs, web only), `media/slideshow.tsx`, `classes/safety-rules.ts`.
 - **General English writing:** `write.tsx`, `src/lib/writing.ts` (also photo reading),
   `components/writing-feedback.tsx` (the feedback view). Four areas, as on the school's sheets:
   **Content, Organisation, Grammar, Vocabulary** (IELTS keeps its own four criteria).
