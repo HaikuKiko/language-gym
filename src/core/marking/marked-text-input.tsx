@@ -3,7 +3,7 @@ import { Platform, StyleSheet, Text, TextInput, View, type TextInputProps } from
 
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { markParts, type MistakeAnchor } from '@/lib/writing';
+import { markParts, type MistakeAnchor } from '@/core/marking/marks';
 
 type MarkedTextInputProps = Omit<TextInputProps, 'style' | 'multiline'> & {
   value: string;

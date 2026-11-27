@@ -5,7 +5,8 @@ import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
-import { guessAnchorsFrom, type MarkedText } from '@/lib/writing';
+import { Guessed, GuessedText } from '@/core/marking/guessed';
+import { guessAnchorsFrom, type MarkedText } from '@/core/marking/marks';
 
 /** Pieces shared by the General English and IELTS feedback screens. */
 
@@ -27,24 +28,6 @@ export function Bullet({ text }: { text: string }) {
   );
 }
 
-/** Splits text so that words guessed from a photo can be highlighted. */
-function guessParts(text: string, guessed: string[]): { text: string; guess: boolean }[] {
-  const words = guessed.map((w) => w.trim()).filter(Boolean);
-  if (words.length === 0) return [{ text, guess: false }];
-  const escaped = words.sort((a, b) => b.length - a.length).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const re = new RegExp(`(?<![\\p{L}\\p{N}])(${escaped.join('|')})(?![\\p{L}\\p{N}])`, 'gu');
-  const parts: { text: string; guess: boolean }[] = [];
-  let cursor = 0;
-  for (const match of text.matchAll(re)) {
-    const start = match.index ?? 0;
-    if (start > cursor) parts.push({ text: text.slice(cursor, start), guess: false });
-    parts.push({ text: match[0], guess: true });
-    cursor = start + match[0].length;
-  }
-  if (cursor < text.length) parts.push({ text: text.slice(cursor), guess: false });
-  return parts;
-}
-
 /**
  * The student's own words, with numbered wavy underlines and ¶ marks, and
  * any words guessed from a photo in pink.
@@ -60,16 +43,9 @@ export function MarkedWriting({
   guessed?: string[];
 }) {
   const theme = useTheme();
-  const withGuesses = (text: string, key: number | string) =>
-    guessParts(text, guessed).map((part, j) =>
-      part.guess ? (
-        <ThemedText key={`${key}-${j}`} style={{ backgroundColor: theme.guessBg }}>
-          {part.text}
-        </ThemedText>
-      ) : (
-        part.text
-      ),
-    );
+  const withGuesses = (text: string, key: number | string) => (
+    <GuessedText text={text} guessed={guessed} keyPrefix={`${key}-`} />
+  );
   return (
     <Section title={title}>
       <ThemedView type="backgroundElement" style={styles.studentText}>
@@ -224,7 +200,7 @@ export function LineMarkedWriting({
         <ThemedText
           key={`t${from}`}
           style={[
-            guess && { backgroundColor: theme.guessBg },
+            guess && [styles.guess, { backgroundColor: theme.guessBg }],
             fix && [styles.crossedOut, { color: theme.markA, textDecorationColor: theme.markA }],
           ]}>
           {words}
@@ -272,9 +248,7 @@ export function LineMarkedWriting({
       <View style={styles.key}>
         {guessed.length > 0 && (
           <ThemedText type="small" themeColor="textSecondary">
-            <ThemedText type="small" style={{ backgroundColor: theme.guessBg }}>
-              {' pink '}
-            </ThemedText>
+            <Guessed small text=" pink " />
             {' hard to read, so guessed: check it on the paper (not marked as a mistake)'}
           </ThemedText>
         )}
@@ -379,6 +353,7 @@ function NumberBadge({ label, color }: { label: string; color: string }) {
 }
 
 const styles = StyleSheet.create({
+  guess: { borderRadius: 3 },
   section: {
     gap: Spacing.two,
   },
@@ -466,3 +441,67 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
 });
+
+/**
+ * The student's writing with its marks, then the corrections. With
+ * `pageLines` (copied line by line from paper) it shows numbered lines and
+ * "Corrections to copy onto the paper" with line numbers.
+ */
+export function WritingWithCorrections({
+  text,
+  marked,
+  guessed,
+  pageLines,
+  title,
+}: {
+  text: string;
+  marked: MarkedText;
+  guessed: string[];
+  pageLines?: number[] | null;
+  /** The heading over the writing, e.g. "Your essay". */
+  title?: string;
+}) {
+  if (pageLines) {
+    return (
+      <>
+        <LineMarkedWriting
+          title={title ? `${title}, line by line (as on the paper)` : undefined}
+          text={text}
+          marked={marked}
+          guessed={guessed}
+          pageLines={pageLines}
+        />
+        <CorrectionNotes
+          marked={marked}
+          title="Corrections to copy onto the paper"
+          lineLabels={correctionLines(text, marked, pageLines)}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <MarkedWriting marked={marked} title={title} guessed={guessed} />
+      <CorrectionNotes marked={marked} />
+    </>
+  );
+}
+
+/** A heading and a bulleted list; nothing when the list is empty. */
+export function BulletSection({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Section title={title}>
+      {items.map((s, i) => (
+        <Bullet key={i} text={s} />
+      ))}
+    </Section>
+  );
+}
+
+/** "You sent this before …" and how many checks are left today. */
+export function usageText(cached: boolean | undefined, remainingToday: number): string {
+  return `${cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}${
+    remainingToday === 1 ? '1 feedback check left today.' : `${remainingToday} feedback checks left today.`
+  }`;
+}

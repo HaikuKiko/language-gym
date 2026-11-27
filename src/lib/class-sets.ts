@@ -18,14 +18,8 @@ import { matchStudent, type ClassStudent } from '@/lib/classes';
 import type { PreparedPhoto } from '@/core/media/photo';
 import { requestTeacherIeltsFeedback, type IeltsFeedback } from '@/lib/ielts';
 import { ensureSignedIn, requireSupabase } from '@/core/app/supabase';
-import {
-  MIN_WORDS,
-  joinLines,
-  requestFeedback,
-  type AreaLevel,
-  type CefrLevel,
-  type WritingFeedback,
-} from '@/lib/writing';
+import { joinLines } from '@/core/marking/marks';
+import { MIN_WORDS, requestFeedback, type AreaLevel, type CefrLevel, type WritingFeedback } from '@/lib/writing';
 
 // ===========================================================================
 // Settings

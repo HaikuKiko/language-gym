@@ -13,12 +13,12 @@ import { Screen } from '@/core/ui/screen';
 import { ErrorNote } from '@/core/ui/notice';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
-import { WritingBox } from '@/components/writing-box';
+import { WritingBox } from '@/core/marking/writing-box';
 import { Spacing } from '@/core/ui/theme';
 import { formatClock, useCountdown } from '@/core/app/use-countdown';
 import { useSavedState } from '@/core/app/use-saved-state';
 import { useTheme } from '@/core/ui/use-theme';
-import { useWritingDraft } from '@/hooks/use-writing-draft';
+import { useWritingDraft } from '@/core/marking/use-writing-draft';
 import { loadAccount, type Account } from '@/core/app/account';
 import {
   ESSAY_TYPE_NAMES,
@@ -32,7 +32,7 @@ import {
 } from '@/lib/ielts';
 import { errorMessage } from '@/core/app/supabase';
 import { countWords } from '@/core/app/text';
-import { writingProblem } from '@/lib/writing';
+import { writingProblem } from '@/core/marking/photo-reading';
 
 const draftKey = (promptId: number) => `ielts-draft-${promptId}`;
 

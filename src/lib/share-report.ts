@@ -2,8 +2,6 @@
  * Plain-text versions of the feedback, for the Share report button. Plain
  * text pastes cleanly into Teams, Outlook, WhatsApp or an email.
  */
-import { Platform, Share } from 'react-native';
-
 import { formatBand, type IeltsFeedback } from '@/lib/ielts';
 import type { WritingFeedback } from '@/lib/writing';
 
@@ -76,44 +74,4 @@ export function writingReport(f: WritingFeedback, text: string, about?: string):
   lines.push('', RULE, '', 'The writing', '', text.trim());
   lines.push('', RULE, 'Feedback by Language Gym with AI (Claude). It may contain mistakes.');
   return lines.join('\n').replace(/\n{3,}/g, '\n\n');
-}
-
-export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
-
-/**
- * Opens the phone's share menu (Teams, Outlook, WhatsApp, Mail …). Where the
- * browser has no share menu (most computers), copies the report instead.
- */
-export async function shareReport(title: string, text: string): Promise<ShareOutcome> {
-  if (Platform.OS === 'web') {
-    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
-    if (nav && typeof nav.share === 'function') {
-      try {
-        await nav.share({ title, text });
-        return 'shared';
-      } catch (e) {
-        if (e instanceof Error && e.name === 'AbortError') return 'cancelled';
-        // Fall through to copying.
-      }
-    }
-    try {
-      await nav?.clipboard?.writeText(text);
-      return 'copied';
-    } catch {
-      return 'failed';
-    }
-  }
-  try {
-    const result = await Share.share({ title, message: text });
-    return result.action === Share.dismissedAction ? 'cancelled' : 'shared';
-  } catch {
-    return 'failed';
-  }
-}
-
-/** An email with the report, for computers without a share menu. */
-export function emailLink(subject: string, text: string): string {
-  // Mail apps cut very long links, so keep the body to a safe length.
-  const body = text.length > 1800 ? `${text.slice(0, 1800)}\n…\n(The full report was copied: paste it here.)` : text;
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

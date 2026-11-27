@@ -4,23 +4,23 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from '@/core/ui/button';
 import {
   Bullet,
-  CorrectionNotes,
-  correctionLines,
-  LineMarkedWriting,
-  MarkedWriting,
+  BulletSection,
   ParagraphNote,
   Section,
-} from '@/components/feedback-parts';
+  WritingWithCorrections,
+  usageText,
+} from '@/core/marking/feedback-parts';
 import { Pill } from '@/core/ui/pill';
 import { Screen } from '@/core/ui/screen';
-import { ShareReportButton } from '@/components/share-report-button';
+import { ShareReportButton } from '@/core/marking/share-report-button';
 import { ThemedText } from '@/core/ui/themed-text';
 import { ThemedView } from '@/core/ui/themed-view';
 import { Spacing } from '@/core/ui/theme';
 import { useTheme } from '@/core/ui/use-theme';
 import { writingReportHtml } from '@/lib/report-html';
 import { writingReport } from '@/lib/share-report';
-import { markCorrections, withoutGuessCorrections, type WritingResponse } from '@/lib/writing';
+import { markCorrections, withoutGuessCorrections } from '@/core/marking/marks';
+import { type WritingResponse } from '@/lib/writing';
 
 /** A plain-English line under each area's name, for lower levels. */
 const CRITERION_HINTS: Record<string, string> = {
@@ -123,29 +123,9 @@ export function WritingFeedbackView({
 
       <ThemedText style={styles.summary}>{f.summary}</ThemedText>
 
-      {f.strengths.length > 0 && (
-        <Section title="What you did well">
-          {f.strengths.map((s, i) => (
-            <Bullet key={i} text={s} />
-          ))}
-        </Section>
-      )}
+      <BulletSection title="What you did well" items={f.strengths} />
 
-      {pageLines ? (
-        <>
-          <LineMarkedWriting text={text} marked={marked} guessed={guessedWords} pageLines={pageLines} />
-          <CorrectionNotes
-            marked={marked}
-            title="Corrections to copy onto the paper"
-            lineLabels={correctionLines(text, marked, pageLines)}
-          />
-        </>
-      ) : (
-        <>
-          <MarkedWriting marked={marked} guessed={guessedWords} />
-          <CorrectionNotes marked={marked} />
-        </>
-      )}
+      <WritingWithCorrections text={text} marked={marked} guessed={guessedWords} pageLines={pageLines} />
 
       {f.paragraphing?.comment ? <ParagraphNote comment={f.paragraphing.comment} /> : null}
 
@@ -164,29 +144,20 @@ export function WritingFeedbackView({
         </View>
       )}
 
-      {f.next_steps.length > 0 && (
-        <Section title="What to practise next">
-          {f.next_steps.map((s, i) => (
-            <Bullet key={i} text={s} />
-          ))}
-        </Section>
-      )}
+      <BulletSection title="What to practise next" items={f.next_steps} />
 
       <View style={styles.section}>
         {onEdit && <Button label="Try again: fix it yourself" onPress={onEdit} />}
         <ShareReportButton
           title={reportTitle}
           report={() => writingReport(f, text)}
-          html={() => writingReportHtml(f, text)}
+          html={() => writingReportHtml(f, text, undefined, guessedWords)}
           pdfName="writing-feedback"
         />
         {onAgain && <Button label="Write something new" variant="secondary" onPress={onAgain} />}
         {showUsage && (
         <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-          {response.cached ? 'You sent this before, so this is the same feedback. It did not use a check. ' : ''}
-          {response.remainingToday === 1
-            ? '1 feedback check left today.'
-            : `${response.remainingToday} feedback checks left today.`}
+          {usageText(response.cached, response.remainingToday)}
         </ThemedText>
         )}
         {footer}

@@ -3,15 +3,8 @@ import { useState } from 'react';
 import { useSavedState } from '@/core/app/use-saved-state';
 import type { PreparedPhoto } from '@/core/media/photo';
 import { errorMessage } from '@/core/app/supabase';
-import {
-  anchorsFrom,
-  guessAnchorsFrom,
-  markCorrections,
-  readPhoto,
-  type Correction,
-  type PhotoReading,
-  type TextMarks,
-} from '@/lib/writing';
+import { anchorsFrom, guessAnchorsFrom, markCorrections, type Correction } from '@/core/marking/marks';
+import { readPhoto, type PhotoReading, type TextMarks } from '@/core/marking/photo-reading';
 
 /**
  * The piece of writing on a writing screen (General English, IELTS, teacher

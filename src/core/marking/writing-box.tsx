@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
-import { MarkedTextInput } from '@/components/marked-text-input';
-import { PhotoNote } from '@/components/photo-note';
-import { PhotoPages } from '@/components/photo-pages';
+import { MarkedTextInput } from '@/core/marking/marked-text-input';
+import { PhotoNote } from '@/core/marking/photo-note';
+import { PhotoPages } from '@/core/marking/photo-pages';
 import { ThemedText } from '@/core/ui/themed-text';
-import type { WritingDraft } from '@/hooks/use-writing-draft';
+import type { WritingDraft } from '@/core/marking/use-writing-draft';
 
 /**
  * The writing part of every writing screen: add photos of the pages, check
