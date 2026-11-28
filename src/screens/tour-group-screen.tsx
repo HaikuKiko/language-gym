@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { countWords } from '@/core/app/text';
@@ -22,6 +22,7 @@ import {
 } from '@/core/place/geo';
 import { PlaceMap, type MapCircle, type MapPin } from '@/core/place/place-map';
 import { PlaceRadar } from '@/core/place/place-radar';
+import { useArrival } from '@/core/place/use-arrival';
 import { useTheme } from '@/core/ui/use-theme';
 import { AudioPlayer } from '@/core/media/audio-player';
 import { pickPhoto } from '@/core/media/photo';
@@ -110,6 +111,13 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
   const [opened, setOpened] = useState<Record<string, boolean>>({});
 
   const visited = tour.stops.filter((s) => isStopVisited(s, work)).length;
+  // "You're here!": buzz, beep and a banner when the phone reaches a place it hasn't done yet.
+  const skipDone = useCallback(
+    (id: string) => id === stopId || isStopVisited(tour.stops.find((s) => s.id === id) ?? tour.stops[0], work),
+    [stopId, tour, work],
+  );
+  const { arrived, dismiss } = useArrival(fix, tour.stops, skipDone);
+  const arrivedStop = tour.stops.find((s) => s.id === arrived && s.id !== stopId) ?? null;
   const fromAdult = distanceFromAdults(fix, adults);
   const tooFar = rules.needsAdultNearby && fromAdult !== null && fromAdult > rules.maxFromAdultM;
   const stop = tour.stops.find((s) => s.id === stopId) ?? null;
@@ -142,6 +150,19 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
       {(props.notices ?? []).map((n) => (
         <Notice key={n} text={n} />
       ))}
+      {arrivedStop ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            setStopId(arrivedStop.id);
+            dismiss();
+          }}
+          style={[styles.arrived, { backgroundColor: theme.success }]}>
+          <ThemedText type="smallBold" themeColor="onAccent">
+            📍 You&apos;re at {arrivedStop.name}! Tap to open it.
+          </ThemedText>
+        </Pressable>
+      ) : null}
       {tooFar && fromAdult !== null ? (
         <Notice tone="danger" text={`⚠️ Come back towards your teacher. You are ${formatDistance(fromAdult)} away.`} />
       ) : null}
@@ -550,6 +571,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.two },
   rowCentre: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
   big: { fontSize: 22, lineHeight: 28, fontWeight: 800 },
+  arrived: { borderRadius: Spacing.three, padding: Spacing.three },
   dial: {
     alignSelf: 'center',
     width: 150,

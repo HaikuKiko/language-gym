@@ -166,7 +166,9 @@ Things agreed for later: `BACKLOG.md`.
   → `/tour-results`, teachers only; `fetchMyTours`, `fetchTourDecks`): `core/media/slide-presenter.tsx`
   (`SlidePresenter`: dark classroom screen, plays by itself `SLIDE_SECONDS`, waits for recordings, group chips +
   "All groups", full screen) and **"🎬 Save as a video"** (`core/media/slide-video.ts`, `makeSlideVideo`: canvas +
-  MediaRecorder in real time, MP4 where the browser can, else WebM; a consent check comes first). Not yet: helper adults' phones, route builder, video tasks,
+  MediaRecorder in real time, MP4 where the browser can, else WebM; a consent check comes first). **Arrival alert**: `core/place/use-arrival.ts` (`useArrival`: buzz + beep +
+  "You're at …! Tap to open it" banner, once per place). **Solo try-out** `/tour-solo` (public, no account, one
+  phone, real GPS, adult rules, code words shown, work only in memory, "Save my slideshow as a video"). Not yet: helper adults' phones, route builder, video tasks,
   deleting tour media after 30 days (storage files are not removed with the session).
 - **Core (`src/core/`)**: the shared toolkit, in kits (plan: `shared-code-plan.md` in project files). **Put anything
   another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",
