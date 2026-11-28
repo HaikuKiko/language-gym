@@ -78,6 +78,11 @@ export default function TourSetupRoute() {
         <Button label={busy ? 'Creating…' : 'Create the tour'} disabled={busy} onPress={create} />
         <ErrorNote message={error} />
         <Button label="Try the demo first (pretend walk)" variant="secondary" onPress={() => router.push('/tour-demo')} />
+        <Button
+          label="📱 Solo on one phone (anyone can try it, no account)"
+          variant="secondary"
+          onPress={() => router.push('/tour-solo')}
+        />
         <Button label="Back" variant="secondary" onPress={() => router.replace('/dashboard')} />
       </View>
     </Screen>
