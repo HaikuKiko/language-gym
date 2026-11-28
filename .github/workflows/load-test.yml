@@ -11,6 +11,10 @@ on:
       phones:
         description: How many pretend phones
         default: '50'
+      all_at_once:
+        description: Also run a second time with everyone joining in the same second (heavier)
+        type: boolean
+        default: false
 
 env:
   EXPO_PUBLIC_SUPABASE_URL: https://pzvjttzapbzoozpxndbd.supabase.co
@@ -30,5 +34,6 @@ jobs:
         working-directory: /tmp/lt
         run: node load-test.mjs ${{ inputs.phones || '50' }}
       - name: The same, but everyone scanning the QR code at once
+        if: ${{ inputs.all_at_once }}
         working-directory: /tmp/lt
         run: node load-test.mjs ${{ inputs.phones || '50' }} burst
