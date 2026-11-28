@@ -17,6 +17,10 @@ export const DEFAULT_RADIUS_M = 40;
 export const MAX_ACCURACY_BONUS_M = 25;
 /** "Getting warmer" bar: at this distance or more the bar is fully cold. */
 export const COLD_FROM_M = 800;
+/** "Roughly here" circles on a map: their size (radius, metres). */
+export const ROUGH_AREA_M = 120;
+/** How far the real place may be from a rough circle's centre, as a share of its radius (it is always inside). */
+export const ROUGH_OFFSET_SHARE = 0.7;
 
 // ===========================================================================
 
@@ -97,4 +101,36 @@ export function stepTowards(from: LatLng, to: LatLng, metres: number): LatLng {
   if (d <= metres) return to;
   const t = metres / d;
   return { lat: from.lat + (to.lat - from.lat) * t, lng: from.lng + (to.lng - from.lng) * t };
+}
+
+/** The direction from one place to another, in degrees (0 = north, 90 = east). */
+export function bearingDeg(from: LatLng, to: LatLng): number {
+  const lat1 = rad(from.lat);
+  const lat2 = rad(to.lat);
+  const dLng = rad(to.lng - from.lng);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+
+/** A direction in words ("north-west") and as a small arrow ("↖"). */
+export function compass(bearing: number): { words: string; arrow: string } {
+  const i = Math.round((((bearing % 360) + 360) % 360) / 45) % 8;
+  return { words: COMPASS[i], arrow: ARROWS[i] };
+}
+
+/**
+ * A circle that has the place somewhere inside it, but not in the middle: the
+ * centre is moved a fixed (seeded by `seed`, e.g. the place's id) distance and
+ * direction, so groups see roughly where to go, never the exact spot.
+ */
+export function roughArea(place: LatLng, seed: string, radiusM = ROUGH_AREA_M): { centre: LatLng; radiusM: number } {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const a = ((h >>> 0) % 3600) / 10;
+  const share = 0.35 + (((h >>> 12) % 1000) / 1000) * (ROUGH_OFFSET_SHARE - 0.35);
+  return { centre: moveBy(place, radiusM * share, a), radiusM };
 }

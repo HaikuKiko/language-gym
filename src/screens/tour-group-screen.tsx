@@ -9,7 +9,19 @@ import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
 import type { SafetyRules } from '@/core/classes/safety-rules';
 import { Slideshow } from '@/core/media/slideshow';
-import { distanceM, formatDistance, warmth, warmthWords, type Fix, type LatLng } from '@/core/place/geo';
+import {
+  bearingDeg,
+  compass,
+  distanceM,
+  formatDistance,
+  roughArea,
+  warmth,
+  warmthWords,
+  type Fix,
+  type LatLng,
+} from '@/core/place/geo';
+import { PlaceMap, type MapCircle, type MapPin } from '@/core/place/place-map';
+import { PlaceRadar } from '@/core/place/place-radar';
 import { useTheme } from '@/core/ui/use-theme';
 import { AudioPlayer } from '@/core/media/audio-player';
 import { pickPhoto } from '@/core/media/photo';
@@ -30,6 +42,41 @@ import {
   type TourTask,
   type TourWork,
 } from '@/lib/tours';
+
+const AREA_COLOR = '#1570D1';
+const DONE_COLOR = '#1A8F52';
+const ME_COLOR = '#5B3CC4';
+
+/** The student map: a rough circle for each place (never the exact spot) and this phone. */
+function RoughMap({ tour, stops, work, fix }: { tour: Tour; stops: TourStop[]; work: TourWork; fix: Fix | null }) {
+  const areas = useMemo(() => stops.map((s) => ({ stop: s, ...roughArea(s.at, s.id) })), [stops]);
+  const circles: MapCircle[] = areas.map((a) => ({
+    id: `area-${a.stop.id}`,
+    at: a.centre,
+    radiusM: a.radiusM,
+    color: isStopVisited(a.stop, work) ? DONE_COLOR : AREA_COLOR,
+    dashed: true,
+  }));
+  const pins: MapPin[] = [
+    ...areas.map((a) => ({
+      id: `n-${a.stop.id}`,
+      at: a.centre,
+      label: `${tour.stops.indexOf(a.stop) + 1}${isStopVisited(a.stop, work) ? ' ✓' : ''}`,
+      color: isStopVisited(a.stop, work) ? DONE_COLOR : AREA_COLOR,
+      kind: 'stop' as const,
+    })),
+    ...(fix ? [{ id: 'me', at: fix, label: 'You', color: ME_COLOR, kind: 'person' as const }] : []),
+  ];
+  const fit = [...areas.map((a) => a.centre), ...(fix ? [fix] : [])];
+  return <PlaceMap centre={fix ?? tour.meetingPoint} fit={fit} pins={pins} circles={circles} height={300} />;
+}
+
+/** "↖ north-west · 260 m", or null while the phone doesn't know where it is. */
+function directionLine(fix: Fix | null, at: LatLng): string | null {
+  if (!fix) return null;
+  const c = compass(bearingDeg(fix, at));
+  return `${c.arrow} ${c.words} · ${formatDistance(distanceM(fix, at))}`;
+}
 
 type TourGroupScreenProps = {
   tour: Tour;
@@ -58,6 +105,7 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
   const theme = useTheme();
   const [stopId, setStopId] = useState<string | null>(null);
   const [showSlides, setShowSlides] = useState(false);
+  const [showMap, setShowMap] = useState(true);
   /** Stops opened once stay open, so a group can finish writing on a bench nearby. */
   const [opened, setOpened] = useState<Record<string, boolean>>({});
 
@@ -129,6 +177,30 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
           Choose where to go. Visit at least {tour.aim} places. You've visited {visited}.
         </ThemedText>
       </View>
+      {showMap && fix ? (
+        <View style={styles.gapOne}>
+          <PlaceRadar
+            me={fix}
+            places={tour.stops.map((s, i) => ({
+              id: s.id,
+              at: s.at,
+              label: isStopVisited(s, work) ? `${i + 1}✓` : String(i + 1),
+              color: isStopVisited(s, work) ? DONE_COLOR : AREA_COLOR,
+            }))}
+            onPress={setStopId}
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            You are in the middle; north is up. Each ball is a place: its direction and how far. Tap one to open it.
+          </ThemedText>
+        </View>
+      ) : null}
+      {fix ? (
+        <Button
+          label={showMap ? 'Hide the places around you' : '🧭 Show the places around you'}
+          variant="secondary"
+          onPress={() => setShowMap(!showMap)}
+        />
+      ) : null}
       {areas.map((area) => (
         <View key={area} style={styles.gapOne}>
           <ThemedText type="smallBold" themeColor="textSecondary">
@@ -138,7 +210,7 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
             .filter((s) => s.area === area)
             .map((s) => {
               const done = isStopVisited(s, work);
-              const d = fix ? distanceM(fix, s.at) : null;
+              const direction = directionLine(fix, s.at);
               return (
                 <Pressable
                   key={s.id}
@@ -158,7 +230,7 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
                     <ThemedText type="smallBold">{s.name}</ThemedText>
                     <ThemedText type="small" themeColor="textSecondary">
                       {s.tasks.map((t) => TASK_KINDS[t.kind].icon).join(' ')}
-                      {d !== null ? ` · ${formatDistance(d)}` : ''}
+                      {direction ? ` · ${direction}` : ''}
                     </ThemedText>
                   </View>
                 </Pressable>
@@ -177,6 +249,7 @@ export function TourGroupScreen(props: TourGroupScreenProps) {
 }
 
 function StopView({
+  tour,
   stop,
   stopNumber,
   rules,
@@ -197,6 +270,7 @@ function StopView({
 }) {
   const theme = useTheme();
   const [code, setCode] = useState('');
+  const [showMap, setShowMap] = useState(false);
   const access = stopAccess({ stop, fix, adults, rules, codeTyped: code });
   const open = wasOpened || access.state === 'open';
   useEffect(() => {
@@ -219,11 +293,21 @@ function StopView({
       {!open ? (
         <>
           <Notice text={`Clue: ${stop.clue}`} />
-          {access.distance !== null ? (
+          {access.distance !== null && fix ? (
             <View style={styles.gapOne}>
+              <View style={[styles.dial, { borderColor: theme.border }]}>
+                <ThemedText type="smallBold" themeColor="textSecondary" style={styles.north}>
+                  N
+                </ThemedText>
+                <ThemedText
+                  accessibilityLabel={`Walk ${compass(bearingDeg(fix, stop.at)).words}`}
+                  style={[styles.arrow, { color: theme.warning, transform: [{ rotate: `${Math.round(bearingDeg(fix, stop.at))}deg` }] }]}>
+                  ↑
+                </ThemedText>
+              </View>
               <ThemedText style={styles.distance}>{formatDistance(access.distance)}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.centre}>
-                {warmthWords(access.distance, stop.radiusM)}
+                Walk {compass(bearingDeg(fix, stop.at)).words} · {warmthWords(access.distance, stop.radiusM)}
               </ThemedText>
               <View style={[styles.bar, { backgroundColor: theme.backgroundElement }]}>
                 <View
@@ -235,6 +319,13 @@ function StopView({
               </View>
             </View>
           ) : null}
+          {fix ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              The arrow points as on a map (north is up). Hold your phone with its top facing north to follow it.
+            </ThemedText>
+          ) : null}
+          {showMap ? <RoughMap tour={tour} stops={[stop]} work={work} fix={fix} /> : null}
+          <Button label={showMap ? 'Hide the map' : '🗺️ Show the map'} variant="secondary" onPress={() => setShowMap(!showMap)} />
           {access.state === 'need-adult' ? (
             <Notice
               tone="danger"
@@ -459,6 +550,17 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.two },
   rowCentre: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
   big: { fontSize: 22, lineHeight: 28, fontWeight: 800 },
+  dial: {
+    alignSelf: 'center',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  north: { position: 'absolute', top: 6 },
+  arrow: { fontSize: 72, lineHeight: 80, fontWeight: 900 },
   distance: { fontSize: 44, lineHeight: 52, fontWeight: 800, textAlign: 'center' },
   centre: { textAlign: 'center' },
   right: { textAlign: 'right' },

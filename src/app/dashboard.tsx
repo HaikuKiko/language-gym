@@ -87,6 +87,12 @@ function Dashboard() {
         <Button label="❓ Grammar quizzes" disabled={!configured} onPress={() => router.push('/quiz')} />
         <Button label="🏆 Leaderboards" disabled={!configured} onPress={() => router.push('/leaderboards')} />
         <Button label="🗺️ GPS tours" disabled={!configured} onPress={() => router.push('/tour')} />
+        <Button
+          label="📽️ Tour results (classroom screen)"
+          variant="secondary"
+          disabled={!configured}
+          onPress={() => router.push('/tour-results')}
+        />
         <Button label="Host a session" variant="secondary" disabled={!configured} onPress={() => router.push('/host')} />
         <Button label="Use one shared screen instead" variant="secondary" onPress={() => router.push('/single')} />
       </View>
