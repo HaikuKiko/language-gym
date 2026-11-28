@@ -2,8 +2,8 @@
  * Classes kit: what a group may do, from its age setting. Every screen asks
  * `safetyRules(...)` instead of checking ages itself, so the rules live here only.
  *
- * Agreed with the owner (27 Nov 2026): teachers mark students under 18 (the
- * default is "yes, some are"). If anyone in a group is under 18, the whole group
+ * Agreed with the owner (27 Nov 2026; default changed 28 Nov): everyone counts
+ * as an adult unless the teacher marks them under 18. If anyone in a group is under 18, the whole group
  * follows the under-18 rules. Under-18 groups share their place with the
  * supervising adults during an outdoor activity and must stay within sight of one
  * (any number of teachers and helper adults; adult students never count). They

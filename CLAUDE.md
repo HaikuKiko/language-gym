@@ -151,13 +151,22 @@ Things agreed for later: `BACKLOG.md`.
   must stay within `MAX_FROM_ADULT_M` (100 m) of a supervising adult (any number of teachers + helper adults, never
   adult students); stops and talk-to-a-person tasks open only with an adult near; they may talk to adults only,
   voice only unless the teacher allows video.
-  **Live tours** (27 Nov): dashboard "🗺️ GPS tours" → `/tour` (route, under 18 yes/no) → a live session with flags
-  `tour:<id>` + `under-18`|`adults` (`src/lib/tour-live.ts`); `session/[code]` shows `screens/tour-host-live.tsx` /
+  **Live tours** (27 Nov): dashboard "🗺️ GPS tours" → `/tour` (route) → a live session with flags
+  `tour:<id>` (`src/lib/tour-live.ts`); `session/[code]` shows `screens/tour-host-live.tsx` /
   `tour-student-live.tsx`. Each student phone = one group (its name). Work = `session_events` kind `tour_work`
   ({stop, task, text?, photo?, audio?}; newest per field wins; `fetchTourWork`), photos/recordings in the private
   bucket `tour-media` (`<session>/<participant>/<file>`, members only). Places: `participants.live_place`,
   `sessions.host_place` (newest only, `core/place/shared-place.ts`, cleared by `clear_tour_places` at the end).
-  Teacher screen re-reads work every `TOUR_WORK_REFRESH_MS`. Not yet: helper adults' phones, route builder, video,
+  Teacher screen re-reads work every `TOUR_WORK_REFRESH_MS`.
+  **28 Nov:** everyone counts as an adult unless the teacher marks a group under 18 (chips in the waiting room
+  and on each group's card during the tour; flag `u18:<participant id>`, `isUnder18`/`withUnder18`/`tourRules(session, id)`;
+  the old whole-tour flag `under-18` still counts). Students see `PlaceRadar` (`core/place/place-radar.tsx`: "You" in
+  the middle, a ball per place with direction + metres, no map) and, on a place, a compass arrow + distance
+  ("Show the map" there shows a rough circle, `roughArea` in `geo.ts`). **Tour results** (dashboard "📽️ Tour results"
+  → `/tour-results`, teachers only; `fetchMyTours`, `fetchTourDecks`): `core/media/slide-presenter.tsx`
+  (`SlidePresenter`: dark classroom screen, plays by itself `SLIDE_SECONDS`, waits for recordings, group chips +
+  "All groups", full screen) and **"🎬 Save as a video"** (`core/media/slide-video.ts`, `makeSlideVideo`: canvas +
+  MediaRecorder in real time, MP4 where the browser can, else WebM; a consent check comes first). Not yet: helper adults' phones, route builder, video tasks,
   deleting tour media after 30 days (storage files are not removed with the session).
 - **Core (`src/core/`)**: the shared toolkit, in kits (plan: `shared-code-plan.md` in project files). **Put anything
   another tool could use here, never copy it.** Core code never names a product (no `PRODUCT_NAME`, "Language Gym",

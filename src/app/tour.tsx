@@ -19,7 +19,6 @@ import { TOUR_MINUTES, tourFlags } from '@/lib/tour-live';
 /** The teacher sets up a GPS tour and gets a join code. */
 export default function TourSetupRoute() {
   const [tourId, setTourId] = useState(TOURS[0].id);
-  const [under18, setUnder18] = useState(true);
   const classes = useClasses();
   const [classId, setClassId] = useChosenClass(classes);
   const [busy, setBusy] = useState(false);
@@ -36,7 +35,7 @@ export default function TourSetupRoute() {
         roundMinutes: TOUR_MINUTES,
         roundCount: 1,
         autoAdvance: false,
-        flags: [...tourFlags(tour.id, under18), ...classFlags(classId)],
+        flags: [...tourFlags(tour.id), ...classFlags(classId)],
       });
       router.replace({ pathname: '/session/[code]', params: { code: session.code } });
     } catch (e) {
@@ -69,18 +68,11 @@ export default function TourSetupRoute() {
         </ThemedText>
       </View>
 
-      <View style={styles.section}>
-        <ThemedText type="smallBold">Are any students under 18?</ThemedText>
-        <View style={styles.chips}>
-          <Chip label="Yes, some are" selected={under18} onPress={() => setUnder18(true)} />
-          <Chip label="No, all adults" selected={!under18} onPress={() => setUnder18(false)} />
-        </View>
-        <ThemedText type="small" themeColor="textSecondary">
-          {under18
-            ? `Under-18 groups share where they are with you during the tour (only their newest place, deleted at the end). They must stay within ${MAX_FROM_ADULT_M} m of you, and places open only when you are near. Recordings of people are voice only.`
-            : 'Adult groups go where they like and do not share where they are.'}
-        </ThemedText>
-      </View>
+      <ThemedText type="small" themeColor="textSecondary">
+        Everyone counts as an adult. In the waiting room you can mark any group under 18: their phone then shares where
+        it is with you, they must stay within {MAX_FROM_ADULT_M} m of you, places open only when you are near, and
+        recordings of people are voice only.
+      </ThemedText>
 
       <View style={styles.section}>
         <Button label={busy ? 'Creating…' : 'Create the tour'} disabled={busy} onPress={create} />

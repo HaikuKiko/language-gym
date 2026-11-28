@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/core/ui/button';
+import { Chip } from '@/core/ui/chip';
 import { Pill } from '@/core/ui/pill';
 import { ThemedText } from '@/core/ui/themed-text';
 import { Spacing } from '@/core/ui/theme';
@@ -12,7 +13,15 @@ import { useTheme } from '@/core/ui/use-theme';
 import { distanceFromAdults, type Tour } from '@/lib/tours';
 
 /** A group as the supervising adults see it. `at` is only known for groups that share their place. */
-export type TourGroupStatus = { id: string; name: string; at: LatLng | null; visited: number; lastStop: string | null };
+export type TourGroupStatus = {
+  id: string;
+  name: string;
+  at: LatLng | null;
+  visited: number;
+  lastStop: string | null;
+  /** Marked under 18 by the teacher. Left out: the tour's `rules` decide for every group (the demo). */
+  under18?: boolean;
+};
 
 /** An adult who counts as "the teacher" for the within-sight rule. */
 export type SupervisingAdult = { id: string; label: string; at: LatLng };
@@ -29,6 +38,7 @@ export function TourTeacherScreen({
   groups,
   adults,
   onEnd,
+  onToggleUnder18,
   children,
 }: {
   tour: Tour;
@@ -37,6 +47,8 @@ export function TourTeacherScreen({
   adults: SupervisingAdult[];
   /** The demo's End button; a live tour puts its own (with "Are you sure?") in `children`. */
   onEnd?: () => void;
+  /** Live tours: the teacher marks a group under 18 (or not) from its card. */
+  onToggleUnder18?: (groupId: string) => void;
   /** Shown above the End button (live tours: join QR, slideshows, code words). */
   children?: ReactNode;
 }) {
@@ -45,8 +57,11 @@ export function TourTeacherScreen({
 
   const rows = groups.map((g) => {
     const away = distanceFromAdults(g.at, adultPlaces);
-    return { ...g, away, tooFar: rules.needsAdultNearby && away !== null && away > rules.maxFromAdultM };
+    const under18 = g.under18 ?? rules.needsAdultNearby;
+    return { ...g, under18, away, tooFar: under18 && away !== null && away > rules.maxFromAdultM };
   });
+  const under18Count = rows.filter((r) => r.under18).length;
+  const watching = under18Count > 0;
 
   const pins: MapPin[] = useMemo(
     () => [
@@ -69,11 +84,11 @@ export function TourTeacherScreen({
   const circles: MapCircle[] = useMemo(
     () => [
       ...tour.stops.map((s) => ({ id: `r-${s.id}`, at: s.at, radiusM: s.radiusM, color: STOP_COLOR })),
-      ...(rules.needsAdultNearby
+      ...(watching
         ? adults.map((a) => ({ id: `sight-${a.id}`, at: a.at, radiusM: rules.maxFromAdultM, color: ADULT_COLOR, dashed: true }))
         : []),
     ],
-    [tour, adults, rules],
+    [tour, adults, rules, watching],
   );
 
   return (
@@ -82,12 +97,17 @@ export function TourTeacherScreen({
         <ThemedText type="smallBold" style={styles.flex}>
           {tour.title} · live
         </ThemedText>
-        <Pill tone="accent" label={rules.ageGroup === 'under-18' ? 'Under 18' : 'Adults'} />
+        <Pill
+          tone="accent"
+          label={
+            under18Count === 0 ? 'Adults' : under18Count === rows.length ? 'Under 18' : `${under18Count} under 18`
+          }
+        />
       </View>
       <PlaceMap centre={tour.meetingPoint} fit={tour.stops.map((s) => s.at)} pins={pins} circles={circles} height={360} />
       <ThemedText type="small" themeColor="textSecondary">
-        {rules.shareLiveLocation
-          ? `Green circles: within sight of an adult (${rules.maxFromAdultM} m). Only each group's newest place is kept, and it is deleted when the tour ends.`
+        {watching
+          ? `Green circles: within sight of an adult (${rules.maxFromAdultM} m). Under-18 groups share only their newest place, and it is deleted when the tour ends. Adult groups do not share where they are.`
           : 'Adult groups do not share where they are; you see the places they have reached.'}
       </ThemedText>
       <View style={styles.grid}>
@@ -112,6 +132,11 @@ export function TourTeacherScreen({
                 Their phones say &quot;Come back towards your teacher&quot;.
               </ThemedText>
             ) : null}
+            {onToggleUnder18 ? (
+              <View style={styles.row}>
+                <Chip label="Under 18" selected={g.under18} onPress={() => onToggleUnder18(g.id)} />
+              </View>
+            ) : null}
           </View>
         ))}
       </View>
@@ -127,6 +152,7 @@ const styles = StyleSheet.create({
   column: { gap: Spacing.three },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   flex: { flex: 1 },
+  row: { flexDirection: 'row' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   card: { flexGrow: 1, flexBasis: 200, borderWidth: 1, borderRadius: Spacing.two, padding: Spacing.two, gap: Spacing.half },
 });

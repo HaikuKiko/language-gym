@@ -20,7 +20,7 @@ import { TourGroupScreen } from '@/screens/tour-group-screen';
 
 /** A student's phone in a live GPS tour (each phone is one group). */
 export function TourStudentLive({ tour, session, me }: { tour: Tour; session: LiveSession; me: LiveParticipant }) {
-  const rules = useMemo(() => tourRules(session), [session]);
+  const rules = useMemo(() => tourRules(session, me.id), [session, me.id]);
   const playing = session.status === 'playing';
   const position = usePosition(playing);
   const now = useNow(10_000);
